@@ -1,0 +1,130 @@
+<rm-admin-sidebar [isOpen]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
+
+<div class="dashboard">
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="dashboard__header">
+    <div class="header__left">
+      <button type="button" class="header__burger" (click)="toggleSidebar()" aria-label="Abrir menú">
+        <lucide-icon [img]="Menu" [size]="22" [strokeWidth]="2" />
+      </button>
+      <div class="header__brand">
+        <span class="header__brand-ruby">Ruby</span><span class="header__brand-tune">Tune</span>
+        <p class="header__brand-role">Admin Layout</p>
+      </div>
+    </div>
+
+    <div class="header__avatar">
+      <img
+        src="https://ui-avatars.com/api/?name=Admin&background=d70013&color=fff&bold=true&size=96"
+        alt="Foto de admin"
+      />
+    </div>
+  </header>
+
+  <!-- ── Stat Cards ─────────────────────────────────────────────────────── -->
+  <section class="stat-grid">
+    @for (stat of stats; track stat.label) {
+      <div class="stat-card">
+        <div class="stat-card__icon" [style.background]="stat.bg" [style.color]="stat.color">
+          <lucide-icon [img]="stat.icon" [size]="18" [strokeWidth]="2" />
+        </div>
+        <div class="stat-card__body">
+          <p class="stat-card__value">{{ stat.value }}</p>
+          <p class="stat-card__label">{{ stat.label }}</p>
+        </div>
+      </div>
+    }
+  </section>
+
+  <!-- ── Distribución de Género ─────────────────────────────────────────── -->
+  <section class="chart-card">
+    <h2 class="chart-card__title">Distribución de Género</h2>
+    <div class="chart-card__canvas chart-card__canvas--bar">
+      <canvas #barChartCanvas></canvas>
+    </div>
+  </section>
+
+  <!-- ── Reporte de Gravedad ────────────────────────────────────────────── -->
+  <section class="chart-card">
+    <h2 class="chart-card__title">Reporte de Gravedad</h2>
+    <div class="chart-card__canvas chart-card__canvas--donut">
+      <canvas #donutChartCanvas></canvas>
+    </div>
+  </section>
+
+  <!-- ── Últimos Usuarios Registrados ──────────────────────────────────── -->
+  <section class="list-card">
+    <h2 class="list-card__title">Últimos Usuarios Registrados</h2>
+    <ul class="list-card__list">
+      @for (user of recentUsers; track user.id) {
+        <li class="user-item">
+          <div class="user-item__avatar" [style.background]="user.avatarColor">
+            {{ user.initials }}
+          </div>
+          <div class="user-item__info">
+            <p class="user-item__name">{{ user.name }}</p>
+            <p class="user-item__meta">{{ user.email }}</p>
+          </div>
+          <span class="user-item__date">{{ user.date }}</span>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <!-- ── Últimas Canciones Agregadas ────────────────────────────────────── -->
+  <section class="list-card">
+    <h2 class="list-card__title">Últimas Canciones Agregadas</h2>
+    <ul class="list-card__list">
+      @for (song of recentSongs; track song.id) {
+        <li class="song-item">
+          <img class="song-item__cover" [src]="song.cover" [alt]="song.title" />
+          <div class="song-item__info">
+            <p class="song-item__title">{{ song.title }}</p>
+            <p class="song-item__meta">{{ song.artist }} · {{ song.genre }}</p>
+          </div>
+
+          <!-- Hamburger menu -->
+          <div class="song-item__menu-wrap">
+            <button
+              type="button"
+              class="song-item__menu-btn"
+              (click)="toggleMenu(song.id)"
+              [attr.aria-expanded]="openMenuId() === song.id"
+              aria-label="Opciones"
+            >
+              <lucide-icon [img]="MoreVertical" [size]="18" [strokeWidth]="2" />
+            </button>
+
+            @if (openMenuId() === song.id) {
+              <div class="song-item__dropdown" (click)="$event.stopPropagation()">
+                <button type="button" class="dropdown__item" (click)="onMenuAction('ver', song)">
+                  <lucide-icon [img]="Eye" [size]="15" [strokeWidth]="2" />
+                  Ver detalles
+                </button>
+                <button type="button" class="dropdown__item dropdown__item--danger" (click)="onMenuAction('eliminar', song)">
+                  <lucide-icon [img]="Trash2" [size]="15" [strokeWidth]="2" />
+                  Eliminar canción
+                </button>
+                <button type="button" class="dropdown__item dropdown__item--warn" (click)="onMenuAction('bloquear-artista', song)">
+                  <lucide-icon [img]="UserX" [size]="15" [strokeWidth]="2" />
+                  Bloquear artista
+                </button>
+                <button type="button" class="dropdown__item dropdown__item--success" (click)="onMenuAction('aprobar', song)">
+                  <lucide-icon [img]="CheckCircle" [size]="15" [strokeWidth]="2" />
+                  Aprobar canción
+                </button>
+              </div>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <div class="dashboard__footer-space"></div>
+</div>
+
+<!-- Close dropdown on outside click -->
+@if (openMenuId()) {
+  <div class="global-overlay" (click)="closeMenu()"></div>
+}

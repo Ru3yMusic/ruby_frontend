@@ -1,0 +1,366 @@
+<rm-admin-sidebar [isOpen]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
+
+<!-- Global overlay: closes filter dropdowns -->
+@if (openFilter()) {
+  <div class="global-overlay" (click)="closeFilters()"></div>
+}
+
+<div class="page" [class.page--dimmed]="anyModalOpen()">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="page-header">
+    <div class="page-header__left">
+      <button type="button" class="icon-btn" (click)="sidebarOpen.set(true)" aria-label="Abrir menú">
+        <lucide-icon [img]="Menu" [size]="22" [strokeWidth]="2" />
+      </button>
+      <div class="brand">
+        <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
+        <p class="brand__role">Admin Layout</p>
+      </div>
+    </div>
+    <div class="page-header__avatar">
+      <img
+        src="https://ui-avatars.com/api/?name=Admin&background=d70013&color=fff&bold=true&size=96"
+        alt="Admin"
+      />
+    </div>
+  </header>
+
+  <!-- ── Content ─────────────────────────────────────────────────────────── -->
+  <div class="content">
+    <h1 class="content__title">Gestión de Usuarios</h1>
+
+    <!-- Search -->
+    <div class="search-wrap">
+      <lucide-icon [img]="Users" [size]="16" [strokeWidth]="2" class="search-icon" />
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Buscar por nombre o gmail..."
+        [value]="searchQuery()"
+        (input)="searchQuery.set($any($event.target).value)"
+      />
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+
+      <!-- Status filter -->
+      <div class="filter-wrap">
+        <button
+          type="button"
+          class="filter-btn"
+          [class.filter-btn--active]="statusFilter() !== 'ALL'"
+          (click)="toggleFilter('status')"
+        >
+          {{ statusFilterLabel() }}
+          <lucide-icon [img]="ChevronDown" [size]="14" [strokeWidth]="2.5"
+            [class.rotated]="openFilter() === 'status'" />
+        </button>
+
+        @if (openFilter() === 'status') {
+          <ul class="filter-dropdown">
+            <li class="filter-option" [class.filter-option--sel]="statusFilter()==='ALL'"     (click)="setStatusFilter('ALL')">
+              Todos los estados
+              @if (statusFilter()==='ALL') { <lucide-icon [img]="Check" [size]="14" [strokeWidth]="2.5"/> }
+            </li>
+            <li class="filter-option" [class.filter-option--sel]="statusFilter()==='ACTIVE'"  (click)="setStatusFilter('ACTIVE')">
+              Activos
+              @if (statusFilter()==='ACTIVE') { <lucide-icon [img]="Check" [size]="14" [strokeWidth]="2.5"/> }
+            </li>
+            <li class="filter-option" [class.filter-option--sel]="statusFilter()==='INACTIVE'" (click)="setStatusFilter('INACTIVE')">
+              Inactivos
+              @if (statusFilter()==='INACTIVE') { <lucide-icon [img]="Check" [size]="14" [strokeWidth]="2.5"/> }
+            </li>
+            <li class="filter-option" [class.filter-option--sel]="statusFilter()==='BLOCKED'" (click)="setStatusFilter('BLOCKED')">
+              Bloqueados
+              @if (statusFilter()==='BLOCKED') { <lucide-icon [img]="Check" [size]="14" [strokeWidth]="2.5"/> }
+            </li>
+          </ul>
+        }
+      </div>
+
+      <!-- Reports filter -->
+      <div class="filter-wrap">
+        <button
+          type="button"
+          class="filter-btn"
+          [class.filter-btn--active]="reportsFilter() !== 'ALL'"
+          (click)="toggleFilter('reports')"
+        >
+          {{ reportsFilterLabel() }}
+          <lucide-icon [img]="ChevronDown" [size]="14" [strokeWidth]="2.5"
+            [class.rotated]="openFilter() === 'reports'" />
+        </button>
+
+        @if (openFilter() === 'reports') {
+          <ul class="filter-dropdown">
+            <li class="filter-option" [class.filter-option--sel]="reportsFilter()==='ALL'"          (click)="setReportsFilter('ALL')">
+              Todos los reportes
+              @if (reportsFilter()==='ALL') { <lucide-icon [img]="Check" [size]="14" [strokeWidth]="2.5"/> }
+            </li>
+            <li class="filter-option" [class.filter-option--sel]="reportsFilter()==='WITH_REPORTS'" (click)="setReportsFilter('WITH_REPORTS')">
+              Con reportes
+              @if (reportsFilter()==='WITH_REPORTS') { <lucide-icon [img]="Check" [size]="14" [strokeWidth]="2.5"/> }
+            </li>
+            <li class="filter-option" [class.filter-option--sel]="reportsFilter()==='CRITICAL'"     (click)="setReportsFilter('CRITICAL')">
+              Críticos (3+)
+              @if (reportsFilter()==='CRITICAL') { <lucide-icon [img]="Check" [size]="14" [strokeWidth]="2.5"/> }
+            </li>
+          </ul>
+        }
+      </div>
+
+    </div><!-- /filters -->
+
+    <!-- User list -->
+    <ul class="user-list">
+      @for (user of filteredUsers(); track user.id) {
+        <li class="user-card">
+
+          <!-- Avatar -->
+          <div class="user-card__avatar" [style.background]="user.avatarColor">
+            {{ user.initials }}
+          </div>
+
+          <!-- Info -->
+          <div class="user-card__info">
+            <p class="user-card__name">{{ user.name }}</p>
+            <p class="user-card__email">{{ user.email }}</p>
+          </div>
+
+          <!-- Right: reports + status + actions -->
+          <div class="user-card__right">
+            @if (user.reportCount > 0) {
+              <span class="report-badge" [ngClass]="reportBadgeClass(user.reportCount)">
+                {{ user.reportCount }}
+              </span>
+            }
+
+            <span class="status-chip" [ngClass]="'status-chip--' + user.status.toLowerCase()">
+              {{ statusLabel(user.status) }}
+            </span>
+
+            <button type="button" class="action-btn" (click)="openViewModal(user)" aria-label="Ver detalle">
+              <lucide-icon [img]="Eye" [size]="16" [strokeWidth]="2" />
+            </button>
+            <button type="button" class="action-btn" (click)="openEditModal(user)" aria-label="Editar estado">
+              <lucide-icon [img]="Pencil" [size]="16" [strokeWidth]="2" />
+            </button>
+          </div>
+
+        </li>
+      }
+
+      @if (filteredUsers().length === 0) {
+        <li class="empty-state">
+          <lucide-icon [img]="Users" [size]="36" [strokeWidth]="1.5" />
+          <p>No se encontraron usuarios</p>
+        </li>
+      }
+    </ul>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Ver detalle de usuario                                           -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+@if (viewingUser(); as user) {
+  <div class="modal-backdrop" (click)="closeViewModal()"></div>
+  <div class="modal" role="dialog" aria-modal="true">
+
+    <button type="button" class="modal__close" (click)="closeViewModal()" aria-label="Cerrar">
+      <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
+    </button>
+
+    <!-- Avatar grande -->
+    <div class="modal__avatar-wrap">
+      <div class="modal__avatar" [style.background]="user.avatarColor">
+        {{ user.initials }}
+      </div>
+    </div>
+
+    <h2 class="modal__name">{{ user.name }}</h2>
+
+    <div class="modal__fields">
+      <div class="modal__field">
+        <span class="modal__label">Email</span>
+        <span class="modal__value">{{ user.email }}</span>
+      </div>
+
+      <div class="modal__field">
+        <span class="modal__label">Estado</span>
+        <span class="status-chip" [ngClass]="'status-chip--' + user.status.toLowerCase()">
+          {{ statusLabel(user.status) }}
+        </span>
+      </div>
+
+      @if (user.status === 'BLOCKED' && user.blockReason) {
+        <div class="modal__field">
+          <span class="modal__label">Motivo de bloqueo</span>
+          <span class="modal__value modal__value--block">{{ user.blockReason }}</span>
+        </div>
+      }
+
+      <div class="modal__field">
+        <span class="modal__label">Fecha de registro</span>
+        <span class="modal__value">{{ user.registeredAt }}</span>
+      </div>
+
+      <div class="modal__field">
+        <span class="modal__label">Reportes</span>
+        <span class="modal__value" [ngClass]="reportBadgeClass(user.reportCount)">
+          {{ user.reportCount }}
+        </span>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn--outline btn--full" (click)="closeViewModal()">
+      Cerrar
+    </button>
+
+  </div>
+}
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Cambiar estado de usuario                                        -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+@if (editingUser(); as user) {
+  <div class="modal-backdrop" (click)="closeEditModal()"></div>
+  <div class="modal" role="dialog" aria-modal="true">
+
+    <button type="button" class="modal__close" (click)="closeEditModal()" aria-label="Cerrar">
+      <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
+    </button>
+
+    <h2 class="modal__title">Cambiar estado de usuario</h2>
+
+    <div class="modal__fields modal__fields--form">
+
+      <!-- Estado actual -->
+      <div class="modal__field modal__field--row">
+        <span class="modal__label">Estado actual</span>
+        <span class="status-chip" [ngClass]="'status-chip--' + user.status.toLowerCase()">
+          {{ statusLabel(user.status) }}
+        </span>
+      </div>
+
+      <!-- Nuevo estado (custom dropdown) -->
+      <div class="modal__field">
+        <span class="modal__label">Nuevo estado</span>
+        <div class="custom-select-wrap">
+          <button
+            type="button"
+            class="custom-select"
+            (click)="newStatusDropOpen.update(v => !v); blockReasonDropOpen.set(false)"
+          >
+            <span class="status-chip" [ngClass]="'status-chip--' + newStatus().toLowerCase()">
+              {{ statusLabel(newStatus()) }}
+            </span>
+            <lucide-icon [img]="ChevronDown" [size]="14" [strokeWidth]="2.5"
+              [class.rotated]="newStatusDropOpen()" />
+          </button>
+
+          @if (newStatusDropOpen()) {
+            <ul class="select-dropdown">
+              <li class="select-option" [class.select-option--sel]="newStatus()==='ACTIVE'"
+                  (click)="selectNewStatus('ACTIVE')">
+                <span class="status-chip status-chip--active">Activo</span>
+                @if (newStatus()==='ACTIVE') { <lucide-icon [img]="Check" [size]="13" [strokeWidth]="2.5"/> }
+              </li>
+              <li class="select-option" [class.select-option--sel]="newStatus()==='INACTIVE'"
+                  (click)="selectNewStatus('INACTIVE')">
+                <span class="status-chip status-chip--inactive">Inactivo</span>
+                @if (newStatus()==='INACTIVE') { <lucide-icon [img]="Check" [size]="13" [strokeWidth]="2.5"/> }
+              </li>
+              <li class="select-option" [class.select-option--sel]="newStatus()==='BLOCKED'"
+                  (click)="selectNewStatus('BLOCKED')">
+                <span class="status-chip status-chip--blocked">Bloqueado</span>
+                @if (newStatus()==='BLOCKED') { <lucide-icon [img]="Check" [size]="13" [strokeWidth]="2.5"/> }
+              </li>
+            </ul>
+          }
+        </div>
+      </div>
+
+      <!-- Motivo del bloqueo (solo si nuevo estado = Bloqueado) -->
+      @if (newStatus() === 'BLOCKED') {
+        <div class="modal__field">
+          <span class="modal__label">Motivo del bloqueo <span class="required">*</span></span>
+          <div class="custom-select-wrap">
+            <button
+              type="button"
+              class="custom-select custom-select--placeholder"
+              [class.custom-select--selected]="!!blockReason()"
+              (click)="blockReasonDropOpen.update(v => !v); newStatusDropOpen.set(false)"
+            >
+              <span>{{ blockReason() || 'Selecciona un motivo...' }}</span>
+              <lucide-icon [img]="ChevronDown" [size]="14" [strokeWidth]="2.5"
+                [class.rotated]="blockReasonDropOpen()" />
+            </button>
+
+            @if (blockReasonDropOpen()) {
+              <ul class="select-dropdown">
+                @for (reason of blockReasons; track reason) {
+                  <li class="select-option"
+                      [class.select-option--sel]="blockReason()===reason"
+                      (click)="selectBlockReason(reason)">
+                    <lucide-icon [img]="ShieldAlert" [size]="14" [strokeWidth]="2" class="reason-icon" />
+                    {{ reason }}
+                    @if (blockReason()===reason) { <lucide-icon [img]="Check" [size]="13" [strokeWidth]="2.5"/> }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        </div>
+      }
+
+    </div>
+
+    <!-- Buttons -->
+    <div class="modal__actions">
+      <button type="button" class="btn btn--outline" (click)="closeEditModal()">Cancelar</button>
+      <button
+        type="button"
+        class="btn btn--primary"
+        [disabled]="newStatus() === 'BLOCKED' && !blockReason()"
+        (click)="confirmStatusChange()"
+      >
+        Aceptar
+      </button>
+    </div>
+
+  </div>
+}
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Reactivar usuario (confirmación)                                 -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+@if (reactivatingUser(); as user) {
+  <div class="modal-backdrop" (click)="cancelReactivate()"></div>
+  <div class="modal modal--confirm" role="dialog" aria-modal="true">
+
+    <button type="button" class="modal__close" (click)="cancelReactivate()" aria-label="Cerrar">
+      <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
+    </button>
+
+    <div class="confirm__icon">
+      <lucide-icon [img]="Check" [size]="28" [strokeWidth]="2.5" />
+    </div>
+
+    <h2 class="modal__title">Reactivar Usuario</h2>
+
+    <p class="confirm__text">
+      ¿Estás seguro de reactivar a <strong>{{ user.name }}</strong>?
+      El usuario volverá a tener acceso a la plataforma.
+    </p>
+
+    <div class="modal__actions">
+      <button type="button" class="btn btn--outline" (click)="cancelReactivate()">Cancelar</button>
+      <button type="button" class="btn btn--success" (click)="confirmReactivate()">Confirmar</button>
+    </div>
+
+  </div>
+}

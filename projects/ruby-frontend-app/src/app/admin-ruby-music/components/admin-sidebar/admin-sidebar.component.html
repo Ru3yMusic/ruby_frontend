@@ -1,0 +1,117 @@
+@if (isOpen()) {
+  <div class="sidebar-backdrop" (click)="close()"></div>
+
+  <nav class="sidebar" aria-label="Menú de administrador">
+    <!-- Brand -->
+    <div class="sidebar__brand">
+      <div class="sidebar__logo">
+        <span class="sidebar__logo-ruby">Ruby</span><span class="sidebar__logo-tune">Tune</span>
+      </div>
+      <p class="sidebar__role">Admin Layout</p>
+    </div>
+
+    <!-- Nav items -->
+    <ul class="sidebar__nav">
+      <!-- Dashboard -->
+      <li>
+        <button
+          type="button"
+          class="sidebar__item"
+          [class.sidebar__item--active]="isActive('/admin/dashboard')"
+          (click)="navigate('/admin/dashboard')"
+        >
+          <lucide-icon [img]="LayoutDashboard" [size]="18" [strokeWidth]="2" />
+          Dashboard
+        </button>
+      </li>
+
+      <!-- Catálogo Musical (collapsible) -->
+      <li>
+        <button
+          type="button"
+          class="sidebar__item sidebar__item--group"
+          [class.sidebar__item--active]="isCatalogoActive()"
+          (click)="toggleCatalogo()"
+        >
+          <lucide-icon [img]="Library" [size]="18" [strokeWidth]="2" />
+          <span>Catálogo Musical</span>
+          <lucide-icon
+            class="sidebar__chevron"
+            [img]="catalogoExpanded() ? ChevronDown : ChevronRight"
+            [size]="14"
+            [strokeWidth]="2"
+          />
+        </button>
+
+        @if (catalogoShouldExpand) {
+          <ul class="sidebar__sub">
+            <li>
+              <button type="button" class="sidebar__sub-item"
+                [class.sidebar__sub-item--active]="isActive('/admin/generos')"
+                (click)="navigate('/admin/generos')">
+                <lucide-icon [img]="Tag" [size]="15" [strokeWidth]="2" />
+                Géneros
+              </button>
+            </li>
+            <li>
+              <button type="button" class="sidebar__sub-item"
+                [class.sidebar__sub-item--active]="isActive('/admin/canciones')"
+                (click)="navigate('/admin/canciones')">
+                <lucide-icon [img]="Music" [size]="15" [strokeWidth]="2" />
+                Canciones
+              </button>
+            </li>
+            <li>
+              <button type="button" class="sidebar__sub-item"
+                [class.sidebar__sub-item--active]="isActive('/admin/albumes')"
+                (click)="navigate('/admin/albumes')">
+                <lucide-icon [img]="Disc3" [size]="15" [strokeWidth]="2" />
+                Álbumes
+              </button>
+            </li>
+            <li>
+              <button type="button" class="sidebar__sub-item"
+                [class.sidebar__sub-item--active]="isActive('/admin/artistas')"
+                (click)="navigate('/admin/artistas')">
+                <lucide-icon [img]="Mic2" [size]="15" [strokeWidth]="2" />
+                Artistas
+              </button>
+            </li>
+          </ul>
+        }
+      </li>
+
+      <!-- Gestión de Usuarios -->
+      <li>
+        <button
+          type="button"
+          class="sidebar__item"
+          [class.sidebar__item--active]="isActive('/admin/usuarios')"
+          (click)="navigate('/admin/usuarios')"
+        >
+          <lucide-icon [img]="Users" [size]="18" [strokeWidth]="2" />
+          Gestión de Usuarios
+        </button>
+      </li>
+
+      <!-- Reportes -->
+      <li>
+        <button
+          type="button"
+          class="sidebar__item"
+          [class.sidebar__item--active]="isActive('/admin/reportes')"
+          (click)="navigate('/admin/reportes')"
+        >
+          <lucide-icon [img]="Flag" [size]="18" [strokeWidth]="2" />
+          Reportes
+        </button>
+      </li>
+    </ul>
+
+    <!-- Logout -->
+    <button type="button" class="sidebar__logout" (click)="logout()">
+      <lucide-icon [img]="LogOut" [size]="18" [strokeWidth]="2" />
+      Cerrar Sesión
+    </button>
+  </nav>
+}

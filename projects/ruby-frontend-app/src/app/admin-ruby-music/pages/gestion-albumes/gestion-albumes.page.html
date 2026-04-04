@@ -1,0 +1,313 @@
+<rm-admin-sidebar [isOpen]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
+
+
+<div class="page" [class.page--dimmed]="anyModalOpen()">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="page-header">
+    <div class="page-header__left">
+      <button type="button" class="icon-btn" (click)="sidebarOpen.set(true)" aria-label="Abrir menú">
+        <lucide-icon [img]="Menu" [size]="22" [strokeWidth]="2" />
+      </button>
+      <div class="brand">
+        <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
+        <p class="brand__role">Admin Layout</p>
+      </div>
+    </div>
+    <div class="page-header__avatar">
+      <img src="https://ui-avatars.com/api/?name=Admin&background=d70013&color=fff&bold=true&size=96" alt="Admin" />
+    </div>
+  </header>
+
+  <!-- ── Content ─────────────────────────────────────────────────────────── -->
+  <div class="content">
+
+    <!-- Title row -->
+    <div class="content__title-row">
+      <h1 class="content__title">Álbumes</h1>
+      <button type="button" class="fab" (click)="openCreateModal()" aria-label="Nuevo álbum">
+        <lucide-icon [img]="Plus" [size]="20" [strokeWidth]="2.5" />
+      </button>
+    </div>
+
+    <!-- Search -->
+    <div class="search-wrap">
+      <lucide-icon [img]="Search" [size]="15" [strokeWidth]="2" class="search-icon" />
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Buscar por título o artista..."
+        [value]="searchQuery()"
+        (input)="searchQuery.set($any($event.target).value)"
+      />
+    </div>
+
+    <!-- Album list -->
+    <ul class="album-list">
+      @for (album of filteredAlbums(); track album.id) {
+        <li class="album-card">
+
+          <!-- Top section -->
+          <div class="album-card__top">
+
+            <!-- Cover -->
+            <div class="album-cover-wrap">
+              <div class="album-cover-bg">
+                <img class="album-cover" [src]="album.coverUrl" [alt]="album.title" (error)="onImgError($event)" />
+                <lucide-icon class="album-cover-fallback" [img]="Disc3" [size]="26" [strokeWidth]="1.5" />
+              </div>
+            </div>
+
+            <!-- Info -->
+            <div class="album-info">
+              <p class="album-title">{{ album.title }}</p>
+
+              <!-- Artist row -->
+              <div class="album-artist-row">
+                @if (getArtist(album.artistId); as artist) {
+                  <div class="album-artist-photo-wrap">
+                    <img class="album-artist-photo" [src]="artist.photoUrl" [alt]="artist.name" (error)="onImgError($event)" />
+                    <lucide-icon class="album-artist-photo-fallback" [img]="UserRound" [size]="10" [strokeWidth]="1.5" />
+                  </div>
+                  <span class="album-artist-name">{{ artist.name }}</span>
+                }
+              </div>
+
+              <p class="album-stats">
+                {{ album.songCount }} canciones &nbsp;·&nbsp; {{ formatStreams(album.totalStreams) }} streams
+              </p>
+            </div>
+
+            <!-- Date -->
+            <span class="album-date">{{ album.registeredAt }}</span>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="album-card__actions">
+            <button type="button" class="alb-btn alb-btn--view" (click)="openViewModal(album)">
+              <lucide-icon [img]="Eye" [size]="13" [strokeWidth]="2" />
+              Ver
+            </button>
+            <button type="button" class="alb-btn alb-btn--edit" (click)="openEditModal(album)">
+              <lucide-icon [img]="Pencil" [size]="13" [strokeWidth]="2" />
+              Editar
+            </button>
+            <button type="button" class="alb-btn alb-btn--delete" (click)="openDeleteModal(album)">
+              <lucide-icon [img]="Trash2" [size]="13" [strokeWidth]="2" />
+              Eliminar
+            </button>
+          </div>
+
+        </li>
+      }
+
+      @if (filteredAlbums().length === 0) {
+        <li class="empty-state">
+          <lucide-icon [img]="Disc3" [size]="38" [strokeWidth]="1.5" />
+          <p>No se encontraron álbumes</p>
+        </li>
+      }
+    </ul>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Ver detalle del álbum                                            -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+@if (viewingAlbum(); as album) {
+  <div class="modal-backdrop" (click)="closeViewModal()"></div>
+  <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="modal__header">
+      <h2 class="modal__title">{{ album.title }}</h2>
+      <button type="button" class="modal__close-btn" (click)="closeViewModal()" aria-label="Cerrar">
+        <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
+      </button>
+    </div>
+
+    <!-- Cover grande -->
+    <div class="view-cover-wrap">
+      <div class="view-cover-bg">
+        <img class="view-cover" [src]="album.coverUrl" [alt]="album.title" (error)="onImgError($event)" />
+        <lucide-icon class="view-cover-fallback" [img]="Disc3" [size]="40" [strokeWidth]="1.5" />
+      </div>
+    </div>
+
+    <!-- Fields -->
+    <div class="view-fields">
+      @if (getArtist(album.artistId); as artist) {
+        <div class="view-field">
+          <span class="view-label">Artista</span>
+          <span class="view-value">{{ artist.name }}</span>
+        </div>
+      }
+      <div class="view-field">
+        <span class="view-label">Fecha de lanzamiento</span>
+        <span class="view-value">{{ formatDate(album.releaseDate) }}</span>
+      </div>
+      <div class="view-field">
+        <span class="view-label">Streams totales</span>
+        <span class="view-value">{{ formatStreams(album.totalStreams) }}</span>
+      </div>
+      <div class="view-field">
+        <span class="view-label">Canciones</span>
+        <span class="view-value">{{ album.songCount }}</span>
+      </div>
+    </div>
+
+    <div class="modal__footer modal__footer--single">
+      <button type="button" class="btn btn--outline btn--full" (click)="closeViewModal()">
+        Cerrar
+      </button>
+    </div>
+
+  </div>
+}
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Crear / Editar álbum                                             -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+@if (modalMode()) {
+  <div class="modal-backdrop" (click)="closeModal()"></div>
+  <div class="modal modal--form" role="dialog" aria-modal="true" (click)="artistDropOpen.set(false); $event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="modal__header">
+      <div class="modal__title-row">
+        <lucide-icon [img]="modalMode() === 'create' ? Plus : Pencil" [size]="16" [strokeWidth]="2.5" />
+        <h2 class="modal__title">{{ modalMode() === 'create' ? 'Nuevo Álbum' : 'Editar Álbum' }}</h2>
+      </div>
+      <button type="button" class="modal__close-btn" (click)="closeModal()" aria-label="Cerrar">
+        <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal__body">
+
+      <!-- Título -->
+      <div class="form-field">
+        <label class="form-label">Título del Álbum <span class="required">*</span></label>
+        <input
+          type="text"
+          class="form-input"
+          placeholder="Nombre del álbum"
+          [value]="formTitle()"
+          (input)="formTitle.set($any($event.target).value)"
+        />
+      </div>
+
+      <!-- Artista (custom dropdown) -->
+      <div class="form-field">
+        <label class="form-label">Artista <span class="required">*</span></label>
+        <div class="custom-select-wrap" style="position:relative" (click)="$event.stopPropagation()">
+          <button
+            type="button"
+            class="custom-select"
+            [class.custom-select--placeholder]="!selectedArtist()"
+            (click)="artistDropOpen.update(v => !v)"
+          >
+            @if (selectedArtist(); as art) {
+              <div class="selected-artist">
+                <img class="sel-artist-photo" [src]="art.photoUrl" [alt]="art.name" (error)="onImgError($event)" />
+                <span>{{ art.name }}</span>
+              </div>
+            } @else {
+              <span class="placeholder-text">Selecciona un artista...</span>
+            }
+            <lucide-icon [img]="ChevronDown" [size]="14" [strokeWidth]="2.5"
+              [class.rotated]="artistDropOpen()" />
+          </button>
+
+          @if (artistDropOpen()) {
+            <ul class="select-dropdown" (click)="$event.stopPropagation()">
+              @for (artist of artists; track artist.id) {
+                <li class="select-option"
+                    [class.select-option--sel]="formArtistId() === artist.id"
+                    (click)="selectArtist(artist.id)">
+                  <img class="sel-artist-photo" [src]="artist.photoUrl" [alt]="artist.name" (error)="onImgError($event)" />
+                  <span>{{ artist.name }}</span>
+                  @if (formArtistId() === artist.id) {
+                    <lucide-icon [img]="Check" [size]="13" [strokeWidth]="2.5" class="check-icon" />
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+
+      <!-- URL Portada -->
+      <div class="form-field">
+        <label class="form-label">URL Portada <span class="required">*</span></label>
+        <input
+          type="url"
+          class="form-input"
+          placeholder="https://..."
+          [value]="formCoverUrl()"
+          (input)="formCoverUrl.set($any($event.target).value)"
+        />
+      </div>
+
+      <!-- Fecha de Lanzamiento -->
+      <div class="form-field">
+        <label class="form-label">Fecha de Lanzamiento <span class="required">*</span></label>
+        <input
+          type="date"
+          class="form-input form-input--date"
+          [value]="formReleaseDate()"
+          [min]="modalMode() === 'create' ? todayISO() : ''"
+          (change)="formReleaseDate.set($any($event.target).value)"
+        />
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="modal__footer">
+      <button type="button" class="btn btn--outline" (click)="closeModal()">Cancelar</button>
+      <button
+        type="button"
+        class="btn btn--primary"
+        [disabled]="!formValid()"
+        (click)="submitModal()"
+      >
+        {{ modalMode() === 'create' ? 'Crear' : 'Guardar' }}
+      </button>
+    </div>
+
+  </div>
+}
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Confirmar eliminación                                            -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+@if (deletingAlbum(); as album) {
+  <div class="modal-backdrop" (click)="closeDeleteModal()"></div>
+  <div class="modal modal--confirm" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+
+    <button type="button" class="modal__close-btn modal__close-btn--abs" (click)="closeDeleteModal()" aria-label="Cerrar">
+      <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
+    </button>
+
+    <div class="confirm__icon">
+      <lucide-icon [img]="TriangleAlert" [size]="26" [strokeWidth]="2" />
+    </div>
+
+    <h2 class="modal__title modal__title--center">Confirmar eliminación</h2>
+
+    <p class="confirm__text">
+      ¿Estás seguro de eliminar el álbum <strong>{{ album.title }}</strong>?
+      Esto eliminará también&hellip; <strong>{{ album.songCount }} canciones</strong>.
+      <br/><span class="confirm__warn">Esta acción NO se podrá deshacer.</span>
+    </p>
+
+    <div class="modal__footer modal__footer--confirm">
+      <button type="button" class="btn btn--outline" (click)="closeDeleteModal()">Cancelar</button>
+      <button type="button" class="btn btn--danger" (click)="confirmDelete()">Eliminar</button>
+    </div>
+
+  </div>
+}

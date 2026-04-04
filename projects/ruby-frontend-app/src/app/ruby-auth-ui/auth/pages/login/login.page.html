@@ -10,7 +10,10 @@
 
     @if (mockLoginEnabled) {
       <button type="button" class="login__mock" (click)="onMockAccess()">
-        Entrar con mock temporal
+        Entrar con mock temporal (Usuario)
+      </button>
+      <button type="button" class="login__mock login__mock--admin" (click)="onMockAdminAccess()">
+        Entrar con mock temporal (Admin)
       </button>
     }
 

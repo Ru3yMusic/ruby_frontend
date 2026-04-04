@@ -31,6 +31,16 @@ export class LoginPage {
     this.router.navigate(['/home']);
   }
 
+  onMockAdminAccess(): void {
+    this.authState.setToken({
+      accessToken: 'mock-admin-token',
+      refreshToken: 'mock-admin-refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+    });
+    this.router.navigate(['/admin/dashboard']);
+  }
+
   onSubmit(value: LoginFormValue): void {
     if (this.mockLoginEnabled) {
       this.onMockAccess();

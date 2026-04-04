@@ -1,0 +1,268 @@
+/* ── Page ───────────────────────────────────────────────────────────────── */
+.page {
+  min-height: 100dvh; background: #f4f4f8;
+  display: flex; flex-direction: column; transition: filter 0.2s;
+  &--dimmed { filter: brightness(0.45); pointer-events: none; }
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 16px 16px; background: #1a1a2e;
+  border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+}
+.page-header__left { display: flex; align-items: center; gap: 12px; }
+.icon-btn {
+  background: none; border: none; color: rgba(255,255,255,0.8);
+  padding: 4px; cursor: pointer; display: grid; place-items: center; border-radius: 8px;
+  &:hover { background: rgba(255,255,255,0.08); }
+}
+.brand { line-height: 1.1; }
+.brand__ruby { font-size: 18px; font-weight: 800; color: #fff; }
+.brand__tune { font-size: 18px; font-weight: 800; color: #d70013; }
+.brand__role { font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; }
+.page-header__avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  overflow: hidden; border: 2px solid rgba(215,0,19,0.6);
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+/* ── Content ────────────────────────────────────────────────────────────── */
+.content { flex: 1; padding: 20px 16px 36px; display: flex; flex-direction: column; gap: 14px; }
+.content__title-row { display: flex; align-items: center; justify-content: space-between; }
+.content__title { font-size: 22px; font-weight: 700; color: #111; margin: 0; }
+
+/* ── FAB ────────────────────────────────────────────────────────────────── */
+.fab {
+  width: 40px; height: 40px; border-radius: 50%; background: #d70013;
+  border: none; color: #fff; display: grid; place-items: center; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(215,0,19,0.35); transition: background 0.15s;
+  &:hover { background: #b50010; }
+}
+
+/* ── Search ─────────────────────────────────────────────────────────────── */
+.search-wrap { position: relative; display: flex; align-items: center; }
+.search-icon { position: absolute; left: 12px; color: #9ca3af; pointer-events: none; }
+.search-input {
+  width: 100%; padding: 11px 14px 11px 34px; background: #fff;
+  border: 1px solid #e5e7eb; border-radius: 14px; color: #111;
+  font-size: 13px; font-family: inherit; outline: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  &::placeholder { color: #9ca3af; }
+  &:focus { border-color: #d70013; }
+}
+
+/* ── Album list ─────────────────────────────────────────────────────────── */
+.album-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+
+.album-card {
+  background: #fff; border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.04);
+  padding: 14px 14px 12px;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: box-shadow 0.15s;
+  &:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+}
+
+.album-card__top {
+  display: flex; align-items: flex-start; gap: 12px;
+}
+
+/* ── Album cover (card) ─────────────────────────────────────────────────── */
+.album-cover-wrap { flex-shrink: 0; }
+.album-cover-bg {
+  width: 60px; height: 60px; border-radius: 10px;
+  background: #e5e7eb; overflow: hidden;
+  display: grid; place-items: center; position: relative;
+}
+.album-cover {
+  width: 100%; height: 100%; object-fit: cover;
+  position: absolute; inset: 0; border-radius: 10px;
+}
+.album-cover-fallback { color: #9ca3af; z-index: 0; }
+
+/* ── Album info ─────────────────────────────────────────────────────────── */
+.album-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.album-title { font-size: 14px; font-weight: 700; color: #111; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.album-artist-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.album-artist-photo-wrap {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #e5e7eb; overflow: hidden;
+  display: grid; place-items: center; position: relative; flex-shrink: 0;
+}
+.album-artist-photo {
+  width: 100%; height: 100%; object-fit: cover;
+  position: absolute; inset: 0;
+}
+.album-artist-photo-fallback { color: #9ca3af; z-index: 0; }
+.album-artist-name { font-size: 11px; color: #6b7280; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.album-stats { font-size: 11px; color: #9ca3af; margin: 0; }
+
+.album-date { font-size: 10px; color: #9ca3af; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+
+/* ── Album action buttons ───────────────────────────────────────────────── */
+.album-card__actions {
+  display: flex; gap: 8px;
+  padding-top: 4px; border-top: 1px solid #f3f4f6;
+}
+.alb-btn {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center;
+  gap: 5px; padding: 7px 6px; border-radius: 8px;
+  font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background 0.12s;
+  &--view   { background: transparent; border: 1.5px solid #6b7280; color: #374151; &:hover { background: #f3f4f6; } }
+  &--edit   { background: transparent; border: 1.5px solid #f97316; color: #f97316; &:hover { background: rgba(249,115,22,0.08); } }
+  &--delete { background: transparent; border: 1.5px solid #ef4444; color: #ef4444; &:hover { background: rgba(239,68,68,0.08); } }
+}
+
+/* ── Empty state ────────────────────────────────────────────────────────── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 48px 0; color: #9ca3af; font-size: 13px;
+}
+
+/* ── Global overlay ─────────────────────────────────────────────────────── */
+.global-overlay { position: fixed; inset: 0; }
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* MODALS                                                                    */
+/* ════════════════════════════════════════════════════════════════════════ */
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; }
+
+.modal {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(360px, calc(100vw - 28px)); background: #fff;
+  border-radius: 20px; z-index: 41; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+
+  &--confirm {
+    padding: 28px 24px 22px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;
+  }
+}
+
+/* ── Modal header ───────────────────────────────────────────────────────── */
+.modal__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 14px; border-bottom: 1px solid #f3f4f6;
+}
+.modal__title-row { display: flex; align-items: center; gap: 8px; color: #111; }
+.modal__title {
+  font-size: 15px; font-weight: 700; color: #111; margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 240px;
+  &--center { text-align: center; }
+}
+.modal__close-btn {
+  background: none; border: none; color: #9ca3af; cursor: pointer;
+  padding: 4px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0;
+  &:hover { background: #f3f4f6; color: #374151; }
+  &--abs { position: absolute; top: 14px; right: 14px; }
+}
+
+/* ── View modal cover ───────────────────────────────────────────────────── */
+.view-cover-wrap { display: flex; justify-content: center; padding: 20px 0 4px; }
+.view-cover-bg {
+  width: 130px; height: 130px; border-radius: 14px;
+  background: #e5e7eb; overflow: hidden;
+  display: grid; place-items: center; position: relative;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+.view-cover { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; border-radius: 14px; }
+.view-cover-fallback { color: #9ca3af; z-index: 0; }
+
+.view-fields { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 4px; }
+.view-field { display: flex; flex-direction: column; gap: 3px; }
+.view-label { font-size: 10px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.4px; }
+.view-value { font-size: 14px; color: #111; font-weight: 500; }
+
+/* ── Modal body (form) ──────────────────────────────────────────────────── */
+.modal__body {
+  padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 16px;
+  max-height: 58dvh; overflow-y: auto;
+}
+
+/* ── Form fields ────────────────────────────────────────────────────────── */
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 12px; font-weight: 600; color: #374151; }
+.required { color: #d70013; }
+.form-input {
+  padding: 10px 12px; background: #f9fafb;
+  border: 1.5px solid #e5e7eb; border-radius: 10px;
+  font-size: 14px; font-family: inherit; color: #111;
+  outline: none; transition: border-color 0.15s;
+  &::placeholder { color: #9ca3af; }
+  &:focus { border-color: #f97316; }
+  &--date { cursor: pointer; }
+}
+
+/* ── Custom artist dropdown ─────────────────────────────────────────────── */
+.custom-select {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 10px 12px; background: #f9fafb;
+  border: 1.5px solid #e5e7eb; border-radius: 10px;
+  color: #111; font-size: 13px; font-family: inherit; cursor: pointer;
+  transition: border-color 0.15s;
+  &:hover { border-color: #9ca3af; }
+  &:focus { border-color: #f97316; }
+  &--placeholder .placeholder-text { color: #9ca3af; }
+  lucide-icon { flex-shrink: 0; color: #6b7280; transition: transform 0.2s; }
+  lucide-icon.rotated { transform: rotate(180deg); }
+}
+
+.selected-artist { display: flex; align-items: center; gap: 8px; }
+
+.sel-artist-photo {
+  width: 24px; height: 24px; border-radius: 50%; object-fit: cover;
+  background: #e5e7eb; flex-shrink: 0;
+}
+
+.select-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+  padding: 4px; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  list-style: none; max-height: 200px; overflow-y: auto;
+}
+
+.select-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; font-size: 13px; color: #374151;
+  border-radius: 8px; cursor: pointer; transition: background 0.12s;
+  &:hover { background: #f9fafb; }
+  &--sel { background: #fff8f0; font-weight: 600; }
+}
+
+.check-icon { margin-left: auto; color: #f97316; flex-shrink: 0; }
+.placeholder-text { flex: 1; }
+
+/* ── Modal footer ───────────────────────────────────────────────────────── */
+.modal__footer {
+  display: flex; gap: 10px; padding: 14px 20px 20px;
+  border-top: 1px solid #f3f4f6;
+  &--confirm { border-top: none; padding: 4px 0 0; width: 100%; }
+  &--single { padding: 10px 20px 20px; border-top: 1px solid #f3f4f6; }
+}
+
+/* ── Confirm modal ──────────────────────────────────────────────────────── */
+.confirm__icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: rgba(234,179,8,0.15); color: #ca8a04;
+  display: grid; place-items: center;
+}
+.confirm__text { font-size: 13px; color: #4b5563; line-height: 1.6; margin: 0; strong { color: #111; } }
+.confirm__warn { color: #ef4444; font-weight: 600; }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.btn {
+  flex: 1; padding: 12px 16px; border-radius: 12px;
+  font-size: 14px; font-weight: 600; font-family: inherit;
+  cursor: pointer; border: none; transition: opacity 0.15s, background 0.15s;
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+  &--outline { background: transparent; border: 1.5px solid #d1d5db; color: #374151; &:hover { background: #f3f4f6; } }
+  &--primary { background: #f97316; color: #fff; &:hover:not(:disabled) { background: #ea6c0a; } }
+  &--danger  { background: #ef4444; color: #fff; &:hover { background: #dc2626; } }
+  &--full    { width: 100%; flex: unset; }
+}

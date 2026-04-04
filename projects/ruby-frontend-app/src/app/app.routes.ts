@@ -91,6 +91,11 @@ export const routes: Routes = [
     loadComponent: () => import('./user-ruby-music/pages/editar-perfil/editar-perfil.page').then(m => m.EditarPerfilPage),
   },
   {
+    path: 'admin',
+    loadChildren: () =>
+      import('./admin-ruby-music/admin.routes').then(m => m.ADMIN_ROUTES),
+  },
+  {
     path: '**',
     redirectTo: 'auth',
   },
