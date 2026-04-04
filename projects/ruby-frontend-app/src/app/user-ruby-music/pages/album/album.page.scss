@@ -1,0 +1,36 @@
+.album-page { min-height: 100dvh; color: #fff; background: linear-gradient(165deg, #2d2b18 0%, #7d7d61 100%); }
+.album-page__content { width: min(100%, 1100px); margin: 0 auto; padding: 10px 18px 100px; }
+.album-page__back { color: #111; text-decoration: none; display: inline-grid; place-items: center; width: 34px; height: 34px; svg { width: 28px; height: 28px; } }
+.album-page__cover { width: min(100%, 420px); aspect-ratio: 1; margin: 2px auto 10px; background: linear-gradient(145deg,#1d1d1d,#757575); }
+.album-page__title { margin: 0; font-size: 52px; }
+.album-page__subtitle { margin: 4px 0 12px; font-size: 26px; color: rgba(255,255,255,.82); }
+.album-page__actions { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+.album-page__follow { border: 2px solid rgba(255,255,255,.4); border-radius: 14px; background: transparent; color: #fff; padding: 7px 16px; font-size: 18px; }
+.album-page__dots { border: 0; background: none; display: grid; gap: 4px; span { width: 8px; height: 8px; border-radius: 50%; background: #1d1d1d; } }
+.album-page__icon { border: 0; background: none; color: #111; font-size: 30px; }
+.album-page__tracks { display: grid; gap: 10px; }
+.album-track { display: grid; grid-template-columns: 68px minmax(0,1fr) auto; align-items: center; gap: 12px;
+  &__cover { width: 68px; height: 68px; border-radius: 14px; }
+  &__meta { cursor: pointer; h2 { margin: 0; font-size: 50px; } p { margin: 2px 0 0; font-size: 24px; color: rgba(255,255,255,.82); } }
+  &__more { border: 0; background: none; display: grid; gap: 4px; span { width: 8px; height: 8px; border-radius: 50%; background: #1d1d1d; } }
+  &__hidden { font-size: 34px; color: #ddd; }
+  &--hidden { opacity: .44; }
+}
+.album-nav { position: fixed; left: 0; right: 0; bottom: 0; background: #231f1f; display: grid; grid-template-columns: repeat(4,1fr); padding: 10px 8px 8px;
+  &__item { text-decoration: none; border: 0; background: none; color: rgba(255,255,255,.62); display: grid; place-items: center; height: 42px;
+    svg { width: 30px; height: 30px; }
+  }
+  &__item--active { color: #fff; }
+}
+.sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.14); }
+.options-sheet { position: fixed; left: 50%; transform: translateX(-50%); bottom: 70px; width: min(calc(100% - 14px), 760px); background: #171417; border-radius: 18px; overflow: hidden;
+  &__grab { width: 88px; height: 10px; border-radius: 10px; background: #6a6a6a; margin: 8px auto; }
+  &__header { padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,.14); font-size: 24px; }
+  button { width: 100%; border: 0; background: none; color: #fff; text-align: left; padding: 14px 18px; font-size: 28px; }
+}
+.album-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 76px; width: min(calc(100% - 20px), 740px); border-radius: 12px; background: #dccaca; color: #2a2a2a; padding: 10px 14px; font-size: 16px; display: flex; justify-content: space-between;
+  button { border: 0; background: none; color: #c32020; font-size: 16px; }
+}
+
+@media (max-width: 1023px) { .album-page { max-width: 430px; margin: 0 auto; } }
+@media (min-width: 1024px) { .album-nav { left: 50%; transform: translateX(-50%); width: min(calc(100% - 64px), 1200px); } }

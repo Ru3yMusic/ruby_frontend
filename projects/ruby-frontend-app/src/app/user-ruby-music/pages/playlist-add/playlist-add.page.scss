@@ -1,0 +1,18 @@
+.playlist-add { min-height: 100dvh; color: #fff; background: radial-gradient(circle at 50% -10%, rgba(255,255,255,.18), transparent 38%), linear-gradient(180deg,#4b4b4f,#171a22 55%, #07090f); }
+.playlist-add__content { width: min(100%, 960px); margin: 0 auto; padding: 14px 16px 40px; }
+header { display: grid; grid-template-columns: 34px 1fr; align-items: center; margin-bottom: 8px;
+  a { color: #fff; text-decoration: none; font-size: 34px; } h1 { margin: 0; text-align: center; font-size: 44px; }
+}
+input { width: 100%; border: 0; border-radius: 18px; background: rgba(255,255,255,.12); color: #fff; padding: 10px 14px; font-size: 24px; }
+.playlist-add__tabs { margin: 12px 0; display: flex; gap: 10px;
+  button { border: 0; border-radius: 18px; padding: 8px 16px; background: #2b2c32; color: #fff; font-size: 22px; }
+  .is-active { background: #121318; }
+}
+.playlist-add__list article { display: grid; grid-template-columns: 54px minmax(0,1fr) auto; gap: 10px; align-items: center; margin-bottom: 10px; }
+.cover { width: 54px; height: 54px; border-radius: 10px; }
+h2 { margin: 0; font-size: 34px; } p { margin: 0; color: rgba(255,255,255,.75); font-size: 18px; }
+.check { width: 32px; height: 32px; border-radius: 8px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-size: 20px; }
+.check.is-active { background: #ff3b46; }
+.playlist-add__save { display: block; margin: 14px auto 0; width: min(100%, 280px); border: 0; border-radius: 20px; padding: 10px 18px; background: rgba(255,255,255,.16); color: #fff; font-size: 28px; font-weight: 700; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; width: min(calc(100% - 20px), 760px); border-radius: 14px; background: #e7e7e7; color: #222; padding: 10px 14px; font-size: 16px; }
+@media (max-width: 1023px) { .playlist-add { max-width: 430px; margin: 0 auto; } }

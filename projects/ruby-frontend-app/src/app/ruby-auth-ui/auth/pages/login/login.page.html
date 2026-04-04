@@ -1,0 +1,23 @@
+<rm-auth-template theme="red" [showBack]="true" [showLogo]="true">
+
+  <div class="login">
+    <h1 class="login__title">Inicia Sesión</h1>
+
+    <rm-login-form
+      [loading]="loading()"
+      [serverError]="serverError()"
+      (submitted)="onSubmit($event)"/>
+
+    @if (mockLoginEnabled) {
+      <button type="button" class="login__mock" (click)="onMockAccess()">
+        Entrar con mock temporal
+      </button>
+    }
+
+    <p class="login__signup">
+      ¿No tienes cuenta?
+      <a routerLink="/auth/register/email" class="login__signup-link">Crear cuenta</a>
+    </p>
+  </div>
+
+</rm-auth-template>

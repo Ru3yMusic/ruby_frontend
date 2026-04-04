@@ -1,0 +1,29 @@
+<div class="ce">
+  <header class="ce__header">
+    <a class="ce__back" routerLink="/home" aria-label="Volver">
+      <lucide-icon [img]="ChevronLeft" [size]="22" [strokeWidth]="2.4" />
+    </a>
+    <h1>Chat estación</h1>
+    <span></span>
+  </header>
+
+  <section class="ce__list">
+    @for (friend of friends; track friend.id) {
+      <article class="ce__item">
+        <div class="ce__avatar" [style.background]="friend.color">
+          {{ friend.avatar }}
+        </div>
+        <div class="ce__info">
+          <p class="ce__user">{{ friend.user }}</p>
+          <p class="ce__desc">
+            está escuchando la estación
+            <strong>{{ friend.station }}</strong>
+          </p>
+        </div>
+        <button type="button" class="ce__join" (click)="join(friend)">
+          Unirse
+        </button>
+      </article>
+    }
+  </section>
+</div>

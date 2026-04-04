@@ -1,0 +1,141 @@
+.auth-tpl {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 24px;
+  box-sizing: border-box;
+
+  &__shell {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  // ── Themes ────────────────────────────────────────────────────────────
+  &--dark {
+    background: radial-gradient(circle at 50% -10%, rgba(232, 16, 35, 0.45) 0%, transparent 38%),
+      linear-gradient(180deg, #55050c 0%, #651222 38%, #877a80 100%);
+  }
+
+  &--red {
+    background: radial-gradient(circle at 48% -16%, rgba(255, 42, 42, 0.55) 0%, transparent 36%),
+      linear-gradient(180deg, #b00018 0%, #671322 44%, #897c82 100%);
+  }
+
+  // ── Top bar ───────────────────────────────────────────────────────────
+  &__topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 46px 0 16px;
+    width: min(100%, 560px);
+    margin: 0 auto;
+  }
+
+  &__spacer {
+    width: 38px; // same width as back-button to keep logo centered
+  }
+
+  // ── Content area ──────────────────────────────────────────────────────
+  &__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+
+    > * {
+      width: min(100%, 560px);
+      margin: 0 auto;
+    }
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────
+  &__footer {
+    padding: 16px 0 34px;
+    display: flex;
+    justify-content: center;
+    width: min(100%, 560px);
+    margin: 0 auto;
+  }
+
+  &__aside {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .auth-tpl {
+    padding-inline: 48px;
+    justify-content: center;
+
+    &__shell {
+      width: min(100%, 1280px);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(520px, 680px) minmax(300px, 420px);
+      gap: 48px;
+      align-items: stretch;
+      min-height: 780px;
+    }
+
+    &__panel {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 28px;
+      padding-inline: 24px;
+      box-shadow: 0 24px 60px rgba(7, 1, 3, 0.35);
+      backdrop-filter: blur(3px);
+    }
+
+    &__topbar,
+    &__content > *,
+    &__footer {
+      width: min(100%, 620px);
+    }
+
+    &__aside {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      position: relative;
+      padding: 32px;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(160deg, rgba(37, 7, 13, 0.76) 0%, rgba(120, 24, 36, 0.58) 100%);
+      overflow: hidden;
+    }
+
+    &__aside-glow {
+      position: absolute;
+      width: 440px;
+      height: 440px;
+      border-radius: 50%;
+      top: -220px;
+      right: -120px;
+      background: radial-gradient(circle, rgba(255, 66, 87, 0.5) 0%, rgba(255, 66, 87, 0) 72%);
+      pointer-events: none;
+    }
+
+    &__aside-title {
+      font-size: 42px;
+      line-height: 1;
+      color: #fff;
+      margin: 0 0 12px;
+      letter-spacing: -1px;
+      font-weight: 800;
+      z-index: 1;
+    }
+
+    &__aside-copy {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 17px;
+      line-height: 1.5;
+      z-index: 1;
+    }
+  }
+}

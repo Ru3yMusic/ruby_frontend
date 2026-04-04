@@ -1,0 +1,81 @@
+$item-height: 44px;
+$visible-items: 4; // items shown above/below selected
+
+.picker {
+  position: relative;
+  display: flex;
+  height: ($visible-items * 2 + 1) * $item-height;
+  overflow: hidden;
+  user-select: none;
+
+  // ── Fade overlays ─────────────────────────────────────────────────────
+  &__fade {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: $visible-items * $item-height;
+    z-index: 2;
+    pointer-events: none;
+
+    &--top {
+      top: 0;
+      background: linear-gradient(to bottom,
+        rgba(122, 14, 26, 0.98) 0%,
+        rgba(122, 14, 26, 0) 100%);
+    }
+
+    &--bottom {
+      bottom: 0;
+      background: linear-gradient(to top,
+        rgba(126, 108, 115, 0.98) 0%,
+        rgba(126, 108, 115, 0) 100%);
+    }
+  }
+
+  // ── Selected indicator ────────────────────────────────────────────────
+  &__selector {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: $item-height;
+    transform: translateY(-50%);
+    border-top: 2px solid rgba(255, 255, 255, 0.58);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.58);
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  // ── Scrollable column ─────────────────────────────────────────────────
+  &__column {
+    flex: 1;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar { display: none; }
+
+    // Padding allows first/last item to reach center
+    &::before,
+    &::after {
+      content: '';
+      display: block;
+      height: $visible-items * $item-height;
+    }
+  }
+
+  // ── Item ──────────────────────────────────────────────────────────────
+  &__item {
+    height: $item-height;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    scroll-snap-align: center;
+    font-size: 17px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.78);
+  }
+}

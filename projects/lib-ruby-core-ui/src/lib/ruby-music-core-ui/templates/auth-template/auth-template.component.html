@@ -1,0 +1,35 @@
+<div class="auth-tpl" [class]="'auth-tpl--' + theme()">
+  <div class="auth-tpl__shell">
+    <section class="auth-tpl__panel">
+      <header class="auth-tpl__topbar">
+        @if (showBack()) {
+          <rm-back-button/>
+        } @else {
+          <div class="auth-tpl__spacer"></div>
+        }
+
+        @if (showLogo()) {
+          <rm-logo size="sm"/>
+        }
+
+        <div class="auth-tpl__spacer"></div>
+      </header>
+
+      <main class="auth-tpl__content">
+        <ng-content/>
+      </main>
+
+      @if (totalSteps() > 0) {
+        <footer class="auth-tpl__footer">
+          <rm-progress-dots [total]="totalSteps()" [current]="currentStep()"/>
+        </footer>
+      }
+    </section>
+
+    <aside class="auth-tpl__aside" aria-hidden="true">
+      <div class="auth-tpl__aside-glow"></div>
+      <h2 class="auth-tpl__aside-title">RubyTune</h2>
+      <p class="auth-tpl__aside-copy">Tu experiencia musical en iOS y Web, en un mismo ecosistema.</p>
+    </aside>
+  </div>
+</div>

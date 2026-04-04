@@ -1,0 +1,8 @@
+<button
+  type="button"
+  class="chip"
+  [class.chip--selected]="selected()"
+  [attr.aria-pressed]="selected()"
+  (click)="toggled.emit()">
+  {{ label() }}
+</button>

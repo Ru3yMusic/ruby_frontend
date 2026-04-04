@@ -1,0 +1,91 @@
+<div class="ae">
+  <header class="ae__header">
+    <a class="ae__back" routerLink="/library" aria-label="Volver">
+      <lucide-icon [img]="ChevronLeft" [size]="24" [strokeWidth]="2.3" />
+    </a>
+    <h1>Explorar Álbumes</h1>
+  </header>
+
+  <div class="ae__content">
+    <!-- Buscador -->
+    <div class="ae__search">
+      <lucide-icon [img]="Search" [size]="18" [strokeWidth]="2" />
+      <input type="text" placeholder="Buscar álbumes o artistas" [value]="search()" (input)="search.set($any($event.target).value)" />
+    </div>
+
+    @if (!search()) {
+      <!-- Nuevos Lanzamientos — carrusel -->
+      <section class="ae__section">
+        <h2>Nuevos Lanzamientos</h2>
+        <div class="ae__carousel">
+          @for (album of newReleases; track album.id) {
+            <article class="ae__carousel-item" [class.is-selected]="isSelected(album.id)" (click)="toggle(album)">
+              <div class="ae__carousel-cover" [style.background]="album.cover">
+                @if (isSelected(album.id)) {
+                  <div class="ae__check">
+                    <lucide-icon [img]="Check" [size]="16" [strokeWidth]="3" />
+                  </div>
+                }
+              </div>
+              <p class="ae__carousel-title">{{ album.title }}</p>
+              <p class="ae__carousel-artist">{{ album.artist }}</p>
+            </article>
+          }
+        </div>
+      </section>
+
+      <!-- Álbumes Destacados — 2 tarjetas grandes -->
+      <section class="ae__section">
+        <h2>Álbumes destacados</h2>
+        <div class="ae__featured">
+          @for (album of featured; track album.id) {
+            <article class="ae__featured-card" [class.is-selected]="isSelected(album.id)" (click)="toggle(album)">
+              <div class="ae__featured-cover" [style.background]="album.cover">
+                @if (isSelected(album.id)) {
+                  <div class="ae__check ae__check--lg">
+                    <lucide-icon [img]="Check" [size]="20" [strokeWidth]="3" />
+                  </div>
+                }
+              </div>
+              <p class="ae__featured-title">{{ album.title }}</p>
+              <p class="ae__featured-artist">{{ album.artist }}</p>
+            </article>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Sugerencias -->
+    <section class="ae__section">
+      <h2>{{ search() ? 'Resultados' : 'Sugerencias' }}</h2>
+      <div class="ae__suggestions">
+        @for (album of suggestions(); track album.id) {
+          <article class="ae__suggestion">
+            <div class="ae__suggestion-cover" [style.background]="album.cover"></div>
+            <div class="ae__suggestion-info">
+              <p class="ae__suggestion-title">{{ album.title }}</p>
+              <p class="ae__suggestion-sub">{{ album.artist }} • {{ album.tracks.length }} canciones</p>
+            </div>
+            <button
+              type="button"
+              class="ae__suggestion-btn"
+              [class.is-added]="isSelected(album.id)"
+              (click)="toggle(album)">
+              {{ isSelected(album.id) ? '✓' : 'Lista' }}
+            </button>
+          </article>
+        }
+        @if (suggestions().length === 0) {
+          <p class="ae__empty">Sin resultados para "{{ search() }}"</p>
+        }
+      </div>
+    </section>
+  </div>
+
+  <!-- Footer con botón guardar -->
+  <div class="ae__footer">
+    <button type="button" class="ae__save" (click)="save()">
+      Agregar a la biblioteca
+    </button>
+  </div>
+</div>

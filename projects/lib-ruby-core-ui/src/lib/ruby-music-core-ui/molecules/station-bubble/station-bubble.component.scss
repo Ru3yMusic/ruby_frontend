@@ -1,0 +1,42 @@
+.bubble {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
+
+  &--selected {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 3px #fff, 0 0 0 5px rgba(255, 255, 255, 0.25);
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+    text-align: center;
+    padding: 0 8px;
+    pointer-events: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .bubble {
+    width: 120px;
+    height: 120px;
+
+    &__name {
+      font-size: 18px;
+    }
+  }
+}

@@ -1,0 +1,47 @@
+<rm-auth-template theme="red" [showBack]="true" [showLogo]="false" [totalSteps]="5" [currentStep]="5">
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="step" novalidate>
+
+    <h1 class="step__title">¿Cuál es tu nombre?</h1>
+
+    <rm-input
+      formControlName="displayName"
+      type="text"
+      placeholder="Nombre"
+      hint="Este nombre será visible en tu perfil."/>
+
+    <!-- Terms section -->
+    <section class="terms">
+      <h2 class="terms__title">Términos de uso</h2>
+      <p class="terms__body">
+        Al registrarte confirmas que leíste y aceptas nuestros términos de uso
+        y la política de privacidad de RubyTune.
+      </p>
+
+      <label class="terms__check">
+        <input type="checkbox" formControlName="acceptedTerms" class="terms__checkbox"/>
+        <span>Acepto los <a href="#" class="terms__link">Términos de uso</a></span>
+      </label>
+
+      <label class="terms__check">
+        <input type="checkbox" formControlName="acceptedPrivacyPolicy" class="terms__checkbox"/>
+        <span>Acepto la <a href="#" class="terms__link">Política de privacidad</a></span>
+      </label>
+    </section>
+
+    @if (serverError()) {
+      <p class="step__error" role="alert">{{ serverError() }}</p>
+    }
+
+    <rm-button
+      type="submit"
+      variant="primary"
+      size="lg"
+      [loading]="loading()"
+      [disabled]="form.invalid">
+      Crear cuenta
+    </rm-button>
+
+  </form>
+
+</rm-auth-template>

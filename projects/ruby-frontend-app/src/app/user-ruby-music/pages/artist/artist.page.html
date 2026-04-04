@@ -1,0 +1,77 @@
+<div class="artist-page">
+  <header class="artist-page__hero">
+    <a class="artist-page__back" routerLink="/music" aria-label="Volver">
+      <lucide-icon [img]="ChevronLeft" [size]="24" [strokeWidth]="2.4" />
+    </a>
+    <h1>Heroes Del Silencio</h1>
+  </header>
+
+  <div class="artist-page__body">
+    <div class="artist-page__meta">
+      <p>6 M oyentes mensuales</p>
+      <div class="artist-page__meta-actions">
+        <button type="button" class="artist-page__follow">Seguir</button>
+        <button type="button" class="artist-page__dots" (click)="openArtistMenu()"><span></span><span></span><span></span></button>
+        <button type="button" class="artist-page__icon">⤮</button>
+        <button type="button" class="artist-page__icon">▶</button>
+      </div>
+      <p>400 seguidores</p>
+    </div>
+
+    <h2 class="artist-page__section-title">Populares</h2>
+
+    <section class="artist-page__tracks">
+      @for (track of tracks; track track.id; let i = $index) {
+        <article class="artist-track">
+          <span class="artist-track__index">{{ i + 1 }}</span>
+          <div class="artist-track__cover" [style.background]="track.color"></div>
+          <div class="artist-track__meta" (click)="openPlayer(track.id)">
+            <h3>{{ track.title }}</h3>
+            <p>{{ track.plays }}</p>
+          </div>
+          <button type="button" class="artist-track__more" (click)="openSongMenu(track.id)"><span></span><span></span><span></span></button>
+        </article>
+      }
+    </section>
+
+    <button type="button" class="artist-page__see-more">Ver mas</button>
+  </div>
+
+  <nav class="artist-nav" aria-label="Navegacion principal">
+    <a class="artist-nav__item" routerLink="/home" aria-label="Inicio">
+      <lucide-icon [img]="House" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <a class="artist-nav__item" routerLink="/music" aria-label="Buscar">
+      <lucide-icon [img]="Search" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <a class="artist-nav__item artist-nav__item--active" routerLink="/library" aria-label="Biblioteca">
+      <lucide-icon [img]="Library" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <button class="artist-nav__item" type="button" aria-label="Crear">
+      <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.3" />
+    </button>
+  </nav>
+
+  @if (artistMenuOpen() || songMenuFor()) {
+    <div class="sheet-backdrop" (click)="closeMenus()"></div>
+  }
+
+  @if (artistMenuOpen()) {
+    <section class="options-sheet">
+      <div class="options-sheet__grab"></div>
+      <header class="options-sheet__header">Heroes Del Silencio</header>
+      <button type="button">Compartir</button>
+      <button type="button">Seguir</button>
+    </section>
+  }
+
+  @if (songMenuFor()) {
+    <section class="options-sheet">
+      <div class="options-sheet__grab"></div>
+      <header class="options-sheet__header">Maldito duende</header>
+      <button type="button">Agregar a Tus me gusta</button>
+      <button type="button">Agregar a playlist</button>
+      <button type="button" (click)="goAlbum()">Ir al album</button>
+    </section>
+  }
+</div>

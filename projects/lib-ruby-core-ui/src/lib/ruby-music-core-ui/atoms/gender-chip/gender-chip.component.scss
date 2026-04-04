@@ -1,0 +1,24 @@
+.chip {
+  padding: 11px 22px;
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(90deg, rgba(13, 11, 15, 0.86) 0%, rgba(74, 74, 74, 0.64) 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+
+  &--selected {
+    background: linear-gradient(90deg, #d4b55f 0%, #af5f28 100%);
+    color: #fff;
+    border-color: transparent;
+    font-weight: 700;
+  }
+}

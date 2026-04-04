@@ -1,0 +1,40 @@
+<div class="grid">
+
+  <!-- Search bar -->
+  <div class="grid__search">
+    <lucide-icon [img]="Search" [size]="18" [strokeWidth]="2" class="grid__search-icon" />
+    <input
+      class="grid__search-input"
+      type="text"
+      placeholder="Buscar"
+      [(ngModel)]="searchQuery"
+      aria-label="Buscar estaciones"
+    />
+  </div>
+
+  <!-- Bubble grid -->
+  <div class="grid__bubbles">
+    @for (station of filteredStations(); track station.id) {
+      <rm-station-bubble
+        [name]="station.name"
+        [gradient]="station.gradient"
+        [selected]="isSelected(station.id)"
+        (toggled)="toggle(station.id)"/>
+    }
+  </div>
+
+  <!-- Counter hint -->
+  <p class="grid__hint">
+    {{ selectionCount() }} seleccionadas · mínimo {{ minSelected() }}
+  </p>
+
+  <!-- CTA -->
+  <rm-button
+    variant="primary"
+    size="lg"
+    [disabled]="!canConfirm()"
+    (clicked)="onConfirm()">
+    Listo
+  </rm-button>
+
+</div>

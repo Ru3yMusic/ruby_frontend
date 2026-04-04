@@ -1,0 +1,117 @@
+<div class="notif" (click)="closeMenu()">
+  <header class="notif__header">
+    <a class="notif__back" routerLink="/home" aria-label="Volver">
+      <lucide-icon [img]="ChevronLeft" [size]="24" [strokeWidth]="2.3" />
+    </a>
+    <h1>Notificaciones</h1>
+  </header>
+
+  <!-- Tabs -->
+  <div class="notif__tabs">
+    <button
+      type="button"
+      class="notif__tab"
+      [class.is-active]="tab() === 'actividad'"
+      (click)="tab.set('actividad')">
+      <lucide-icon [img]="Heart" [size]="18" [strokeWidth]="2.2" />
+      Actividad
+    </button>
+    <button
+      type="button"
+      class="notif__tab"
+      [class.is-active]="tab() === 'solicitudes'"
+      (click)="tab.set('solicitudes')">
+      <lucide-icon [img]="Users" [size]="18" [strokeWidth]="2.2" />
+      Solicitudes
+      @if (requestsBadge() > 0) {
+        <span class="notif__badge">{{ requestsBadge() }}</span>
+      }
+    </button>
+  </div>
+
+  <p class="notif__count">Tienes <strong>{{ totalToday() }}</strong> notificaciones el día de hoy.</p>
+
+  <!-- Tab Actividad -->
+  @if (tab() === 'actividad') {
+    <section class="notif__list">
+      @for (item of activities(); track item.id) {
+        <article class="notif__item" (click)="$event.stopPropagation()">
+          <div class="notif__avatar">{{ item.avatar }}</div>
+          <div class="notif__body">
+            <p class="notif__text"><strong>{{ item.user }}</strong> {{ item.text }}</p>
+            <p class="notif__time">{{ item.time }}</p>
+          </div>
+          <div class="notif__actions">
+            <button
+              type="button"
+              class="notif__dots"
+              (click)="$event.stopPropagation(); toggleMenu(item.id)"
+              aria-label="Opciones">
+              ⋮
+            </button>
+            @if (openMenuId() === item.id) {
+              <div class="notif__menu">
+                <button type="button" (click)="deleteNotification(item.id)">
+                  <lucide-icon [img]="Trash2" [size]="16" [strokeWidth]="2" />
+                  Eliminar esta notificación
+                </button>
+              </div>
+            }
+          </div>
+        </article>
+      }
+
+      @if (activities().length === 0) {
+        <div class="notif__empty">
+          <p>No tienes notificaciones de actividad.</p>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- Tab Solicitudes -->
+  @if (tab() === 'solicitudes') {
+    <section class="notif__list">
+      @for (req of requests(); track req.id) {
+        <article class="notif__item notif__item--request" (click)="$event.stopPropagation()">
+          <div class="notif__avatar">{{ req.avatar }}</div>
+          <div class="notif__body">
+            <p class="notif__text"><strong>{{ req.user }}</strong> te ha invitado a conectar.</p>
+            @if (req.status === 'pending') {
+              <div class="notif__request-btns">
+                <button type="button" class="btn-accept" (click)="acceptRequest(req.id)">Aceptar</button>
+                <button type="button" class="btn-reject" (click)="rejectRequest(req.id)">Rechazar</button>
+              </div>
+            }
+            @if (req.status === 'accepted') {
+              <p class="notif__status notif__status--accepted">Solicitud aceptada</p>
+            }
+            @if (req.status === 'rejected') {
+              <p class="notif__status notif__status--rejected">Solicitud rechazada</p>
+            }
+          </div>
+          <button
+            type="button"
+            class="notif__dots"
+            aria-label="Opciones">
+            ⋮
+          </button>
+        </article>
+      }
+
+      @if (pendingRequests().length === 0 && requests().length === 0) {
+        <div class="notif__empty">
+          <p>No tienes solicitudes pendientes.</p>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- Banner conexión aceptada -->
+  @if (acceptedUser()) {
+    <div class="notif__banner">
+      <lucide-icon [img]="Users" [size]="18" [strokeWidth]="2" />
+      Ahora tú y {{ acceptedUser() }} pueden escuchar las mismas estaciones juntos.
+    </div>
+  }
+</div>

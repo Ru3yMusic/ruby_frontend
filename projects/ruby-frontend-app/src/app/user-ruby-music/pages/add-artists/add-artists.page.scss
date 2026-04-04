@@ -1,0 +1,26 @@
+.add-artists { min-height: 100dvh; color: #fff; background: radial-gradient(circle at 50% 20%, rgba(255,255,255,.18), transparent 36%), linear-gradient(180deg, #0a0c12 0%, #12131a 52%, #06070c 100%); }
+.add-artists__content { width: min(100%, 980px); margin: 0 auto; padding: 24px 18px 30px; }
+h1 { margin: 8px 0 14px; text-align: center; font-size: 52px; }
+.add-artists__search { width: 100%; border: 0; border-radius: 24px; background: #a9a4aa; color: #111; padding: 12px 16px; font-size: 22px; }
+.add-artists__top { margin-top: 20px; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.06);
+  h2 { margin: 0 0 12px; font-size: 64px; color: rgba(255,255,255,.72); }
+}
+.top-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.top-item { border-radius: 18px; background: #1b1f2a; min-height: 130px; position: relative; display: grid; place-items: end center; padding: 12px;
+  span { font-size: 30px; }
+  em { position: absolute; right: 8px; bottom: 8px; width: 26px; height: 26px; border-radius: 50%; background: #d9d9d9; color: #111; font-style: normal; display: grid; place-items: center; font-size: 16px; }
+}
+.add-artists__suggestions { margin-top: 20px;
+  h3 { margin: 0 0 12px; font-size: 42px; }
+}
+.suggestions-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.artist-chip { border: 0; background: none; color: #fff; text-align: center; position: relative;
+  &__avatar { width: 98px; height: 98px; border-radius: 50%; margin: 0 auto; background: linear-gradient(145deg,#d5b89d,#7d7b8e); display: grid; place-items: center; font-size: 32px; }
+  &__name { margin-top: 8px; display: block; font-size: 20px; }
+  &__check { position: absolute; right: 22px; top: 66px; width: 26px; height: 26px; border-radius: 50%; background: #dedede; color: #111; display: grid; place-items: center; }
+}
+.add-artists__done { display: block; margin: 18px auto 0; width: min(100%, 260px); border: 0; border-radius: 24px; background: #ddd; color: #101010; padding: 12px 18px; font-size: 34px; font-weight: 700;
+  &:disabled { opacity: .4; }
+}
+@media (max-width: 1023px) { .add-artists { max-width: 430px; margin: 0 auto; } }
+@media (min-width: 1024px) { h1 { font-size: 56px; } .suggestions-grid { grid-template-columns: repeat(6,minmax(0,1fr)); } .top-grid { max-width: 560px; } }

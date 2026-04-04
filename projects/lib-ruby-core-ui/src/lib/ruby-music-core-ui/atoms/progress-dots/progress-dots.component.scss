@@ -1,0 +1,20 @@
+.dots {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.dot {
+  width: 40px;
+  height: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.26);
+  transition: background 0.3s ease, width 0.3s ease, border-radius 0.3s ease;
+
+  &--active {
+    background: #fff;
+    width: 40px;
+    border-radius: 10px;
+  }
+}

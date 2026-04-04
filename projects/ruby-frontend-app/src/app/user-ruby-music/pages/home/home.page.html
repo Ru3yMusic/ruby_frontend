@@ -1,0 +1,168 @@
+<div class="home">
+  <div class="home__content">
+    <header class="home__topbar">
+      <button class="home__avatar" type="button" aria-label="Perfil" (click)="openDrawer()">
+        @if (profileState.profile().photoUrl) {
+          <img [src]="profileState.profile().photoUrl" class="home__avatar-img" alt="Foto de perfil" />
+        } @else {
+          {{ profileState.profile().displayName[0]?.toUpperCase() }}
+        }
+      </button>
+
+      <nav class="home__filters" aria-label="Filtros">
+        @for (filter of filters; track filter) {
+          <button
+            type="button"
+            class="home__filter"
+            [ngClass]="{ 'home__filter--active': activeFilter() === filter }"
+            (click)="setFilter(filter)">
+            {{ filter }}
+          </button>
+        }
+      </nav>
+    </header>
+
+    @if (showMusicSections()) {
+      <section class="home__section">
+        <h2 class="home__title">Escuchar ahora</h2>
+        <div class="home__tracks">
+          @for (track of tracks; track track.id) {
+            <article class="track-card" [routerLink]="['/music/player', track.id]">
+              <div class="track-card__cover" [style.background]="track.color"></div>
+              <div class="track-card__meta">
+                <h3 class="track-card__title">{{ track.title }}</h3>
+                <p class="track-card__artist">{{ track.artist }}</p>
+              </div>
+              <button type="button" class="track-card__more" aria-label="Mas opciones" (click)="$event.stopPropagation(); openTrackMenu(track)">
+                <lucide-icon [img]="EllipsisVertical" [size]="18" [strokeWidth]="2.3" />
+              </button>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="home__section">
+        <h2 class="home__title">Artistas recomendados</h2>
+        <div class="home__artists">
+          @for (artist of artists; track artist.name) {
+            <article class="artist-card">
+              <div class="artist-card__photo" [style.background]="artist.color"></div>
+              <p class="artist-card__name">{{ artist.name }}</p>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="home__section">
+        <h2 class="home__title">Albumes</h2>
+        <div class="home__station-grid home__station-grid--compact">
+          @for (album of albums; track album.title) {
+            <article class="station-card" [style.background]="album.gradient">
+              <h3 class="station-card__title">{{ album.title }}</h3>
+            </article>
+          }
+        </div>
+      </section>
+    }
+
+    @if (showAllSections()) {
+      <section class="home__section">
+        <h2 class="home__title">Estaciones</h2>
+        <div class="home__station-grid home__station-grid--compact">
+          @for (station of stations.slice(0, 3); track station.name) {
+            <article class="station-card station-card--clickable" [style.background]="station.gradient" [routerLink]="['/station', station.name]">
+              <h3 class="station-card__title">{{ station.name }}</h3>
+            </article>
+          }
+        </div>
+      </section>
+    }
+
+    @if (showStationsOnly()) {
+      <section class="home__section home__section--stations-only">
+        <div class="home__station-grid">
+          @for (station of stations; track station.name) {
+            <article class="station-card station-card--clickable" [style.background]="station.gradient" [routerLink]="['/station', station.name]">
+              <h3 class="station-card__title">{{ station.name }}</h3>
+            </article>
+          }
+        </div>
+      </section>
+    }
+  </div>
+
+  <footer class="player-bar" aria-label="Reproductor">
+    <div class="player-bar__cover"></div>
+    <div class="player-bar__meta">
+      <p class="player-bar__song">La muralla verde</p>
+      <p class="player-bar__artist">Los enanitos verde</p>
+    </div>
+    <div class="player-bar__actions">
+      <button type="button" aria-label="Favorito">
+        <lucide-icon [img]="Heart" [size]="22" [strokeWidth]="2.3" />
+      </button>
+      <button type="button" aria-label="Reproducir">
+        <lucide-icon [img]="Play" [size]="22" [strokeWidth]="2.3" />
+      </button>
+    </div>
+  </footer>
+
+  <nav class="bottom-nav" aria-label="Navegacion principal">
+    <a class="bottom-nav__item bottom-nav__item--active" routerLink="/home" aria-label="Home">
+      <lucide-icon [img]="House" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <a class="bottom-nav__item" routerLink="/music" aria-label="Buscar">
+      <lucide-icon [img]="Search" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <a class="bottom-nav__item" routerLink="/library" aria-label="Biblioteca">
+      <lucide-icon [img]="Library" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <button class="bottom-nav__item" type="button" aria-label="Crear">
+      <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.3" />
+    </button>
+  </nav>
+
+  @if (likedToast()) {
+    <div class="music-toast">Se agrego a Tus Me Gusta</div>
+  }
+
+  @if (selectedTrack()) {
+    <div class="sheet-backdrop" (click)="closeTrackMenu()"></div>
+    <section class="options-sheet" (click)="$event.stopPropagation()">
+      <div class="options-sheet__grab"></div>
+      <header class="options-sheet__header">
+        <div class="options-sheet__cover" [style.background]="selectedTrack()!.color"></div>
+        <div>
+          <p class="options-sheet__song">{{ selectedTrack()!.title }}</p>
+          <p class="options-sheet__artist">{{ selectedTrack()!.artist }}</p>
+        </div>
+      </header>
+      <button type="button" class="options-sheet__item" (click)="addTrackToLiked()">Agregar a Tus me gusta</button>
+      <button type="button" class="options-sheet__item" (click)="openPlaylistPicker()">Agregar a playlist</button>
+      <button type="button" class="options-sheet__item" (click)="goAlbumFromTrack()">Ir al album</button>
+      <button type="button" class="options-sheet__item" (click)="goArtistFromTrack()">Ir a artistas</button>
+
+      @if (playlistModalOpen()) {
+        <section class="playlist-sheet">
+          <div class="playlist-sheet__grab"></div>
+          <div class="playlist-sheet__saved">
+            <span>Guardado en</span>
+            <button type="button" (click)="saveInLibrary()" [class.is-active]="likedInLibrary()">{{ likedInLibrary() ? '✓' : '+' }}</button>
+          </div>
+
+          <button type="button" class="playlist-sheet__row" (click)="togglePlaylistSelection()">
+            <div>
+              <p>mood freeze</p>
+              <small>1 cancion</small>
+            </div>
+            <span class="playlist-sheet__check" [class.is-active]="selectedSavedPlaylist()">✓</span>
+          </button>
+
+          <button type="button" class="playlist-sheet__row" (click)="newPlaylist()">Nueva playlist</button>
+        </section>
+      }
+    </section>
+  }
+
+  <rm-drawer-menu [isOpen]="drawerOpen()" (closed)="closeDrawer()" />
+</div>

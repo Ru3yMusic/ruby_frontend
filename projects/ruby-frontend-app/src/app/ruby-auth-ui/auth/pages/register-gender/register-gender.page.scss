@@ -1,0 +1,41 @@
+.step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 8px;
+
+  &__title {
+    font-size: 30px;
+    font-weight: 800;
+    color: #fff;
+    margin: 0;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    flex: 1;
+    align-content: flex-start;
+  }
+}
+
+@media (min-width: 1024px) {
+  .step {
+    padding-top: 34px;
+    gap: 34px;
+
+    &__title {
+      font-size: 50px;
+      max-width: 620px;
+    }
+
+    &__chips {
+      max-width: 620px;
+      gap: 14px;
+    }
+  }
+}

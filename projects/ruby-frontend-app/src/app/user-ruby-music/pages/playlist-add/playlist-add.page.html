@@ -1,0 +1,37 @@
+<div class="playlist-add">
+  <div class="playlist-add__content">
+    <header>
+      <a [routerLink]="['/library/playlist', route.snapshot.paramMap.get('id')]">‹</a>
+      <h1>Agregar a playlist</h1>
+    </header>
+
+    <input placeholder="Buscar" [value]="search()" (input)="search.set($any($event.target).value)" />
+
+    <div class="playlist-add__tabs">
+      <button type="button" [class.is-active]="tab() === 'sugerencias'" (click)="tab.set('sugerencias')">Sugerencias</button>
+      <button type="button" [class.is-active]="tab() === 'me-gusta'" (click)="tab.set('me-gusta')">De tus me gusta</button>
+    </div>
+
+    <section class="playlist-add__list">
+      @for (track of list(); track track.id) {
+        <article>
+          <span class="cover" [style.background]="track.cover"></span>
+          <div><h2>{{ track.title }}</h2><p>{{ track.artist }}</p></div>
+          <button type="button" class="check" [class.is-active]="selectedIds()[track.id]" (click)="toggle(track.id)">
+            {{ selectedIds()[track.id] ? '✓' : '+' }}
+          </button>
+        </article>
+      }
+
+      @if (list().length === 0) {
+        <p class="playlist-add__empty">Sin resultados para "{{ search() }}"</p>
+      }
+    </section>
+
+    <button type="button" class="playlist-add__save" (click)="save()">Actualizar</button>
+  </div>
+
+  @if (toast()) {
+    <div class="toast">{{ toast() }}</div>
+  }
+</div>

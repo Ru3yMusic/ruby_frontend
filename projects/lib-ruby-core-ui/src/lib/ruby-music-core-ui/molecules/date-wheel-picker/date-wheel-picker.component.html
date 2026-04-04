@@ -1,0 +1,26 @@
+<div class="picker">
+  <div class="picker__fade picker__fade--top"></div>
+  <div class="picker__fade picker__fade--bottom"></div>
+  <div class="picker__selector"></div>
+
+  <!-- Day column -->
+  <div class="picker__column" #dayCol (scroll)="onScroll('day', $event)">
+    @for (d of days; track d) {
+      <div class="picker__item">{{ d }}</div>
+    }
+  </div>
+
+  <!-- Month column -->
+  <div class="picker__column" #monthCol (scroll)="onScroll('month', $event)">
+    @for (m of months; track m) {
+      <div class="picker__item">{{ m }}</div>
+    }
+  </div>
+
+  <!-- Year column -->
+  <div class="picker__column" #yearCol (scroll)="onScroll('year', $event)">
+    @for (y of years; track y) {
+      <div class="picker__item">{{ y }}</div>
+    }
+  </div>
+</div>

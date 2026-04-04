@@ -1,0 +1,37 @@
+.logo {
+  line-height: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  color: #fff;
+
+  &__icon {
+    flex-shrink: 0;
+  }
+
+  &__text {
+    font-weight: 500;
+    letter-spacing: -0.4px;
+    color: #fff;
+
+    strong {
+      font-weight: 800;
+    }
+  }
+
+  // ── Sizes ──────────────────────────────────────────────────────────────
+  &--sm {
+    .logo__icon { width: 19px; height: 19px; }
+    .logo__text { font-size: 15px; }
+  }
+
+  &--md {
+    .logo__icon { width: 26px; height: 26px; }
+    .logo__text { font-size: 22px; }
+  }
+
+  &--lg {
+    .logo__icon { width: 36px; height: 36px; }
+    .logo__text { font-size: 28px; }
+  }
+}

@@ -1,0 +1,40 @@
+<div class="hero">
+
+  <div class="hero__bg">
+    <div class="hero__overlay"></div>
+    <div class="hero__subject"></div>
+  </div>
+
+  <div class="hero__content">
+
+    <header class="hero__header">
+      <rm-logo size="md"/>
+    </header>
+
+    <section class="hero__copy">
+      <h1 class="hero__title">Descubre las joyas de la música.</h1>
+      <p class="hero__subtitle">Explora millones de canciones y descubre tu ritmo.</p>
+    </section>
+
+    <footer class="hero__actions">
+      <rm-button variant="google" size="lg" (clicked)="googleClicked.emit()">
+        Continuar con Google
+      </rm-button>
+
+      <rm-button variant="secondary" size="lg" routerLink="/auth/register/email">
+        Continuar con correo electronico
+      </rm-button>
+
+      <nav class="hero__links">
+        <a class="hero__link" routerLink="/auth/login">Iniciar Sesion</a>
+        <span class="hero__sep" aria-hidden="true">|</span>
+        <a class="hero__link" routerLink="/auth/register/email">Crear Cuenta</a>
+      </nav>
+
+      <div class="hero__dots" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+    </footer>
+
+  </div>
+</div>

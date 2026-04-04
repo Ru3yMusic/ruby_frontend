@@ -1,0 +1,38 @@
+.onb-tpl {
+  min-height: 100dvh;
+  background: radial-gradient(circle at 50% -12%, rgba(255, 53, 53, 0.45) 0%, transparent 38%),
+    linear-gradient(180deg, #9f0019 0%, #5e1826 48%, #877c82 100%);
+  display: flex;
+  flex-direction: column;
+
+  &__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 52px 24px 40px;
+    box-sizing: border-box;
+
+    > * {
+      width: min(100%, 920px);
+      margin: 0 auto;
+    }
+  }
+}
+
+@media (min-width: 1024px) {
+  .onb-tpl {
+    display: flex;
+    justify-content: center;
+
+    &__content {
+      width: min(100%, 1240px);
+      padding-inline: 48px;
+      padding-top: 64px;
+      padding-bottom: 48px;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 24px 60px rgba(7, 1, 3, 0.35);
+      margin: 28px;
+    }
+  }
+}

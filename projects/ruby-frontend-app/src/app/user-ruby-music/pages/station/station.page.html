@@ -1,0 +1,151 @@
+<div class="station">
+  <div class="station__content" [class.station__content--dimmed]="commentsOpen()">
+
+    <!-- Header: ← en vivo | < Rock > | 👥 1.2k -->
+    <header class="station__header">
+      <button type="button" class="station__back" (click)="goBack()">
+        <lucide-icon [img]="ChevronLeft" [size]="20" [strokeWidth]="2.5" />
+        <span class="station__live-badge">en vivo</span>
+      </button>
+
+      <div class="station__selector">
+        <button type="button" class="station__nav-btn" (click)="prevStation()" aria-label="Estacion anterior">
+          <lucide-icon [img]="ChevronLeft" [size]="18" [strokeWidth]="2.6" />
+        </button>
+        <span class="station__name">{{ stationName() }}</span>
+        <button type="button" class="station__nav-btn" (click)="nextStation()" aria-label="Estacion siguiente">
+          <lucide-icon [img]="ChevronRight" [size]="18" [strokeWidth]="2.6" />
+        </button>
+      </div>
+
+      <div class="station__listeners">
+        <lucide-icon [img]="Users" [size]="18" [strokeWidth]="2.2" />
+        <span>1.2k</span>
+      </div>
+    </header>
+
+    <!-- Tarjeta principal de la estación -->
+    <article class="station-card">
+      <div class="station-card__art"></div>
+
+      <div class="station-card__info">
+        <div>
+          <h1 class="station-card__title">Love, You Should've Come Over</h1>
+          <p class="station-card__artist">Jeff Buckley</p>
+        </div>
+
+        <!-- Métricas: mismo icono y mismo texto, alineados -->
+        <aside class="station-card__metrics">
+          <button type="button" class="station-card__metric" [class.station-card__metric--liked]="liked()" (click)="toggleLikeSong()" aria-label="Me gusta">
+            <lucide-icon [img]="Heart" [size]="22" [strokeWidth]="2.3" />
+            <span>1.1k</span>
+          </button>
+          <button type="button" class="station-card__metric" (click)="openComments()" aria-label="Comentarios">
+            <lucide-icon [img]="MessageCircle" [size]="22" [strokeWidth]="2.3" />
+            <span>{{ commentsCount() }}</span>
+          </button>
+          <button type="button" class="station-card__metric" aria-label="Mas opciones">
+            <lucide-icon [img]="EllipsisVertical" [size]="22" [strokeWidth]="2.3" />
+          </button>
+        </aside>
+      </div>
+
+      <!-- Mensajes ya enviados + nuevos en tiempo real -->
+      <div class="station-card__msgs">
+        @for (msg of liveMessages(); track msg.id) {
+          <div class="live-msg" [class.live-msg--me]="msg.user === 'Tú'">
+            <span class="live-msg__user">{{ msg.user }}</span>
+            <span class="live-msg__text">{{ msg.text }}</span>
+          </div>
+        }
+      </div>
+    </article>
+  </div>
+
+  <!-- Barra de chat siempre visible -->
+  <div class="live-chat-bar">
+    <input
+      class="live-chat-bar__input"
+      type="text"
+      placeholder="Escribe un mensaje..."
+      [value]="chatInput()"
+      (input)="chatInput.set($any($event.target).value)"
+      (keydown.enter)="sendMessage()"
+    />
+    <button type="button" class="live-chat-bar__send" (click)="sendMessage()" aria-label="Enviar">
+      <lucide-icon [img]="Send" [size]="18" />
+    </button>
+  </div>
+
+  <nav class="station-nav" aria-label="Navegacion principal">
+    <a class="station-nav__item station-nav__item--active" routerLink="/home" aria-label="Home">
+      <lucide-icon [img]="House" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <a class="station-nav__item" routerLink="/music" aria-label="Buscar">
+      <lucide-icon [img]="Search" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <a class="station-nav__item" routerLink="/library" aria-label="Biblioteca">
+      <lucide-icon [img]="Library" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <button class="station-nav__item" type="button" aria-label="Crear">
+      <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.3" />
+    </button>
+  </nav>
+
+  <!-- Sheet de comentarios -->
+  @if (commentsOpen()) {
+    <div class="sheet-backdrop" (click)="closeComments()"></div>
+    <section class="comments-sheet" (click)="$event.stopPropagation()" aria-label="Comentarios">
+      <header class="comments-sheet__header">
+        <div class="comments-sheet__count">
+          <lucide-icon [img]="MessageCircle" [size]="20" [strokeWidth]="2.3" />
+          <span>{{ commentsCount() }}</span>
+        </div>
+        <div class="comments-sheet__header-actions">
+          <button type="button" aria-label="Ordenar" (click)="toggleSortMenu()">
+            <lucide-icon [img]="SlidersHorizontal" [size]="20" [strokeWidth]="2.1" />
+          </button>
+          <button type="button" aria-label="Cerrar" (click)="closeComments()">
+            <lucide-icon [img]="X" [size]="20" [strokeWidth]="2.4" />
+          </button>
+        </div>
+        @if (sortMenuOpen()) {
+          <div class="sheet-menu sheet-menu--sort">
+            <button type="button" [class.sheet-menu__item--active]="selectedSort() === 'Populares'" (click)="setSort('Populares')">Populares</button>
+            <button type="button" [class.sheet-menu__item--active]="selectedSort() === 'Los mas recientes'" (click)="setSort('Los mas recientes')">Los mas recientes</button>
+          </div>
+        }
+      </header>
+      <div class="comments-sheet__list">
+        @for (comment of comments(); track comment.id) {
+          <article class="comment-row">
+            <button type="button" class="comment-row__avatar" (click)="toggleCommentMenu(comment.id)" aria-label="Opciones"></button>
+            <div class="comment-row__body">
+              <p class="comment-row__line"><strong>{{ comment.user }}</strong> {{ comment.text }}</p>
+              <p class="comment-row__time">{{ comment.time }}</p>
+            </div>
+            <button type="button" class="comment-row__like" [class.comment-row__like--active]="comment.liked">
+              <lucide-icon [img]="Heart" [size]="16" />
+              @if (comment.likes > 0) { <span>{{ comment.likes }}</span> }
+            </button>
+            @if (commentMenuFor() === comment.id) {
+              <div class="sheet-menu sheet-menu--comment-row">
+                <button type="button">Conectar</button>
+                <button type="button" class="sheet-menu__item--active">Reportar</button>
+              </div>
+            }
+          </article>
+        }
+      </div>
+      <footer class="comments-sheet__composer">
+        <span class="comments-sheet__composer-avatar"></span>
+        <div class="comments-sheet__composer-input">Anadir comentario...</div>
+        <button type="button" class="comments-sheet__composer-emoji" aria-label="Emoji">
+          <lucide-icon [img]="Smile" [size]="20" [strokeWidth]="2.1" />
+        </button>
+      </footer>
+    </section>
+  }
+
+  <rm-drawer-menu [isOpen]="drawerOpen()" (closed)="closeDrawer()" />
+</div>

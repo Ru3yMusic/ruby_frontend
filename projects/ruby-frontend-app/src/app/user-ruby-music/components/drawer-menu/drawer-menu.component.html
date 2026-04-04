@@ -1,0 +1,53 @@
+@if (isOpen()) {
+  <div class="drawer-backdrop" (click)="close()"></div>
+  <nav class="drawer" aria-label="Menu de usuario">
+    <div class="drawer__profile">
+      <div class="drawer__avatar">
+        @if (profileState.profile().photoUrl) {
+          <img [src]="profileState.profile().photoUrl" alt="Foto de perfil" />
+        } @else {
+          {{ profileState.profile().displayName[0]?.toUpperCase() }}
+        }
+      </div>
+      <p class="drawer__name">{{ profileState.profile().displayName }}</p>
+    </div>
+
+    <ul class="drawer__menu">
+      <li>
+        <button type="button" (click)="goEditProfile()">
+          <lucide-icon [img]="Pencil" [size]="18" [strokeWidth]="2" />
+          Editar perfil
+        </button>
+      </li>
+      <li>
+        <button type="button" (click)="goNotifications()">
+          <lucide-icon [img]="Bell" [size]="18" [strokeWidth]="2" />
+          Notificaciones
+        </button>
+      </li>
+      <li>
+        <button type="button" (click)="goAmigos()">
+          <lucide-icon [img]="Users" [size]="18" [strokeWidth]="2" />
+          Amigos
+        </button>
+      </li>
+      <li>
+        <button type="button" (click)="goChatEstacion()">
+          <lucide-icon [img]="MessageCircle" [size]="18" [strokeWidth]="2" />
+          Chat estación
+        </button>
+      </li>
+      <li>
+        <button type="button">
+          <lucide-icon [img]="Plus" [size]="18" [strokeWidth]="2" />
+          Crear comunidad
+        </button>
+      </li>
+    </ul>
+
+    <button type="button" class="drawer__logout" (click)="logout()">
+      <lucide-icon [img]="LogOut" [size]="18" [strokeWidth]="2" />
+      Cerrar Sesión
+    </button>
+  </nav>
+}

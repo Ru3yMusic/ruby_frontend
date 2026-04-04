@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+/* ── Design tokens ─────────────────────────────────────────────────────── */
+:root {
+  --color-primary:       #d70013;
+  --color-primary-dark:  #8d000e;
+  --color-bg-dark:       #0f0808;
+  --color-bg-red-top:    #b20014;
+  --color-bg-red-mid:    #631120;
+  --color-bg-red-bot:    #82767d;
+  --color-text:          #ffffff;
+  --color-text-muted:    rgba(255,255,255,0.55);
+  --color-surface:       rgba(255,255,255,0.08);
+  --color-border:        rgba(255,255,255,0.15);
+  --radius-sm:           8px;
+  --radius-md:           16px;
+  --radius-lg:           50px;
+  --font:                'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: #000;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+/* Max-width mobile container */
+app-root {
+  display: block;
+  width: 100%;
+  min-height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+@media (max-width: 768px) {
+  app-root {
+    max-width: 430px;
+    margin: 0 auto;
+    border-radius: 28px;
+  }
+}
+
+/* Scrollbar hide globally for pickers */
+.no-scroll::-webkit-scrollbar { display: none; }
+
+a { text-decoration: none; color: inherit; }

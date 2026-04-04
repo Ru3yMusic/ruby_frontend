@@ -1,0 +1,77 @@
+button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 50px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  // ── Sizes ──────────────────────────────────────────────────────────────
+  &.btn--sm { padding: 9px 18px; font-size: 13px; }
+  &.btn--md { padding: 13px 24px; font-size: 15px; }
+  &.btn--lg { padding: 14px 28px; font-size: 16px; }
+
+  // ── Variants ───────────────────────────────────────────────────────────
+  &.btn--primary {
+    background: linear-gradient(90deg, #8f0008 0%, #dd000d 45%, #a91023 100%);
+    color: #fff;
+    box-shadow: 0 10px 20px rgba(104, 0, 10, 0.25);
+
+    &:hover:not(:disabled) { opacity: 0.94; }
+  }
+
+  &.btn--secondary {
+    background: linear-gradient(90deg, rgba(51, 51, 51, 0.8) 0%, rgba(92, 92, 92, 0.68) 100%);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  &.btn--ghost {
+    background: transparent;
+    color: #C41230;
+    font-weight: 600;
+  }
+
+  &.btn--google {
+    background: #fff;
+    color: #3c4043;
+    font-weight: 600;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  }
+}
+
+// ── Inner elements ────────────────────────────────────────────────────────
+.btn__google-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.btn__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

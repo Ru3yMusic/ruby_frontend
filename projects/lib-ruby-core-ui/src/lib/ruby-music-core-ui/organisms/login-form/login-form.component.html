@@ -1,0 +1,32 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="login-form" novalidate>
+
+  <rm-input
+    formControlName="email"
+    type="email"
+    placeholder="Ingresa tu correo"
+    [error]="emailError"/>
+
+  <rm-input
+    formControlName="password"
+    type="password"
+    placeholder="Ingresa tu contraseña"
+    [error]="passwordError"/>
+
+  <a class="login-form__forgot" routerLink="/auth/forgot-password">
+    ¿Olvidaste tu contraseña?
+  </a>
+
+  @if (serverError()) {
+    <p class="login-form__server-error" role="alert">{{ serverError() }}</p>
+  }
+
+  <rm-button
+    type="submit"
+    variant="primary"
+    size="lg"
+    [loading]="loading()"
+    [disabled]="form.invalid">
+    Ingresar
+  </rm-button>
+
+</form>

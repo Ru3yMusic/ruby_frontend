@@ -1,0 +1,5 @@
+<div class="dots" role="progressbar" [attr.aria-valuenow]="current()" [attr.aria-valuemax]="total()">
+  @for (step of steps(); track step) {
+    <div class="dot" [class.dot--active]="step <= current()"></div>
+  }
+</div>

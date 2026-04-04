@@ -1,0 +1,42 @@
+.otp {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+
+  &__box {
+    width: 48px;
+    height: 56px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    font-family: inherit;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s ease;
+    caret-color: transparent;
+
+    &:focus {
+      border-color: rgba(255, 255, 255, 0.65);
+    }
+
+    &--filled {
+      border-color: #C41230;
+    }
+  }
+}
+
+@media (min-width: 1024px) {
+  .otp {
+    justify-content: flex-start;
+    gap: 12px;
+
+    &__box {
+      width: 58px;
+      height: 64px;
+      font-size: 26px;
+    }
+  }
+}

@@ -1,0 +1,38 @@
+<rm-onboarding-template>
+
+  <div class="picker">
+
+    <h1 class="picker__title">Elige 3 o más estaciones que te gusten</h1>
+
+    <div class="picker__search">
+      <lucide-icon [img]="Search" [size]="18" [strokeWidth]="2" class="picker__search-icon" />
+      <input
+        class="picker__search-input"
+        type="text"
+        placeholder="Buscar"
+        [(ngModel)]="searchQuery"/>
+    </div>
+
+    <div class="picker__grid">
+      @for (station of filteredStations(); track station.id) {
+        <rm-station-bubble
+          [name]="station.name"
+          [gradient]="station.gradient"
+          [selected]="isSelected(station.id)"
+          (toggled)="toggle(station.id)"/>
+      }
+    </div>
+
+    <div class="picker__footer">
+      <rm-button
+        variant="primary"
+        size="lg"
+        [disabled]="selected().size < 3"
+        (clicked)="onListo()">
+        Listo
+      </rm-button>
+    </div>
+
+  </div>
+
+</rm-onboarding-template>

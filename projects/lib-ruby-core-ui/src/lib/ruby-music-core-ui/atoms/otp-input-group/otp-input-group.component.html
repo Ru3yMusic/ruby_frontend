@@ -1,0 +1,17 @@
+<div class="otp" role="group" aria-label="Código de verificación">
+  @for (i of indices; track i) {
+    <input
+      #otpInput
+      class="otp__box"
+      [class.otp__box--filled]="digits()[i] !== ''"
+      type="text"
+      inputmode="numeric"
+      maxlength="1"
+      [value]="digits()[i]"
+      [attr.aria-label]="'Dígito ' + (i + 1)"
+      (keydown)="onKeyDown($event, i)"
+      (input)="onInput($event, i)"
+      (paste)="onPaste($event)"
+    />
+  }
+</div>

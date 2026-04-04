@@ -1,0 +1,413 @@
+.station {
+  min-height: 100dvh;
+  background: radial-gradient(circle at 50% -16%, rgba(255, 46, 46, 0.28) 0%, transparent 34%),
+    linear-gradient(180deg, #c10f14 0%, #641117 24%, #12141b 58%, #06080d 100%);
+  color: #fff;
+  position: relative;
+}
+
+.station__content {
+  width: min(100%, 1240px);
+  margin: 0 auto;
+  padding: 18px 20px 165px;
+  transition: filter 0.2s ease;
+  &--dimmed { filter: saturate(0.68); }
+}
+
+/* ── Header: ← en vivo | < Rock > | 👥 1.2k ── */
+.station__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.station__back {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.station__live-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e8314a;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  background: rgba(232, 49, 74, .15);
+  border: 1px solid rgba(232, 49, 74, .4);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+
+.station__selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.station__nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, .22);
+  background: rgba(255, 255, 255, .06);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  &:hover { background: rgba(255, 255, 255, .12); }
+}
+
+.station__name {
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 60px;
+  text-align: center;
+}
+
+.station__listeners {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: rgba(255, 255, 255, .72);
+  flex-shrink: 0;
+
+  svg { width: 18px; height: 18px; }
+
+  span {
+    font-size: 13px;
+    font-weight: 600;
+  }
+}
+
+/* ── Tarjeta de la estación ── */
+.station-card {
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0e1218 0%, #2e3840 100%);
+
+  &__art {
+    width: 100%;
+    aspect-ratio: 1;
+    background: linear-gradient(145deg, #e12f95 0%, #f47e2a 28%, #4bbac9 58%, #6226bb 100%);
+    display: block;
+  }
+
+  &__info {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px 4px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+    max-width: 220px;
+  }
+
+  &__artist {
+    margin: 4px 0 0;
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.72);
+  }
+}
+
+/* ── Métricas alineadas ── */
+.station-card__metrics {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.station-card__metric {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, .72);
+  padding: 5px 6px;
+  cursor: pointer;
+
+  svg { width: 22px; height: 22px; flex-shrink: 0; }
+
+  span {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, .85);
+    min-width: 30px;
+  }
+
+  &--liked { color: #e8314a; }
+}
+
+/* ── Feed de mensajes ── */
+.station-card__msgs {
+  padding: 8px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+.live-msg {
+  display: flex;
+  gap: 6px;
+  font-size: 13px;
+  &__user { color: rgba(255, 255, 255, .5); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+  &__text  { color: rgba(255, 255, 255, .85); }
+  &--me .live-msg__user { color: #e8314a; }
+}
+
+/* ── Barra de chat ── */
+.live-chat-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 62px;
+  z-index: 6;
+  background: rgba(10, 11, 15, .96);
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+}
+
+.live-chat-bar__input {
+  flex: 1;
+  border: 0;
+  border-radius: 20px;
+  background: #1e2028;
+  color: #fff;
+  font-size: 14px;
+  padding: 10px 16px;
+  outline: none;
+  &::placeholder { color: rgba(255, 255, 255, .35); }
+}
+
+.live-chat-bar__send {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 0;
+  background: #e8314a;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  &:hover { background: #ff3f5a; }
+}
+
+/* ── Nav ── */
+.station-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  background: rgba(10, 11, 15, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 10px 8px 8px;
+
+  &__item {
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.62);
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    svg { width: 30px; height: 30px; }
+    &--active { color: #ff5b5b; }
+  }
+}
+
+/* ── Sheet de comentarios ── */
+.sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.2); z-index: 6; }
+
+.comments-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  background: #efefef;
+  border-radius: 22px 22px 0 0;
+  color: #1d1d1d;
+  max-height: 72vh;
+  display: flex;
+  flex-direction: column;
+
+  &__header {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 16px 10px;
+  }
+
+  &__count {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 22px;
+    svg { width: 22px; height: 22px; }
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    button { width: 36px; height: 36px; border: none; background: none; color: #202020; }
+    svg { width: 26px; height: 26px; }
+  }
+
+  &__list { padding: 2px 12px 12px; overflow: auto; }
+
+  &__composer {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 32px;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px 16px;
+    border-top: 1px solid rgba(0, 0, 0, .06);
+  }
+
+  &__composer-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #5f5f5f 0%, #969696 100%);
+  }
+
+  &__composer-input {
+    border-radius: 18px;
+    background: #cbc3c3;
+    color: rgba(0, 0, 0, .36);
+    padding: 10px 16px;
+    font-size: 15px;
+  }
+
+  &__composer-emoji {
+    border: none;
+    background: none;
+    color: #363636;
+    svg { width: 26px; height: 26px; }
+  }
+}
+
+.comment-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 0;
+
+  &__avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #b4b4b4;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  &__line {
+    margin: 0;
+    font-size: 15px;
+    color: #8c8c8c;
+    strong { color: #303030; }
+  }
+
+  &__time { margin: 2px 0 0; font-size: 13px; color: #666; }
+
+  &__like {
+    border: none;
+    background: none;
+    color: #8a8a8a;
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    svg { width: 20px; height: 20px; }
+    span { font-size: 13px; color: #222; }
+    &--active { color: #de0015; }
+  }
+}
+
+.sheet-menu {
+  position: absolute;
+  background: #ececec;
+  border-radius: 10px;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, .2);
+  overflow: hidden;
+  min-width: 190px;
+
+  button {
+    width: 100%;
+    padding: 12px 14px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    font-size: 15px;
+    color: #222;
+  }
+
+  &__item--active { font-weight: 700; }
+  &--sort { right: 56px; top: 54px; }
+  &--comment-row { left: 10px; top: 40px; z-index: 3; }
+}
+
+@media (max-width: 1023px) {
+  .station { max-width: 430px; margin: 0 auto; }
+}
+
+@media (min-width: 1024px) {
+  .station__content { padding: 26px 36px 165px; }
+
+  .station-card {
+    width: min(100%, 640px);
+    margin: 0 auto;
+    &__title { font-size: 26px; }
+  }
+
+  .live-chat-bar, .station-nav {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(calc(100% - 64px), 1200px);
+  }
+
+  .comments-sheet {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(100%, 920px);
+    border-radius: 22px 22px 0 0;
+  }
+}

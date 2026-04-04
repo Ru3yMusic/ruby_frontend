@@ -1,0 +1,46 @@
+/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+/* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "paths": {
+      "lib-ruby-core": ["./projects/lib-ruby-core/src/public-api.ts"],
+      "lib-ruby-core-ui": ["./projects/lib-ruby-core-ui/src/public-api.ts"]
+    },
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "ES2022",
+    "module": "preserve"
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    "strictTemplates": true
+  },
+  "files": [],
+  "references": [
+    {
+      "path": "./projects/ruby-frontend-app/tsconfig.app.json"
+    },
+    {
+      "path": "./projects/lib-ruby-core/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/lib-ruby-core/tsconfig.spec.json"
+    },
+    {
+      "path": "./projects/lib-ruby-core-ui/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/lib-ruby-core-ui/tsconfig.spec.json"
+    }
+  ]
+}

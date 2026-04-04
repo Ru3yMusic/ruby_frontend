@@ -1,0 +1,78 @@
+<div class="album-page">
+  <div class="album-page__content">
+    <header class="album-page__header">
+      <a class="album-page__back" routerLink="/music" aria-label="Volver">
+        <lucide-icon [img]="ChevronLeft" [size]="24" [strokeWidth]="2.4" />
+      </a>
+      <div class="album-page__cover"></div>
+      <h1 class="album-page__title">Rebel Yell</h1>
+      <p class="album-page__subtitle">Billy Idol</p>
+      <div class="album-page__actions">
+        <button type="button" class="album-page__follow">Seguir</button>
+        <button type="button" class="album-page__dots" (click)="openAlbumMenu()"><span></span><span></span><span></span></button>
+        <button type="button" class="album-page__icon">⤮</button>
+        <button type="button" class="album-page__icon">▶</button>
+      </div>
+    </header>
+
+    <section class="album-page__tracks">
+      @for (track of tracks(); track track.id) {
+        <article class="album-track" [class.album-track--hidden]="track.hidden">
+          <div class="album-track__cover" [style.background]="track.color"></div>
+          <div class="album-track__meta" (click)="openPlayer(track.id)">
+            <h2>{{ track.title }}</h2>
+            <p>{{ track.artist }}</p>
+          </div>
+          @if (track.hidden) {
+            <span class="album-track__hidden">⊖</span>
+          } @else {
+            <button type="button" class="album-track__more" (click)="openSongMenu(track.id)"><span></span><span></span><span></span></button>
+          }
+        </article>
+      }
+    </section>
+  </div>
+
+  <nav class="album-nav" aria-label="Navegacion principal">
+    <a class="album-nav__item" routerLink="/home" aria-label="Inicio">
+      <lucide-icon [img]="House" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <a class="album-nav__item" routerLink="/music" aria-label="Buscar">
+      <lucide-icon [img]="Search" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <a class="album-nav__item album-nav__item--active" routerLink="/library" aria-label="Biblioteca">
+      <lucide-icon [img]="Library" [size]="22" [strokeWidth]="2.3" />
+    </a>
+    <button class="album-nav__item" type="button" aria-label="Crear">
+      <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.3" />
+    </button>
+  </nav>
+
+  @if (albumMenuOpen() || songMenuFor()) {
+    <div class="sheet-backdrop" (click)="closeMenus()"></div>
+  }
+
+  @if (albumMenuOpen()) {
+    <section class="options-sheet">
+      <div class="options-sheet__grab"></div>
+      <header class="options-sheet__header">Heroes Del Silencio</header>
+      <button type="button">Compartir</button>
+      <button type="button">Seguir</button>
+    </section>
+  }
+
+  @if (songMenuFor()) {
+    <section class="options-sheet">
+      <div class="options-sheet__grab"></div>
+      <header class="options-sheet__header">Eyes without a face</header>
+      <button type="button">Agregar a Tus me gusta</button>
+      <button type="button">Agregar a playlist</button>
+      <button type="button" (click)="hideInAlbum(songMenuFor()!)">Esconder en este album</button>
+      <button type="button" (click)="goArtist()">Ir a artistas</button>
+    </section>
+  }
+
+  @if (toast()) {
+    <div class="album-toast">{{ toast() }} <button type="button" (click)="undoHide()">Deshacer</button></div>
+  }
+</div>

@@ -1,0 +1,11 @@
+.playlist-create { min-height: 100dvh; display: grid; place-items: center; color: #fff; background: radial-gradient(circle at 50% 0, rgba(255,0,0,.45), transparent 40%), linear-gradient(180deg,#1d1f28,#05070c); }
+.playlist-create__card { width: min(calc(100% - 40px), 760px); text-align: center;
+  p { margin: 0 0 12px; font-size: 38px; }
+  input { width: 100%; border: 0; border-bottom: 1px solid rgba(255,255,255,.4); background: transparent; color: #fff; font-size: 52px; text-align: center; padding: 8px 0; }
+}
+.playlist-create__actions { margin-top: 18px; display: flex; justify-content: center; gap: 16px;
+  button { min-width: 150px; border-radius: 22px; padding: 8px 16px; font-size: 28px; }
+  .secondary { background: transparent; border: 2px solid rgba(255,255,255,.6); color: #fff; }
+  .primary { background: #ff0606; border: 0; color: #fff; }
+}
+@media (max-width: 1023px) { .playlist-create { max-width: 430px; margin: 0 auto; } }

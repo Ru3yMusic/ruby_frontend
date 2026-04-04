@@ -1,0 +1,9 @@
+<button
+  type="button"
+  class="bubble"
+  [class.bubble--selected]="selected()"
+  [style.background]="gradient()"
+  [attr.aria-pressed]="selected()"
+  (click)="toggled.emit()">
+  <span class="bubble__name">{{ name() }}</span>
+</button>

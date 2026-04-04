@@ -1,0 +1,33 @@
+<div class="otp-form">
+
+  <div class="otp-form__header">
+    <h1 class="otp-form__title">Verifica tu correo</h1>
+    <p class="otp-form__subtitle">
+      Ingresa el código que enviamos a:<br>
+      <strong class="otp-form__email">{{ email() }}</strong>
+    </p>
+  </div>
+
+  <rm-otp-input-group (completed)="onCodeComplete($event)"/>
+
+  @if (serverError()) {
+    <p class="otp-form__error" role="alert">{{ serverError() }}</p>
+  }
+
+  <div class="otp-form__actions">
+    <rm-button
+      variant="primary"
+      size="lg"
+      [loading]="loading()"
+      [disabled]="!pendingCode"
+      (clicked)="onVerify()">
+      Verificar
+    </rm-button>
+
+    <button type="button" class="otp-form__resend" (click)="resendClicked.emit()">
+      ¿No recibes el código?
+      <span class="otp-form__resend-link">Reenviar código</span>
+    </button>
+  </div>
+
+</div>

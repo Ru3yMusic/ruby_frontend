@@ -1,0 +1,71 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  // ── Wrapper ───────────────────────────────────────────────────────────
+  &__wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  // ── Native input ──────────────────────────────────────────────────────
+  &__input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 22px;
+    padding: 14px 22px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    box-sizing: border-box;
+
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    &:focus {
+      border-color: rgba(255, 255, 255, 0.34);
+      background: rgba(255, 255, 255, 0.24);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  // ── Password toggle ───────────────────────────────────────────────────
+  &__eye {
+    position: absolute;
+    right: 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.55);
+    padding: 0;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+
+    &:hover { color: rgba(255, 255, 255, 0.8); }
+
+    svg { width: 22px; height: 22px; }
+  }
+
+  // ── Meta text ─────────────────────────────────────────────────────────
+  &__hint  { font-size: 12px; color: rgba(255, 255, 255, 0.72); }
+  &__error { font-size: 12px; color: #ff6b6b; }
+
+  // ── Error state ───────────────────────────────────────────────────────
+  &--error {
+    .field__input {
+      border-color: rgba(255, 80, 80, 0.7);
+    }
+  }
+}
