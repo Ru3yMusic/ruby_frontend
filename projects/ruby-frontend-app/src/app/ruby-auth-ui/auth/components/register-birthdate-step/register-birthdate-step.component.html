@@ -1,0 +1,90 @@
+<div class="register-birthdate-container">
+
+  <!-- BOTÓN VOLVER -->
+  <button type="button" class="back-button" (click)="onBackClick()">
+    Volver
+  </button>
+
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <h2 class="title">¿Cuándo naciste?</h2>
+    <p class="subtitle">
+      Selecciona tu fecha de nacimiento
+    </p>
+  </div>
+
+  <!-- WHEEL PICKER -->
+  <div class="picker-container">
+
+    <!-- INDICADOR CENTRAL -->
+    <div class="selection-overlay"></div>
+
+    <div class="picker">
+
+      <!-- COLUMNA DÍA -->
+      <div
+        class="column"
+        #dayColumn
+        (scroll)="onDayScroll($event)"
+         (wheel)="onColumnWheel($event, 'day')"
+      >
+        <div
+          class="item"
+          *ngFor="let day of paddedDays; trackBy: trackByValue"
+          [class.selected]="isDaySelected(day)"
+        >
+          {{ day ?? '' }}
+        </div>
+      </div>
+
+      <!-- COLUMNA MES -->
+      <div
+        class="column"
+        #monthColumn
+        (scroll)="onMonthScroll($event)"
+        (wheel)="onColumnWheel($event, 'month')"
+      >
+        <div
+          class="item"
+          *ngFor="let month of paddedMonths; trackBy: trackByMonth"
+          [class.selected]="isMonthSelected(month)"
+        >
+          {{ month?.label ?? '' }}
+        </div>
+      </div>
+
+      <!-- COLUMNA AÑO -->
+      <div
+        class="column"
+        #yearColumn
+        (scroll)="onYearScroll($event)"
+        (wheel)="onColumnWheel($event, 'year')"
+      >
+        <div
+          class="item"
+          *ngFor="let year of paddedYears; trackBy: trackByValue"
+          [class.selected]="isYearSelected(year)"
+        >
+          {{ year ?? '' }}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ERROR GENERAL -->
+  <p class="error general-error" *ngIf="generalError()">
+    {{ generalError() }}
+  </p>
+
+  <!-- BOTÓN CONTINUAR -->
+  <button
+    class="submit-button"
+    type="button"
+    (click)="submit()"
+    [disabled]="isSubmitting()"
+  >
+    {{ isSubmitting() ? 'Validando...' : 'Continuar' }}
+  </button>
+
+</div>

@@ -1,163 +1,296 @@
-import {
-  Component,
-  computed,
-  ElementRef,
-  signal,
-  ViewChild,
-  ViewChildren,
-  QueryList,
-} from '@angular/core';
-import { NgStyle } from '@angular/common';
-import {
-  LucideAngularModule,
-  Menu, Plus, Search, Pencil, Trash2, X, Music, TriangleAlert,
-} from 'lucide-angular';
+import { CommonModule } from '@angular/common';
+import { Component, computed, signal } from '@angular/core';
+import { Menu, Music4, Pencil, Plus, Search, Trash2 } from 'lucide-angular';
+
+import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
 
-export interface Genre {
+/* =========================
+   MODELO DE GÉNERO
+========================== */
+interface Genre {
   id: string;
   name: string;
-  colorStart: string;
-  colorEnd: string;
-  songCount: number;
+  count: number;
   createdAt: string;
+  gradientStart: string;
+  gradientEnd: string;
 }
 
-const MOCK_GENRES: Genre[] = [
-  { id: '1', name: 'Indie',   colorStart: '#6b7280', colorEnd: '#1f2937', songCount: 12, createdAt: '19/02/2026' },
-  { id: '2', name: 'Jazz',    colorStart: '#fbbf24', colorEnd: '#f97316', songCount: 22, createdAt: '24/01/2026' },
-  { id: '3', name: 'Bachata', colorStart: '#f87171', colorEnd: '#b91c1c', songCount: 31, createdAt: '13/01/2026' },
-  { id: '4', name: 'R&B',     colorStart: '#2dd4bf', colorEnd: '#059669', songCount: 9,  createdAt: '21/12/2025' },
-];
-
 @Component({
-  selector:    'rm-gestion-generos-page',
-  standalone:  true,
-  imports:     [LucideAngularModule, AdminSidebarComponent, NgStyle],
+  selector: 'app-gestion-generos-page',
+  standalone: true,
+  imports: [CommonModule, LucideAngularModule, AdminSidebarComponent],
   templateUrl: './gestion-generos.page.html',
-  styleUrl:    './gestion-generos.page.scss',
+  styleUrl: './gestion-generos.page.scss',
 })
 export class GestionGenerosPage {
+  /* =========================
+     STORAGE KEY
+  ========================== */
+  private readonly GENRES_KEY = 'ruby_genres';
 
-  /* ── Icons ─────────────────────────────────────────────────────────── */
-  readonly Menu          = Menu;
-  readonly Plus          = Plus;
-  readonly Search        = Search;
-  readonly Pencil        = Pencil;
-  readonly Trash2        = Trash2;
-  readonly X             = X;
-  readonly Music         = Music;
-  readonly TriangleAlert = TriangleAlert;
+  /* =========================
+     ICONOS
+  ========================== */
+  readonly Menu = Menu;
+  readonly Search = Search;
+  readonly Plus = Plus;
+  readonly Pencil = Pencil;
+  readonly Trash2 = Trash2;
+  readonly Music4 = Music4;
 
-  /* ── Color picker refs ──────────────────────────────────────────────── */
-  @ViewChild('startPicker') startPickerRef!: ElementRef<HTMLInputElement>;
-  @ViewChild('endPicker')   endPickerRef!:   ElementRef<HTMLInputElement>;
-
-  /* ── Sidebar ────────────────────────────────────────────────────────── */
+  /* =========================
+     ESTADO GENERAL UI
+  ========================== */
   readonly sidebarOpen = signal(false);
-
-  /* ── Data ───────────────────────────────────────────────────────────── */
-  private readonly _genres = signal<Genre[]>(structuredClone(MOCK_GENRES));
-
-  /* ── Search ─────────────────────────────────────────────────────────── */
   readonly searchQuery = signal('');
 
+  /* =========================
+     MODALES
+  ========================== */
+  readonly isCreateModalOpen = signal(false);
+  readonly isEditModalOpen = signal(false);
+  readonly isDeleteModalOpen = signal(false);
+
+  /* =========================
+     GÉNERO SELECCIONADO
+  ========================== */
+  readonly selectedGenre = signal<Genre | null>(null);
+
+  /* =========================
+     FORM CREATE
+  ========================== */
+  readonly createGenreName = signal('');
+  readonly createGradientStart = signal('#FF8A8A');
+  readonly createGradientEnd = signal('#0C3C4C');
+
+  /* =========================
+     FORM EDIT
+  ========================== */
+  readonly editGenreName = signal('');
+  readonly editGradientStart = signal('#FF8A8A');
+  readonly editGradientEnd = signal('#0C3C4C');
+
+  /* =========================
+     DATA PERSISTIDA
+  ========================== */
+  readonly genres = signal<Genre[]>(this.loadGenres());
+
+  /* =========================
+     COMPUTED: FILTRADO
+  ========================== */
   readonly filteredGenres = computed(() => {
-    const q = this.searchQuery().toLowerCase().trim();
-    return q
-      ? this._genres().filter(g => g.name.toLowerCase().includes(q))
-      : this._genres();
+    const query = this.searchQuery().trim().toLowerCase();
+
+    if (!query) {
+      return this.genres();
+    }
+
+    return this.genres().filter((genre) =>
+      genre.name.toLowerCase().includes(query)
+    );
   });
 
-  /* ── Modal: Create / Edit ───────────────────────────────────────────── */
-  readonly modalMode    = signal<'create' | 'edit' | null>(null);
-  readonly editingGenre = signal<Genre | null>(null);
+  /* =========================
+     COMPUTED: OVERLAY MODALES
+  ========================== */
+  readonly anyModalOpen = computed(() => {
+    return (
+      this.isCreateModalOpen() ||
+      this.isEditModalOpen() ||
+      this.isDeleteModalOpen()
+    );
+  });
 
-  readonly formName       = signal('');
-  readonly formColorStart = signal('#ff6b35');
-  readonly formColorEnd   = signal('#f7931e');
+  /* =========================
+     STORAGE
+  ========================== */
+  private loadGenres(): Genre[] {
+    const storedGenres = localStorage.getItem(this.GENRES_KEY);
 
-  readonly gradientPreview = computed(
-    () => `linear-gradient(to bottom, ${this.formColorStart()}, ${this.formColorEnd()})`,
-  );
-
-  readonly formValid = computed(
-    () => this.formName().trim().length > 0,
-  );
-
-  openCreateModal(): void {
-    this.formName.set('');
-    this.formColorStart.set('#ff6b35');
-    this.formColorEnd.set('#f7931e');
-    this.editingGenre.set(null);
-    this.modalMode.set('create');
-  }
-
-  openEditModal(genre: Genre): void {
-    this.formName.set(genre.name);
-    this.formColorStart.set(genre.colorStart);
-    this.formColorEnd.set(genre.colorEnd);
-    this.editingGenre.set(genre);
-    this.modalMode.set('edit');
-  }
-
-  closeModal(): void {
-    this.modalMode.set(null);
-    this.editingGenre.set(null);
-  }
-
-  submitModal(): void {
-    if (!this.formValid()) return;
-
-    const now = new Date();
-    const date = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
-
-    if (this.modalMode() === 'create') {
-      const nuevo: Genre = {
-        id:         crypto.randomUUID(),
-        name:       this.formName().trim(),
-        colorStart: this.formColorStart(),
-        colorEnd:   this.formColorEnd(),
-        songCount:  0,
-        createdAt:  date,
-      };
-      this._genres.update(list => [nuevo, ...list]);
-    } else {
-      const target = this.editingGenre();
-      if (!target) return;
-      this._genres.update(list =>
-        list.map(g =>
-          g.id === target.id
-            ? { ...g, name: this.formName().trim(), colorStart: this.formColorStart(), colorEnd: this.formColorEnd() }
-            : g,
-        ),
-      );
+    if (storedGenres) {
+      try {
+        return JSON.parse(storedGenres) as Genre[];
+      } catch {
+        localStorage.removeItem(this.GENRES_KEY);
+      }
     }
-    this.closeModal();
+
+    const baseGenres: Genre[] = [
+      
+    ];
+
+    localStorage.setItem(this.GENRES_KEY, JSON.stringify(baseGenres));
+    return baseGenres;
   }
 
-  /* ── Modal: Delete confirm ──────────────────────────────────────────── */
-  readonly deletingGenre = signal<Genre | null>(null);
-
-  openDeleteModal(genre: Genre): void { this.deletingGenre.set(genre); }
-  closeDeleteModal(): void            { this.deletingGenre.set(null); }
-
-  confirmDelete(): void {
-    const g = this.deletingGenre();
-    if (!g) return;
-    this._genres.update(list => list.filter(x => x.id !== g.id));
-    this.closeDeleteModal();
+  private persistGenres(genres: Genre[]): void {
+    localStorage.setItem(this.GENRES_KEY, JSON.stringify(genres));
+    this.genres.set(genres);
   }
 
-  /* ── Helpers ────────────────────────────────────────────────────────── */
-  genreGradient(g: Genre): string {
-    return `linear-gradient(to bottom, ${g.colorStart}, ${g.colorEnd})`;
+  /* =========================
+     HELPERS
+  ========================== */
+  private formatDate(date: Date): string {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   }
 
-  anyModalOpen(): boolean {
-    return !!this.modalMode() || !!this.deletingGenre();
+  private resetCreateForm(): void {
+    this.createGenreName.set('');
+    this.createGradientStart.set('#FF8A8A');
+    this.createGradientEnd.set('#0C3C4C');
   }
 
-  openStartPicker(): void { this.startPickerRef.nativeElement.click(); }
-  openEndPicker():   void { this.endPickerRef.nativeElement.click(); }
+  private resetEditForm(): void {
+    this.editGenreName.set('');
+    this.editGradientStart.set('#FF8A8A');
+    this.editGradientEnd.set('#0C3C4C');
+  }
+
+  private normalizeGenreName(name: string): string {
+    return name.trim().toLowerCase();
+  }
+
+  private existsGenreName(name: string, excludeId?: string): boolean {
+    const normalizedName = this.normalizeGenreName(name);
+
+    return this.genres().some(
+      (genre) =>
+        this.normalizeGenreName(genre.name) === normalizedName &&
+        genre.id !== excludeId
+    );
+  }
+
+  /* =========================
+     MODAL: CREAR
+  ========================== */
+  openCreateModal(): void {
+    this.resetCreateForm();
+    this.isCreateModalOpen.set(true);
+  }
+
+  createGenre(): void {
+    const name = this.createGenreName().trim();
+    const gradientStart = this.createGradientStart();
+    const gradientEnd = this.createGradientEnd();
+
+    if (!name) {
+      return;
+    }
+
+    if (name.length > 100) {
+      return;
+    }
+
+    if (this.existsGenreName(name)) {
+      return;
+    }
+
+    const newGenre: Genre = {
+      id: crypto.randomUUID(),
+      name,
+      count: 0,
+      createdAt: this.formatDate(new Date()),
+      gradientStart,
+      gradientEnd,
+    };
+
+    const updatedGenres = [newGenre, ...this.genres()];
+    this.persistGenres(updatedGenres);
+
+    this.closeAllModals();
+  }
+
+  /* =========================
+     MODAL: EDITAR
+  ========================== */
+  openEditModal(genre: Genre): void {
+    this.selectedGenre.set(genre);
+
+    this.editGenreName.set(genre.name);
+    this.editGradientStart.set(genre.gradientStart);
+    this.editGradientEnd.set(genre.gradientEnd);
+
+    this.isEditModalOpen.set(true);
+  }
+
+  saveGenreEdit(): void {
+    const currentGenre = this.selectedGenre();
+
+    if (!currentGenre) {
+      return;
+    }
+
+    const name = this.editGenreName().trim();
+    const gradientStart = this.editGradientStart();
+    const gradientEnd = this.editGradientEnd();
+
+    if (!name) {
+      return;
+    }
+
+    if (name.length > 100) {
+      return;
+    }
+
+    if (this.existsGenreName(name, currentGenre.id)) {
+      return;
+    }
+
+    const updatedGenres = this.genres().map((genre) =>
+      genre.id === currentGenre.id
+        ? {
+            ...genre,
+            name,
+            gradientStart,
+            gradientEnd,
+          }
+        : genre
+    );
+
+    this.persistGenres(updatedGenres);
+    this.closeAllModals();
+  }
+
+  /* =========================
+     MODAL: ELIMINAR
+  ========================== */
+  openDeleteModal(genre: Genre): void {
+    this.selectedGenre.set(genre);
+    this.isDeleteModalOpen.set(true);
+  }
+
+  confirmDeleteGenre(): void {
+    const currentGenre = this.selectedGenre();
+
+    if (!currentGenre) {
+      return;
+    }
+
+    const updatedGenres = this.genres().filter(
+      (genre) => genre.id !== currentGenre.id
+    );
+
+    this.persistGenres(updatedGenres);
+    this.closeAllModals();
+  }
+
+  /* =========================
+     CIERRE GENERAL MODALES
+  ========================== */
+  closeAllModals(): void {
+    this.isCreateModalOpen.set(false);
+    this.isEditModalOpen.set(false);
+    this.isDeleteModalOpen.set(false);
+
+    this.selectedGenre.set(null);
+
+    this.resetCreateForm();
+    this.resetEditForm();
+  }
 }

@@ -1,0 +1,45 @@
+:host {
+  display: block;
+}
+
+.music-page {
+  display: block;
+}
+
+.music-content {
+  margin-top: 24px;
+}
+
+/* ===================== */
+/* TABS SUPERIORES */
+/* ===================== */
+.home-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.tab {
+  min-width: 164px;
+  padding: 12px 22px;
+  border: none;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.073);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+  
+}
+
+.tab:hover {
+  transform: translateY(-1px);
+   box-shadow: 0 5px 15px rgba(86, 86, 86, 0.18);
+}
+
+.tab.active {
+  background: #161616;
+  color: #ffffff;
+}

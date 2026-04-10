@@ -1,0 +1,314 @@
+<div
+  class="station-detail-page"
+  [style.background]="getStationBackgroundStyle()"
+>
+  <audio
+    #stationAudio
+    class="station-audio"
+    autoplay
+    (loadedmetadata)="onAudioLoadedMetadata()"
+    (timeupdate)="onAudioTimeUpdate()"
+    (ended)="onAudioEnded()"
+  ></audio>
+
+  <div class="station-detail-backdrop">
+    <img
+      class="station-detail-backdrop-image"
+      [src]="getBackdropImage()"
+      alt="Fondo de estación"
+    />
+  </div>
+
+  <div class="station-detail-overlay">
+    <div class="station-detail-header">
+      <button
+        class="station-back-button"
+        type="button"
+        (click)="goBack()"
+      >
+        <img
+          class="station-icon station-icon--back"
+          src="/assets/icons/station-back.png"
+          alt="Volver"
+        />
+      </button>
+
+      <div class="station-live-status">
+        <span class="station-live-dot"></span>
+        <span>En vivo</span>
+      </div>
+
+      <div class="station-detail-title-group">
+        <h1 class="station-detail-title">
+          {{ currentStation()?.name || 'Estación' }}
+        </h1>
+      </div>
+
+      <div class="station-listeners">
+        <img
+          class="station-icon station-icon--listeners"
+          src="/assets/icons/station-listeners.png"
+          alt="Oyentes"
+        />
+        <span>{{ liveListenersCount() }}</span>
+      </div>
+    </div>
+
+    <div class="station-detail-main-shell">
+      <button
+        class="station-nav-arrow station-nav-arrow--left"
+        type="button"
+        (click)="goToPreviousStation()"
+      >
+        <img
+          class="station-nav-arrow-icon"
+          src="/assets/icons/station-chevron-left.png"
+          alt="Estación anterior"
+        />
+      </button>
+
+      <button
+        class="station-nav-arrow station-nav-arrow--right"
+        type="button"
+        (click)="goToNextStation()"
+      >
+        <img
+          class="station-nav-arrow-icon"
+          src="/assets/icons/station-chevron-right.png"
+          alt="Estación siguiente"
+        />
+      </button>
+
+      <div class="station-detail-main">
+        <div class="station-current-cover-wrapper">
+          <img
+            class="station-current-cover"
+            [src]="getBackdropImage()"
+            [alt]="currentSong()?.title || 'Canción actual'"
+          />
+        </div>
+
+        <div class="station-current-song-info">
+          <h2 class="station-current-song-title">
+            {{ currentSong()?.title || 'Sin canción disponible' }}
+          </h2>
+          <p class="station-current-song-artist">
+            {{ currentArtist()?.name || 'Artista desconocido' }}
+          </p>
+        </div>
+
+        <div class="station-progress-row">
+          <span class="station-time-label">{{ currentTimeLabel() }}</span>
+
+          <div class="station-progress-bar">
+            <div
+              class="station-progress-fill"
+              [style.width.%]="progressPercent()"
+            ></div>
+          </div>
+
+          <span class="station-time-label">{{ durationLabel() }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="station-detail-bottom">
+      <div class="station-comments-column">
+        <div class="station-comments-list">
+          @for (comment of visibleComments(); track comment.id; let i = $index) {
+            <div
+              class="station-comment-item"
+              [class.station-comment-item--fade-1]="i === 0"
+              [class.station-comment-item--fade-2]="i === 1"
+              [class.station-comment-item--fade-3]="i === 2"
+            >
+              <img
+                class="station-comment-avatar"
+                [src]="getCommentAvatar(comment)"
+                [alt]="comment.userName"
+              />
+
+              <div class="station-comment-bubble">
+                <div class="station-comment-meta">
+                  <span class="station-comment-user">
+                    @{{ comment.userName }}
+                  </span>
+                </div>
+
+                <p class="station-comment-message">
+                  {{ comment.message }}
+                </p>
+              </div>
+
+              <div class="station-comment-actions">
+                <button
+                  class="station-comment-more"
+                  type="button"
+                  (click)="toggleCommentMenu(comment.id, $event)"
+                >
+                  <img
+                    class="station-icon station-icon--comment-more"
+                    src="/assets/icons/station-comment-more.png"
+                    alt="Más opciones"
+                  />
+                </button>
+
+                @if (isCommentMenuOpen(comment.id)) {
+                  <div class="station-comment-menu">
+                    <button
+                      class="station-comment-menu-item"
+                      type="button"
+                      (click)="replyToComment(comment, $event)"
+                    >
+                      Responder
+                    </button>
+
+                    <button
+                      class="station-comment-menu-item"
+                      type="button"
+                      (click)="connectWithUser(comment, $event)"
+                    >
+                      Conectar
+                    </button>
+
+                    <button
+                      class="station-comment-menu-item station-comment-menu-item--danger"
+                      type="button"
+                      (click)="openReportModal(comment, $event)"
+                    >
+                      Reportar
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="station-comment-input-row">
+          <input
+            class="station-comment-input"
+            type="text"
+            placeholder="Escribe un mensaje"
+            [value]="messageInput()"
+            (input)="updateMessageInput(($any($event.target)).value)"
+            (keydown)="sendCommentOnEnter($event)"
+          />
+
+          <button
+            class="station-comment-like-button"
+            type="button"
+            [class.active]="isCurrentSongLiked()"
+            (click)="toggleCurrentSongLike()"
+          >
+            <img
+              class="station-icon station-icon--input-like"
+              [src]="isCurrentSongLiked()
+                ? '/assets/icons/station-like-filled.png'
+                : '/assets/icons/station-like-outline.png'"
+              alt="Me gusta"
+            />
+          </button>
+
+          <button
+            class="station-current-artist-button"
+            type="button"
+            (click)="goToArtistDetail()"
+          >
+            <img
+              class="station-current-artist-avatar"
+              [src]="getCurrentArtistPhoto()"
+              [alt]="currentArtist()?.name || 'Artista actual'"
+            />
+          </button>
+        </div>
+      </div>
+
+      <div class="station-actions-column">
+        <div class="station-action-block">
+          <button
+            class="station-side-action"
+            type="button"
+            [class.active]="isCurrentSongLiked()"
+            (click)="toggleCurrentSongLike()"
+          >
+            <img
+              class="station-icon station-icon--side-like"
+              [src]="isCurrentSongLiked()
+                ? '/assets/icons/station-like-filled.png'
+                : '/assets/icons/station-like-outline.png'"
+              alt="Me gusta"
+            />
+          </button>
+          <span class="station-side-action-count">
+            {{ currentSongLikesCount() }}
+          </span>
+        </div>
+
+        <div class="station-action-block">
+          <button
+            class="station-side-action"
+            type="button"
+          >
+            <img
+              class="station-icon station-icon--side-comment"
+              src="/assets/icons/station-comment-outline.png"
+              alt="Comentarios"
+            />
+          </button>
+          <span class="station-side-action-count">
+            {{ commentsCount() }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (isReportModalOpen()) {
+    <div class="station-report-modal-backdrop" (click)="closeReportModal()">
+      <div
+        class="station-report-modal"
+        (click)="$event.stopPropagation()"
+      >
+        <h3 class="station-report-modal-title">Reportar comentario</h3>
+
+        <label class="station-report-label" for="reportReason">
+          Motivo del reporte
+        </label>
+
+        <select
+          id="reportReason"
+          class="station-report-select"
+          [value]="selectedReportReason()"
+          (change)="updateSelectedReportReason(($any($event.target)).value)"
+        >
+          <option value="">Seleccionar motivo...</option>
+          <option value="Acoso o bullying">Acoso o bullying</option>
+          <option value="Incita a la violencia">Incita a la violencia</option>
+          <option value="Racismo o discriminación">Racismo o discriminación</option>
+          <option value="Contenido inapropiado">Contenido inapropiado</option>
+          <option value="Spam o publicidad">Spam o publicidad</option>
+        </select>
+
+        <div class="station-report-modal-actions">
+          <button
+            class="station-report-cancel-button"
+            type="button"
+            (click)="closeReportModal()"
+          >
+            Cancelar
+          </button>
+
+          <button
+            class="station-report-submit-button"
+            type="button"
+            [disabled]="!selectedReportReason()"
+            (click)="submitReport()"
+          >
+            Reportar
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

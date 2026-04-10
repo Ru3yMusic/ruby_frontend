@@ -1,228 +1,393 @@
-<rm-admin-sidebar [isOpen]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
+<!-- Sidebar administrador -->
+<rm-admin-sidebar
+  [isOpen]="sidebarOpen()"
+  (closed)="sidebarOpen.set(false)"
+/>
 
 <div class="page" [class.page--dimmed]="anyModalOpen()">
-
-  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <!-- =========================
+       HEADER
+  ========================== -->
   <header class="page-header">
     <div class="page-header__left">
-      <button type="button" class="icon-btn" (click)="sidebarOpen.set(true)" aria-label="Abrir menú">
+      <button
+        type="button"
+        class="icon-btn"
+        (click)="sidebarOpen.set(true)"
+        aria-label="Abrir menú"
+      >
         <lucide-icon [img]="Menu" [size]="22" [strokeWidth]="2" />
       </button>
+
       <div class="brand">
-        <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
-        <p class="brand__role">Admin Layout</p>
+        <div class="brand__logo-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="brand__text">
+          <h2 class="brand__title">
+            <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
+          </h2>
+          <p class="brand__role">Administrador</p>
+        </div>
       </div>
     </div>
-    <div class="page-header__avatar">
+
+    <div class="page-header__right">
       <img
+        class="page-header__avatar"
         src="https://ui-avatars.com/api/?name=Admin&background=d70013&color=fff&bold=true&size=96"
-        alt="Admin"
+        alt="Administrador"
       />
     </div>
   </header>
 
-  <!-- ── Content ─────────────────────────────────────────────────────────── -->
-  <div class="content">
-
-    <!-- Title row -->
-    <div class="content__title-row">
-      <h1 class="content__title">Géneros</h1>
-      <button type="button" class="fab" (click)="openCreateModal()" aria-label="Nuevo género">
-        <lucide-icon [img]="Plus" [size]="20" [strokeWidth]="2.5" />
-      </button>
-    </div>
-
-    <!-- Search -->
-    <div class="search-wrap">
-      <lucide-icon [img]="Search" [size]="15" [strokeWidth]="2" class="search-icon" />
-      <input
-        type="text"
-        class="search-input"
-        placeholder="Buscar por nombre..."
-        [value]="searchQuery()"
-        (input)="searchQuery.set($any($event.target).value)"
-      />
-    </div>
-
-    <!-- Genre list -->
-    <ul class="genre-list">
-      @for (genre of filteredGenres(); track genre.id) {
-        <li class="genre-card">
-
-          <!-- Gradient strip -->
-          <div
-            class="genre-card__strip"
-            [ngStyle]="{ background: genreGradient(genre) }"
-          ></div>
-
-          <!-- Info -->
-          <div class="genre-card__body">
-            <div class="genre-card__top">
-              <div class="genre-card__info">
-                <p class="genre-card__name">{{ genre.name }}</p>
-                <p class="genre-card__songs">{{ genre.songCount }} canciones</p>
-              </div>
-              <span class="genre-card__date">{{ genre.createdAt }}</span>
-            </div>
-
-            <!-- Actions -->
-            <div class="genre-card__actions">
-              <button type="button" class="genre-btn genre-btn--edit" (click)="openEditModal(genre)">
-                <lucide-icon [img]="Pencil" [size]="13" [strokeWidth]="2" />
-                Editar
-              </button>
-              <button type="button" class="genre-btn genre-btn--delete" (click)="openDeleteModal(genre)">
-                <lucide-icon [img]="Trash2" [size]="13" [strokeWidth]="2" />
-                Eliminar
-              </button>
-            </div>
-          </div>
-
-        </li>
-      }
-
-      @if (filteredGenres().length === 0) {
-        <li class="empty-state">
-          <lucide-icon [img]="Music" [size]="36" [strokeWidth]="1.5" />
-          <p>No se encontraron géneros</p>
-        </li>
-      }
-    </ul>
-
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- MODAL: Crear / Editar género                                            -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-@if (modalMode()) {
-  <div class="modal-backdrop" (click)="closeModal()"></div>
-
-  <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
-
-    <!-- Header -->
-    <div class="modal__header">
-      <div class="modal__title-row">
-        <lucide-icon [img]="modalMode() === 'create' ? Plus : Pencil" [size]="16" [strokeWidth]="2.5" />
-        <h2 class="modal__title">{{ modalMode() === 'create' ? 'Nuevo Género' : 'Editar Género' }}</h2>
-      </div>
-      <button type="button" class="modal__close" (click)="closeModal()" aria-label="Cerrar">
-        <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
-      </button>
-    </div>
-
-    <!-- Form -->
-    <div class="modal__body">
-
-      <!-- Nombre -->
-      <div class="form-field">
-        <label class="form-label">Nombre <span class="required">*</span></label>
-        <input
-          type="text"
-          class="form-input"
-          placeholder="Ej: Rock, Pop, Jazz"
-          [value]="formName()"
-          (input)="formName.set($any($event.target).value)"
-        />
+  <!-- =========================
+       CONTENIDO PRINCIPAL
+  ========================== -->
+  <main class="page-content">
+    <!-- Encabezado de sección -->
+    <section class="section-head">
+      <div class="section-head__title-wrap">
+        <h1 class="section-head__title">Géneros</h1>
+        <p class="section-head__subtitle">
+          Gestiona los géneros musicales disponibles en el catálogo.
+        </p>
       </div>
 
-      <!-- Color pickers row -->
-      <div class="color-row">
-
-        <!-- Color Inicio -->
-        <div class="form-field">
-          <label class="form-label">Color Inicio <span class="required">*</span></label>
-          <div class="color-wrap">
-            <div
-              class="color-swatch"
-              [ngStyle]="{ background: formColorStart() }"
-              (click)="openStartPicker()"
-              title="Seleccionar color de inicio"
-            ></div>
-            <input
-              #startPicker
-              type="color"
-              class="hidden-picker"
-              [value]="formColorStart()"
-              (input)="formColorStart.set($any($event.target).value)"
-            />
-          </div>
-        </div>
-
-        <!-- Color Fin -->
-        <div class="form-field">
-          <label class="form-label">Color Fin <span class="required">*</span></label>
-          <div class="color-wrap">
-            <div
-              class="color-swatch"
-              [ngStyle]="{ background: formColorEnd() }"
-              (click)="openEndPicker()"
-              title="Seleccionar color de fin"
-            ></div>
-            <input
-              #endPicker
-              type="color"
-              class="hidden-picker"
-              [value]="formColorEnd()"
-              (input)="formColorEnd.set($any($event.target).value)"
-            />
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Gradient preview -->
-      <div
-        class="gradient-preview"
-        [ngStyle]="{ background: gradientPreview() }"
-        aria-label="Vista previa del gradiente"
-      ></div>
-
-    </div>
-
-    <!-- Buttons -->
-    <div class="modal__footer">
-      <button type="button" class="btn btn--outline" (click)="closeModal()">Cancelar</button>
       <button
         type="button"
-        class="btn btn--primary"
-        [disabled]="!formValid()"
-        (click)="submitModal()"
+        class="create-btn"
+        (click)="openCreateModal()"
+        aria-label="Nuevo género"
+        title="Nuevo género"
       >
-        {{ modalMode() === 'create' ? 'Crear' : 'Guardar' }}
+        <lucide-icon [img]="Plus" [size]="20" [strokeWidth]="2.5" />
       </button>
-    </div>
+    </section>
 
-  </div>
+    <!-- Buscador -->
+    <section class="toolbar">
+      <div class="search-box">
+        <lucide-icon
+          [img]="Search"
+          [size]="18"
+          [strokeWidth]="2"
+          class="search-box__icon"
+        />
+        <input
+          type="text"
+          class="search-box__input"
+          placeholder="Buscar por nombre..."
+          [value]="searchQuery()"
+          (input)="searchQuery.set($any($event.target).value)"
+        />
+      </div>
+    </section>
+
+    <!-- =========================
+         GRID DE GÉNEROS
+    ========================== -->
+    <section class="genres-grid">
+      @if (filteredGenres().length > 0) {
+        @for (genre of filteredGenres(); track genre.id) {
+          <article class="genre-card">
+            <div class="genre-card__top">
+              <div
+                class="genre-card__cover"
+                [style.background]="'linear-gradient(135deg, ' + genre.gradientStart + ', ' + genre.gradientEnd + ')'"
+                aria-hidden="true"
+              ></div>
+
+              <div class="genre-card__info">
+                <h3 class="genre-card__name">{{ genre.name }}</h3>
+                <p class="genre-card__meta">{{ genre.count }} canciones</p>
+              </div>
+
+              <div class="genre-card__date">
+                {{ genre.createdAt }}
+              </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="genre-card__actions">
+              <button
+                type="button"
+                class="action-btn action-btn--edit"
+                (click)="openEditModal(genre)"
+              >
+                <lucide-icon [img]="Pencil" [size]="16" [strokeWidth]="2" />
+                <span>Editar</span>
+              </button>
+
+              <button
+                type="button"
+                class="action-btn action-btn--delete"
+                (click)="openDeleteModal(genre)"
+              >
+                <lucide-icon [img]="Trash2" [size]="16" [strokeWidth]="2" />
+                <span>Eliminar</span>
+              </button>
+            </div>
+          </article>
+        }
+      } @else {
+        <!-- Estado vacío -->
+        <div class="empty-state">
+          <div class="empty-state__icon">
+            <lucide-icon [img]="Music4" [size]="28" [strokeWidth]="2" />
+          </div>
+          <h3 class="empty-state__title">No hay géneros registrados</h3>
+          <p class="empty-state__text">
+            Crea tu primer género para empezar a organizar el catálogo musical.
+          </p>
+          <button
+            type="button"
+            class="create-btn create-btn--empty"
+            (click)="openCreateModal()"
+            aria-label="Crear género"
+          >
+            <lucide-icon [img]="Plus" [size]="18" [strokeWidth]="2.5" />
+          </button>
+        </div>
+      }
+    </section>
+  </main>
+</div>
+
+<!-- =========================
+     OVERLAY GENERAL
+========================== -->
+@if (anyModalOpen()) {
+  <div class="modal-overlay" (click)="closeAllModals()"></div>
 }
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- MODAL: Confirmar eliminación                                            -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-@if (deletingGenre(); as genre) {
-  <div class="modal-backdrop" (click)="closeDeleteModal()"></div>
+<!-- =========================
+     MODAL CREAR GÉNERO
+========================== -->
+@if (isCreateModalOpen()) {
+  <section class="modal-shell" aria-modal="true" role="dialog">
+    <div class="modal-card modal-card--form" (click)="$event.stopPropagation()">
+      <div class="modal-card__header">
+        <div class="modal-card__title-wrap">
+          <lucide-icon [img]="Plus" [size]="20" [strokeWidth]="2.5" />
+          <h2 class="modal-card__title">Nuevo Género</h2>
+        </div>
 
-  <div class="modal modal--confirm" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+        <button
+          type="button"
+          class="modal-card__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
 
-    <button type="button" class="modal__close" (click)="closeDeleteModal()" aria-label="Cerrar">
-      <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
-    </button>
+      <div class="modal-card__body">
+        <!-- Campo nombre -->
+        <div class="form-field">
+          <label class="form-field__label">Nombre *</label>
+          <input
+            type="text"
+            class="form-field__input"
+            placeholder="Ej. Rock, Pop, Jazz"
+            [value]="createGenreName()"
+            (input)="createGenreName.set($any($event.target).value)"
+          />
+        </div>
 
-    <div class="confirm__icon">
-      <lucide-icon [img]="TriangleAlert" [size]="26" [strokeWidth]="2" />
+        <!-- Colores gradient -->
+        <div class="form-field form-field--colors">
+          <div class="color-field">
+            <label class="form-field__label">Color Inicio *</label>
+            <input
+              type="color"
+              class="color-field__input"
+              [value]="createGradientStart()"
+              (input)="createGradientStart.set($any($event.target).value)"
+            />
+          </div>
+
+          <div class="color-field">
+            <label class="form-field__label">Color Fin *</label>
+            <input
+              type="color"
+              class="color-field__input"
+              [value]="createGradientEnd()"
+              (input)="createGradientEnd.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <!-- Preview gradient -->
+        <div
+          class="gradient-preview"
+          [style.background]="'linear-gradient(135deg, ' + createGradientStart() + ', ' + createGradientEnd() + ')'"
+        ></div>
+      </div>
+
+      <div class="modal-card__footer">
+        <button
+          type="button"
+          class="modal-btn modal-btn--ghost"
+          (click)="closeAllModals()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="modal-btn modal-btn--primary"
+          (click)="createGenre()"
+        >
+          Crear
+        </button>
+      </div>
     </div>
+  </section>
+}
 
-    <h2 class="modal__title modal__title--center">Confirmar eliminación</h2>
+<!-- =========================
+     MODAL EDITAR GÉNERO
+========================== -->
+@if (isEditModalOpen() && selectedGenre()) {
+  <section class="modal-shell" aria-modal="true" role="dialog">
+    <div class="modal-card modal-card--form" (click)="$event.stopPropagation()">
+      <div class="modal-card__header">
+        <div class="modal-card__title-wrap">
+          <lucide-icon [img]="Pencil" [size]="20" [strokeWidth]="2.2" />
+          <h2 class="modal-card__title">Editar Género</h2>
+        </div>
 
-    <p class="confirm__text">
-      ¿Estás seguro de eliminar el género <strong>{{ genre.name }}</strong>?
-      Las canciones <strong>NO se eliminarán</strong>, pero perderán este género.
-    </p>
+        <button
+          type="button"
+          class="modal-card__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
 
-    <div class="modal__footer">
-      <button type="button" class="btn btn--outline" (click)="closeDeleteModal()">Cancelar</button>
-      <button type="button" class="btn btn--danger" (click)="confirmDelete()">Eliminar</button>
+      <div class="modal-card__body">
+        <!-- Campo nombre -->
+        <div class="form-field">
+          <label class="form-field__label">Nombre *</label>
+          <input
+            type="text"
+            class="form-field__input"
+            placeholder="Ej. Baladas"
+            [value]="editGenreName()"
+            (input)="editGenreName.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- Colores gradient -->
+        <div class="form-field form-field--colors">
+          <div class="color-field">
+            <label class="form-field__label">Color Inicio *</label>
+            <input
+              type="color"
+              class="color-field__input"
+              [value]="editGradientStart()"
+              (input)="editGradientStart.set($any($event.target).value)"
+            />
+          </div>
+
+          <div class="color-field">
+            <label class="form-field__label">Color Fin *</label>
+            <input
+              type="color"
+              class="color-field__input"
+              [value]="editGradientEnd()"
+              (input)="editGradientEnd.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <!-- Preview gradient -->
+        <div
+          class="gradient-preview"
+          [style.background]="'linear-gradient(135deg, ' + editGradientStart() + ', ' + editGradientEnd() + ')'"
+        ></div>
+      </div>
+
+      <div class="modal-card__footer">
+        <button
+          type="button"
+          class="modal-btn modal-btn--ghost"
+          (click)="closeAllModals()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="modal-btn modal-btn--primary"
+          (click)="saveGenreEdit()"
+        >
+          Guardar cambios
+        </button>
+      </div>
     </div>
+  </section>
+}
 
-  </div>
+<!-- =========================
+     MODAL ELIMINAR GÉNERO
+========================== -->
+@if (isDeleteModalOpen() && selectedGenre()) {
+  <section class="modal-shell" aria-modal="true" role="dialog">
+    <div class="modal-card modal-card--delete" (click)="$event.stopPropagation()">
+      <div class="modal-card__header">
+        <div class="modal-card__title-wrap modal-card__title-wrap--delete">
+          <span class="modal-card__warning">⚠️</span>
+          <h2 class="modal-card__title">Confirmar eliminación</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-card__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="modal-card__body">
+        <p class="delete-copy">
+          ¿Estás seguro de eliminar el género
+          <strong>{{ selectedGenre()?.name }}</strong>?
+        </p>
+
+        <p class="delete-copy delete-copy--muted">
+          Las canciones NO se eliminarán, pero perderán este género.
+        </p>
+      </div>
+
+      <div class="modal-card__footer">
+        <button
+          type="button"
+          class="modal-btn modal-btn--ghost"
+          (click)="closeAllModals()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="modal-btn modal-btn--danger"
+          (click)="confirmDeleteGenre()"
+        >
+          Eliminar
+        </button>
+      </div>
+    </div>
+  </section>
 }

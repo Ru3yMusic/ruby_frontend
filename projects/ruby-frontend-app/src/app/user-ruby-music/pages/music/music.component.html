@@ -1,0 +1,34 @@
+<div class="music-page">
+  <div class="home-tabs">
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('TODAS')"
+      (click)="setActiveTab('TODAS')"
+    >
+      Todas
+    </button>
+
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('MUSICA')"
+      (click)="setActiveTab('MUSICA')"
+    >
+      Música
+    </button>
+
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('ESTACION')"
+      (click)="setActiveTab('ESTACION')"
+    >
+      Estación
+    </button>
+  </div>
+
+  <div class="music-content">
+    <h2>Música</h2>
+  </div>
+</div>

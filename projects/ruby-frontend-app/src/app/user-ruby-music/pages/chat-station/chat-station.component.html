@@ -1,0 +1,55 @@
+<div class="chat-station-page">
+  <!-- HEADER -->
+  <div class="chat-station-header">
+    <h1 class="chat-station-title">Chat estación</h1>
+
+    <div class="chat-station-search">
+      <img
+        class="chat-station-search-icon"
+        src="/assets/icons/header-search.png"
+        alt="Buscar"
+      />
+      <input
+        type="text"
+        placeholder="Buscar amigos"
+        [value]="searchTerm()"
+        (input)="updateSearchTerm(($any($event.target)).value)"
+      />
+    </div>
+  </div>
+
+  <!-- LISTA -->
+  <div class="chat-station-list">
+    @if (filteredActiveFriends().length === 0) {
+      <div class="chat-station-empty">
+        <p>No hay amigos escuchando una estación ahora mismo.</p>
+      </div>
+    } @else {
+      @for (item of filteredActiveFriends(); track trackByFriendStation($index, item)) {
+        <div class="chat-station-item">
+          <div class="chat-station-item-left">
+            <img
+              class="chat-station-avatar"
+              [src]="getFriendAvatar(item)"
+              [alt]="item.friendName"
+            />
+
+            <p class="chat-station-text">
+              <strong>@{{ item.friendName }}</strong>
+              está escuchando la estación
+              <strong>{{ item.stationName }}</strong>
+            </p>
+          </div>
+
+          <button
+            class="chat-station-listen-button"
+            type="button"
+            (click)="goToFriendStation(item)"
+          >
+            Escuchar
+          </button>
+        </div>
+      }
+    }
+  </div>
+</div>

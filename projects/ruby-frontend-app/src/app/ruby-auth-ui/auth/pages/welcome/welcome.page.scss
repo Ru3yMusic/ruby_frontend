@@ -1,0 +1,70 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: #000;
+  color: #fff;
+}
+
+.auth-container {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  background: #000;
+}
+
+.auth-left {
+  min-height: 100vh;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #050505;
+}
+
+.auth-right {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  box-sizing: border-box;
+  background: #000;
+}
+
+.auth-panel {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .auth-container {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-left {
+    min-height: 320px;
+  }
+
+  .auth-right {
+    min-height: auto;
+    padding-top: 0;
+  }
+}
+
+/* Móvil */
+@media (max-width: 640px) {
+  .auth-left {
+    padding: 16px;
+    min-height: 240px;
+  }
+
+  .auth-right {
+    padding: 20px 16px 32px;
+  }
+
+  .auth-panel {
+    max-width: 100%;
+  }
+}

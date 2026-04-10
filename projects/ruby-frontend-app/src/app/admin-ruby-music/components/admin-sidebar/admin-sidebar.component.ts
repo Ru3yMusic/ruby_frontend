@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight,
   Users,
+  Radio, 
 } from 'lucide-angular';
 
 @Component({
@@ -28,8 +29,14 @@ export class AdminSidebarComponent {
 
   private readonly router = inject(Router);
 
+  // =========================
+  // ESTADO UI
+  // =========================
   readonly catalogoExpanded = signal(false);
 
+  // =========================
+  // ICONOS
+  // =========================
   readonly LayoutDashboard = LayoutDashboard;
   readonly Music           = Music;
   readonly Tag             = Tag;
@@ -41,34 +48,54 @@ export class AdminSidebarComponent {
   readonly ChevronDown     = ChevronDown;
   readonly ChevronRight    = ChevronRight;
   readonly Users           = Users;
+  readonly Radio           = Radio; 
 
-  close(): void { this.closed.emit(); }
+  // =========================
+  // ACCIONES
+  // =========================
+  close(): void {
+    this.closed.emit();
+  }
 
+  navigate(path: string): void {
+    this.close();
+
+    // 
+    if (this.router.url !== path) {
+      this.router.navigateByUrl(path);
+    }
+  }
+
+  logout(): void {
+    this.close();
+    this.router.navigate(['/auth']);
+  }
+
+  // =========================
+  // ACTIVE STATES
+  // =========================
   isActive(path: string): boolean {
     return this.router.url.startsWith(path);
   }
 
   isCatalogoActive(): boolean {
-    return ['/admin/generos', '/admin/canciones', '/admin/albumes', '/admin/artistas']
-      .some(p => this.router.url.startsWith(p));
+    return [
+      '/admin/generos',
+      '/admin/canciones',
+      '/admin/albumes',
+      '/admin/artistas',
+      '/admin/estaciones', //  NUEVO
+    ].some(p => this.router.url.startsWith(p));
   }
 
-  /* Auto-expand catálogo when navigating to a sub-route */
+  // =========================
+  // EXPANSIÓN CATÁLOGO
+  // =========================
   get catalogoShouldExpand(): boolean {
     return this.isCatalogoActive() || this.catalogoExpanded();
   }
 
   toggleCatalogo(): void {
     this.catalogoExpanded.update(v => !v);
-  }
-
-  navigate(path: string): void {
-    this.close();
-    this.router.navigate([path]);
-  }
-
-  logout(): void {
-    this.close();
-    this.router.navigate(['/auth']);
   }
 }

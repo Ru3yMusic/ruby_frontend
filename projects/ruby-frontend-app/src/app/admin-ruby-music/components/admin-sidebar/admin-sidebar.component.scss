@@ -1,26 +1,38 @@
 .sidebar-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(2px);
   z-index: 20;
 }
 
+/* =========================
+   SIDEBAR BASE
+========================== */
 .sidebar {
   position: fixed;
-  top: 0;
+  top: 0px;
   left: 0;
-  bottom: 0;
-  width: min(260px, 82vw);
-  background: #1a1a2e;
+  bottom: 0px;
+  width: min(300px, 85vw);
+
   z-index: 21;
+
   display: flex;
   flex-direction: column;
   padding-bottom: 24px;
+
+  background: linear-gradient(180deg, #2a2a2e 0%, #0b0b0d 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+
+  overflow: hidden;
 }
 
-/* ── Brand ─────────────────────────────────────────────────────────────── */
+/* =========================
+   BRAND
+========================== */
 .sidebar__brand {
-  padding: 48px 20px 20px;
+  padding: 30px 24px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -28,129 +40,235 @@
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.5px;
+  line-height: 1;
 }
 
-.sidebar__logo-ruby  { color: #ffffff; }
-.sidebar__logo-tune  { color: #d70013; }
+.sidebar__logo-ruby {
+  color: #f5f5f6;
+}
+
+.sidebar__logo-tune {
+  color: #cfcfd3;
+  font-weight: 400;
+}
 
 .sidebar__role {
-  margin-top: 2px;
-  font-size: 11px;
+  margin-top: 8px;
+  font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.45);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.2px;
+  text-transform: none;
 }
 
-/* ── Nav ────────────────────────────────────────────────────────────────── */
+/* =========================
+   NAV
+========================== */
 .sidebar__nav {
   list-style: none;
-  padding: 10px 0;
+  padding: 16px 14px 0;
+  margin: 0;
   flex: 1;
   overflow-y: auto;
 }
 
+/* =========================
+   ITEMS PRINCIPALES
+========================== */
 .sidebar__item {
   width: 100%;
   border: 0;
   background: none;
-  color: rgba(255, 255, 255, 0.7);
+  border-radius: 18px;
+
+  color: #f5f5f6;
+  font-weight: 600;
+  font-size: 15px;
+
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 20px;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s, color 0.15s;
+  transition: all 0.18s ease;
 
   lucide-icon {
+    color: rgba(255, 255, 255, 0.82);
+    transition: 0.18s ease;
     flex-shrink: 0;
-    color: rgba(255, 255, 255, 0.45);
-    transition: color 0.15s;
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #fff;
-    lucide-icon { color: #fff; }
+    background: #ff8a00;
+    color: #ffffff;
+
+    lucide-icon {
+      color: #ffffff;
+    }
   }
 
   &--active {
-    background: rgba(215, 0, 19, 0.18);
-    color: #ff4d5e;
+    background: #ff8a00;
+    color: #ffffff;
 
-    lucide-icon { color: #ff4d5e; }
-
-    &:hover {
-      background: rgba(215, 0, 19, 0.25);
-      color: #ff4d5e;
+    lucide-icon {
+      color: #ffffff;
     }
   }
 
   &--group {
-    span { flex: 1; }
+    span {
+      flex: 1;
+    }
 
     .sidebar__chevron {
-      color: rgba(255, 255, 255, 0.4);
+      color: rgba(255, 255, 255, 0.78);
     }
   }
 }
 
-/* ── Sub-menu ───────────────────────────────────────────────────────────── */
+/* =========================
+   SUBMENÚ (CATÁLOGO)
+========================== */
 .sidebar__sub {
   list-style: none;
-  padding: 2px 0;
-  background: rgba(0, 0, 0, 0.2);
+  padding: 4px 0 6px 0;
+  margin: 0 0 8px;
 }
 
 .sidebar__sub-item {
-  width: 100%;
+  width: calc(100% - 12px);
+  margin-left: 12px;
   border: 0;
   background: none;
-  color: rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 500;
+  font-size: 14px;
+
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px 10px 36px;
-  font-size: 13px;
-  font-weight: 400;
+  padding: 12px 14px;
+
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s, color 0.15s;
+  transition: all 0.18s ease;
 
-  lucide-icon { color: rgba(255, 255, 255, 0.4); }
+  lucide-icon {
+    color: rgba(255, 255, 255, 0.68);
+    transition: 0.18s ease;
+    flex-shrink: 0;
+  }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    lucide-icon { color: rgba(255,255,255,0.8); }
+    background: #ff8a00;
+    color: #ffffff;
+
+    lucide-icon {
+      color: #ffffff;
+    }
   }
 
   &--active {
-    color: #ff4d5e;
+    background: #ff8a00;
+    color: #ffffff;
     font-weight: 600;
-    background: rgba(215, 0, 19, 0.1);
-    lucide-icon { color: #ff4d5e; }
+
+    lucide-icon {
+      color: #ffffff;
+    }
   }
 }
 
-/* ── Logout ─────────────────────────────────────────────────────────────── */
-.sidebar__logout {
-  border: 0;
-  background: none;
-  color: #e8314a;
+/* =========================
+   REPORTES
+========================== */
+.sidebar__reports {
+  padding: 10px 14px 6px;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar__reports-btn {
+  width: 100%;
+  border: none;
+  border-radius: 18px;
+  padding: 14px 16px;
+
+  background: transparent;
+  color: #f5f5f6;
+
+  font-weight: 600;
+  font-size: 15px;
+
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 13px 20px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  margin: 0 10px;
-  border-radius: 8px;
-  transition: background 0.15s;
 
-  &:hover { background: rgba(232, 49, 74, 0.12); }
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  lucide-icon {
+    color: rgba(255, 255, 255, 0.82);
+    transition: 0.18s ease;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: #ff8a00;
+    color: #ffffff;
+
+    lucide-icon {
+      color: #ffffff;
+    }
+  }
+
+  &.active {
+    background: #ff8a00;
+    color: #ffffff;
+
+    lucide-icon {
+      color: #ffffff;
+    }
+  }
+}
+
+/* =========================
+   LOGOUT
+========================== */
+.sidebar__logout {
+  border: 0;
+  background: none;
+
+  color: #ff8a00;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 14px 16px;
+  margin: 10px 14px 0;
+
+  border-radius: 18px;
+
+  font-size: 15px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  lucide-icon {
+    color: #ff8a00;
+    transition: 0.18s ease;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: rgba(255, 138, 0, 0.12);
+  }
 }

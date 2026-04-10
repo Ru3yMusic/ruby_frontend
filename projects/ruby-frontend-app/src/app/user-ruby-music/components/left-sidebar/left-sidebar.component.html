@@ -1,0 +1,26 @@
+<!-- MENÚ LATERAL IZQUIERDO -->
+
+<nav class="left-sidebar">
+
+  <!-- LISTA DE OPCIONES -->
+  <ul class="sidebar-menu">
+    <li class="sidebar-item" *ngFor="let item of menuItems">
+      <a
+        class="sidebar-link"
+        [routerLink]="item.route"
+        routerLinkActive="active"
+      >
+        <img
+          class="sidebar-icon"
+          [src]="item.icon"
+          [alt]="item.alt"
+        />
+
+        <span class="sidebar-label">
+          {{ item.label }}
+        </span>
+      </a>
+    </li>
+  </ul>
+
+</nav>

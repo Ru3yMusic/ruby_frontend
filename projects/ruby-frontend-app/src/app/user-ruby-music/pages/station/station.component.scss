@@ -1,0 +1,203 @@
+:host {
+  display: block;
+}
+
+/* ===================== */
+/* CONTENEDOR GENERAL */
+/* ===================== */
+.station-page {
+  display: flex;
+  flex-direction: column;
+  gap: 54px;
+  padding: 16px 28px 140px;
+  border-radius: 15px;
+  background: linear-gradient(
+    180deg,
+    #8d4c4c 2%,
+    #202020 18%,
+    #120c0c 24%,
+    #202020 66%,
+    #442a2a 100%
+  );
+  min-height: 100%;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+/* ===================== */
+/* TABS SUPERIORES */
+/* ===================== */
+.home-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+
+.tab {
+  min-width: 164px;
+  padding: 12px 22px;
+  border: none;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.073);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.tab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(86, 86, 86, 0.18);
+}
+
+.tab.active {
+  background: #161616;
+  color: #ffffff;
+}
+
+/* ===================== */
+/* SECCIONES */
+/* ===================== */
+.station-section {
+  margin-top: 28px;
+}
+
+.station-section-title {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.station-section-title--secondary {
+  margin-bottom: 4px;
+}
+
+.station-section-subtitle {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ===================== */
+/* SCROLL HORIZONTAL */
+/* ===================== */
+.station-scroll {
+  display: flex;
+  gap: 22px;
+  overflow-x: auto;
+  padding: 8px 4px 10px;
+
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+  }
+}
+
+/* ===================== */
+/* CARD */
+/* ===================== */
+.station-card {
+  min-width: 220px;
+  max-width: 220px;
+  flex-shrink: 0;
+  border-radius: 34px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 14px 16px;
+  background: transparent;
+  border: 1px solid transparent;
+  transition:
+    transform 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.station-card:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.045);
+ 
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+}
+
+/* ===================== */
+/* COVER (GRADIENT + IMG) */
+/* ===================== */
+.station-cover {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+/* Imagen overlay */
+.station-cover-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.2;
+}
+
+/* ===================== */
+/* NOMBRE */
+/* ===================== */
+.station-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+  line-height: 1.3;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===================== */
+/* BOTÓN */
+/* ===================== */
+.station-listen-button {
+  width: 112px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 999px;
+  border: none;
+  background: #ff3b30;
+  color: #000000;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.station-listen-button:hover {
+  background: #ff453a;
+  transform: scale(1.03);
+}

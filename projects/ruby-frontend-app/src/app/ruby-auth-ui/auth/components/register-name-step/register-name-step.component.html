@@ -1,0 +1,80 @@
+<div class="register-name-container">
+
+  <!-- BOTÓN VOLVER -->
+  <button type="button" class="back-button" (click)="onBackClick()">
+    Volver
+  </button>
+
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <h2 class="title">Último paso</h2>
+    <p class="subtitle">
+      ¿Cómo quieres que te llamemos?
+    </p>
+  </div>
+
+  <!-- FORMULARIO -->
+  <form class="form" [formGroup]="form" (ngSubmit)="submit()">
+
+    <!-- CAMPO NOMBRE -->
+    <div class="field">
+      <label class="label" for="register-name">
+        Nombre
+      </label>
+
+      <input
+        id="register-name"
+        class="input"
+        type="text"
+        formControlName="name"
+        placeholder="Ingresa tu nombre"
+        autocomplete="name"
+      />
+
+      <!-- ERROR NOMBRE -->
+      <p class="error" *ngIf="nameError">
+        {{ nameError }}
+      </p>
+    </div>
+
+    <!-- CHECK TÉRMINOS -->
+    <div class="checkbox-field">
+      <label class="checkbox-label">
+        <input type="checkbox" formControlName="termsAccepted" />
+        <span>Acepto los términos y condiciones</span>
+      </label>
+
+      <p class="error" *ngIf="termsError">
+        {{ termsError }}
+      </p>
+    </div>
+
+    <!-- CHECK PRIVACIDAD -->
+    <div class="checkbox-field">
+      <label class="checkbox-label">
+        <input type="checkbox" formControlName="privacyAccepted" />
+        <span>Acepto la política de privacidad</span>
+      </label>
+
+      <p class="error" *ngIf="privacyError">
+        {{ privacyError }}
+      </p>
+    </div>
+
+    <!-- ERROR GENERAL -->
+    <p class="error general-error" *ngIf="generalError()">
+      {{ generalError() }}
+    </p>
+
+    <!-- BOTÓN FINAL -->
+    <button
+      class="submit-button"
+      type="submit"
+      [disabled]="isSubmitting()"
+    >
+      {{ isSubmitting() ? 'Creando cuenta...' : 'Finalizar registro' }}
+    </button>
+
+  </form>
+
+</div>

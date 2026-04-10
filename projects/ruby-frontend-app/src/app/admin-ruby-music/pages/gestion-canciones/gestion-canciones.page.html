@@ -1,0 +1,608 @@
+<!-- =========================
+   SIDEBAR
+========================= -->
+<rm-admin-sidebar
+  [isOpen]="sidebarOpen()"
+  (closed)="sidebarOpen.set(false)"
+/>
+
+<div class="page" [class.page--dimmed]="anyModalOpen()">
+
+  <!-- =========================
+     HEADER
+  ========================= -->
+  <header class="page-header">
+    <div class="page-header__left">
+      <button
+        type="button"
+        class="icon-btn"
+        (click)="sidebarOpen.set(true)"
+        aria-label="Abrir menú"
+      >
+        <lucide-icon [img]="Menu" [size]="22" [strokeWidth]="2" />
+      </button>
+
+      <div class="brand">
+        <div class="brand__logo-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="brand__text">
+          <h2 class="brand__title">
+            <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
+          </h2>
+          <p class="brand__role">Administrador</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-header__right">
+      <img
+        class="page-header__avatar"
+        src="https://ui-avatars.com/api/?name=Admin&background=d70013&color=fff&bold=true&size=96"
+        alt="Administrador"
+      />
+    </div>
+  </header>
+
+  <!-- =========================
+     CONTENIDO PRINCIPAL
+  ========================= -->
+  <main class="page-content">
+
+    <!-- =========================
+       TITULO Y ACCION PRINCIPAL
+    ========================= -->
+    <section class="section-head section-head--with-action">
+      <div class="section-head__title-wrap">
+        <h1 class="section-head__title">Canciones</h1>
+      </div>
+
+      <button
+        type="button"
+        class="add-btn"
+        (click)="openCreateModal()"
+        aria-label="Nueva canción"
+      >
+        <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.2" />
+      </button>
+    </section>
+
+    <!-- =========================
+       BUSCADOR
+    ========================= -->
+    <section class="toolbar toolbar--stack">
+      <div class="search-box">
+        <lucide-icon [img]="Search" [size]="18" />
+        <input
+          type="text"
+          placeholder="Buscar por título o artista..."
+          [value]="searchQuery()"
+          (input)="searchQuery.set($any($event.target).value)"
+        />
+      </div>
+    </section>
+
+    <!-- =========================
+       LISTA DE CANCIONES
+    ========================= -->
+    <section class="songs-list">
+
+      @for (song of filteredSongs(); track song.id) {
+        <article class="song-card">
+
+          <!-- CABECERA CARD -->
+          <div class="song-card__top">
+
+            <!-- PORTADA -->
+            <img
+              class="song-card__cover"
+              [src]="song.coverUrl"
+              [alt]="song.title"
+            />
+
+            <!-- INFORMACION -->
+            <div class="song-card__info">
+              <h3>{{ song.title }}</h3>
+
+              <div class="song-card__artist-row">
+                <img
+                  class="song-card__artist-avatar"
+                  [src]="song.artistPhotoUrl"
+                  [alt]="song.artistName"
+                />
+                <span>{{ song.artistName }}</span>
+              </div>
+
+              <p class="song-card__meta">
+                {{ song.albumTitle }} . {{ song.durationLabel }}
+              </p>
+
+              <div class="song-card__plays">
+                <lucide-icon [img]="Play" [size]="16" />
+                <span>{{ song.playCountLabel }}</span>
+              </div>
+            </div>
+
+            <!-- LIKES -->
+            <div class="song-card__likes">
+             <lucide-icon [img]="Heart" [size]="24" />
+              <span>{{ song.likesCountLabel }}</span>
+            </div>
+
+          </div>
+
+          <!-- DIVISOR -->
+          <div class="song-card__divider"></div>
+
+          <!-- ACCIONES -->
+          <div class="song-card__actions">
+            <button
+              type="button"
+              class="action-btn action-btn--view"
+              (click)="openDetailModal(song)"
+            >
+              <lucide-icon [img]="Eye" [size]="17" />
+              <span>Ver</span>
+            </button>
+
+            <button
+              type="button"
+              class="action-btn action-btn--edit"
+              (click)="openEditModal(song)"
+            >
+              <lucide-icon [img]="Pencil" [size]="17" />
+              <span>Editar</span>
+            </button>
+
+            <button
+              type="button"
+              class="action-btn action-btn--delete"
+              (click)="openDeleteModal(song)"
+            >
+              <lucide-icon [img]="Trash2" [size]="17" />
+              <span>Eliminar</span>
+            </button>
+          </div>
+
+        </article>
+      }
+
+    </section>
+
+  </main>
+</div>
+
+<!-- =========================
+   MODAL CREAR CANCION
+========================= -->
+@if (isCreateModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--form modal-content--song-form">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title">
+          <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.2" />
+          <h2>Nueva Canción</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-form modal-form--scroll">
+
+        <!-- TITULO -->
+        <div class="form-group">
+          <label>Título *</label>
+          <input
+            type="text"
+            [value]="createSongTitle()"
+            (input)="createSongTitle.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- ARTISTA -->
+        <div class="form-group">
+          <label>Artista *</label>
+          <select
+            [value]="createSongArtistId()"
+            (change)="onCreateArtistChange($any($event.target).value)"
+          >
+            <option value="">Selecciona un artista</option>
+
+            @for (artist of availableArtists(); track artist.id) {
+              <option [value]="artist.id">
+                {{ artist.name }}
+              </option>
+            }
+          </select>
+        </div>
+
+        <!-- ALBUM -->
+        <div class="form-group">
+          <label>Álbum (opcional)</label>
+          <select
+            [value]="createSongAlbumId()"
+            (change)="createSongAlbumId.set($any($event.target).value)"
+          >
+            <option value="">Single</option>
+
+            @for (album of filteredAlbumsForCreate(); track album.id) {
+              <option [value]="album.id">
+                {{ album.title }}
+              </option>
+            }
+          </select>
+        </div>
+
+        <!-- URL PORTADA -->
+        <div class="form-group">
+          <label>URL Portada *</label>
+          <input
+            type="text"
+            [value]="createSongCoverUrl()"
+            (input)="createSongCoverUrl.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- URL AUDIO -->
+        <div class="form-group">
+          <label>URL Audio *</label>
+          <input
+            type="text"
+            [value]="createSongAudioUrl()"
+            (input)="createSongAudioUrl.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- DURACION -->
+        <div class="form-group">
+          <label>Duración (segundos) *</label>
+          <input
+            type="number"
+            min="1"
+            [value]="createSongDurationSeconds()"
+            (input)="createSongDurationSeconds.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- LETRA -->
+        <div class="form-group">
+          <label>Letra (opcional)</label>
+          <textarea
+            rows="5"
+            placeholder="Letra de la canción..."
+            [value]="createSongLyrics()"
+            (input)="createSongLyrics.set($any($event.target).value)"
+          ></textarea>
+        </div>
+
+        <!-- GENERO -->
+        <div class="form-group">
+          <label>Género *</label>
+
+          <div class="genre-picker">
+            <select
+              class="genre-picker__select"
+              [value]="createSongGenreId()"
+              (change)="createSongGenreId.set($any($event.target).value)"
+            >
+              <option value="">Selecciona un género</option>
+
+              @for (genre of filteredGenresForCreate(); track genre.id) {
+                <option [value]="genre.id">
+                  {{ genre.name }}
+                </option>
+              }
+            </select>
+
+            <div class="genre-picker__filter">
+              <lucide-icon [img]="Search" [size]="16" />
+              <input
+                type="text"
+                placeholder="Filtrar"
+                [value]="createGenreFilterQuery()"
+                (input)="createGenreFilterQuery.set($any($event.target).value)"
+              />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions">
+        <button type="button" (click)="closeAllModals()">Cancelar</button>
+        <button type="button" class="confirm" (click)="createSong()">Crear</button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- =========================
+   MODAL EDITAR CANCION
+========================= -->
+@if (isEditModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--form modal-content--song-form">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title">
+          <lucide-icon [img]="Pencil" [size]="20" [strokeWidth]="2.2" />
+          <h2>Editar Canción</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-form modal-form--scroll">
+
+        <!-- TITULO -->
+        <div class="form-group">
+          <label>Título *</label>
+          <input
+            type="text"
+            [value]="editSongTitle()"
+            (input)="editSongTitle.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- ARTISTA BLOQUEADO -->
+        <div class="form-group">
+          <label>Artista (bloqueado)</label>
+          <input
+            type="text"
+            [value]="selectedSong()?.artistName"
+            readonly
+          />
+        </div>
+
+        <!-- ALBUM BLOQUEADO -->
+        <div class="form-group">
+          <label>Álbum (bloqueado)</label>
+          <input
+            type="text"
+            [value]="selectedSong()?.albumTitle"
+            readonly
+          />
+        </div>
+
+        <!-- URL PORTADA -->
+        <div class="form-group">
+          <label>URL Portada *</label>
+          <input
+            type="text"
+            [value]="editSongCoverUrl()"
+            (input)="editSongCoverUrl.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- URL AUDIO -->
+        <div class="form-group">
+          <label>URL Audio *</label>
+          <input
+            type="text"
+            [value]="editSongAudioUrl()"
+            (input)="editSongAudioUrl.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- DURACION -->
+        <div class="form-group">
+          <label>Duración (segundos) *</label>
+          <input
+            type="number"
+            min="1"
+            [value]="editSongDurationSeconds()"
+            (input)="editSongDurationSeconds.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- LETRA -->
+        <div class="form-group">
+          <label>Letra (opcional)</label>
+          <textarea
+            rows="5"
+            placeholder="Letra de la canción..."
+            [value]="editSongLyrics()"
+            (input)="editSongLyrics.set($any($event.target).value)"
+          ></textarea>
+        </div>
+
+        <!-- GENERO -->
+        <div class="form-group">
+          <label>Género *</label>
+
+          <div class="genre-picker">
+            <select
+              class="genre-picker__select"
+              [value]="editSongGenreId()"
+              (change)="editSongGenreId.set($any($event.target).value)"
+            >
+              <option value="">Selecciona un género</option>
+
+              @for (genre of filteredGenresForEdit(); track genre.id) {
+                <option [value]="genre.id">
+                  {{ genre.name }}
+                </option>
+              }
+            </select>
+
+            <div class="genre-picker__filter">
+              <lucide-icon [img]="Search" [size]="16" />
+              <input
+                type="text"
+                placeholder="Filtrar"
+                [value]="editGenreFilterQuery()"
+                (input)="editGenreFilterQuery.set($any($event.target).value)"
+              />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions">
+        <button type="button" (click)="closeAllModals()">Cancelar</button>
+        <button type="button" class="confirm" (click)="saveSongEdit()">Guardar</button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- =========================
+   MODAL DETALLE
+========================= -->
+@if (isDetailModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--detail">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title modal-head__title--simple">
+          <h2>{{ selectedSong()?.title }}</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="song-detail">
+
+        <!-- PORTADA -->
+        <img
+          class="song-detail__cover"
+          [src]="selectedSong()?.coverUrl"
+          [alt]="selectedSong()?.title"
+        />
+
+        <!-- CAMPOS -->
+        <div class="song-detail__field">
+          <span>Artista:</span>
+          <strong>{{ selectedSong()?.artistName }}</strong>
+        </div>
+
+        <div class="song-detail__field">
+          <span>Álbum:</span>
+          <strong>{{ selectedSong()?.albumTitle }}</strong>
+        </div>
+
+        <div class="song-detail__field">
+          <span>Duración total:</span>
+          <strong>{{ selectedSong()?.durationSeconds }}</strong>
+        </div>
+
+        <div class="song-detail__field">
+          <span>Plays:</span>
+          <strong>{{ selectedSong()?.playCount }}</strong>
+        </div>
+
+        <div class="song-detail__field">
+          <span>Likes:</span>
+          <strong>{{ selectedSong()?.likesCount }}</strong>
+        </div>
+
+        <!-- GENERO -->
+        <div class="song-detail__genre-wrap">
+          <div
+            class="song-detail__genre-pill"
+            [ngStyle]="{
+              background: selectedSong()
+                ? 'linear-gradient(135deg, ' + selectedSong()!.genreGradientStart + ', ' + selectedSong()!.genreGradientEnd + ')'
+                : '#111111'
+            }"
+          >
+            {{ selectedSong()?.genreName }}
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions modal-actions--single">
+        <button type="button" (click)="closeAllModals()">Cerrar</button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- =========================
+   MODAL ELIMINAR
+========================= -->
+@if (isDeleteModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--delete">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title">
+          <lucide-icon [img]="AlertTriangle" [size]="22" [strokeWidth]="2.2" />
+          <h2>Confirmar eliminación</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="delete-body">
+        <p>
+          ¿Estás seguro de eliminar la canción
+          <strong>{{ selectedSong()?.title }}</strong>?
+        </p>
+
+        <p class="delete-body__warning">
+          Esta accion NO se podra deshacer.
+        </p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions">
+        <button type="button" (click)="closeAllModals()">Cancelar</button>
+        <button type="button" class="danger" (click)="confirmDeleteSong()">
+          Eliminar
+        </button>
+      </div>
+
+    </div>
+  </div>
+}

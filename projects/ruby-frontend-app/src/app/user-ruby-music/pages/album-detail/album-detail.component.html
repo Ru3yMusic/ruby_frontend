@@ -1,0 +1,412 @@
+<div class="album-detail-page" [style.background]="albumGradient()">
+
+  <!-- HERO -->
+  <section class="album-hero">
+    <div class="album-hero__left">
+      <div class="album-hero__cover-wrapper">
+        <img
+          class="album-hero__cover"
+          [src]="displayAlbumCover()"
+          [alt]="displayAlbumTitle()"
+        />
+      </div>
+    </div>
+
+    <div class="album-hero__right">
+      <p class="album-hero__type">Álbum</p>
+
+      <h1 class="album-hero__title">
+        {{ displayAlbumTitle() }}
+      </h1>
+
+      <div class="album-hero__artist-row">
+        <img
+          class="album-hero__artist-avatar"
+          [src]="displayArtistPhoto()"
+          [alt]="displayArtistName()"
+        />
+
+        <button
+          class="album-hero__artist-button"
+          type="button"
+          (click)="goToArtist()"
+        >
+          {{ displayArtistName() }}
+        </button>
+
+        <span class="album-hero__dot">•</span>
+
+        <span class="album-hero__meta">
+          {{ albumMetaLabel() }}
+        </span>
+      </div>
+
+      <div class="album-hero__actions">
+<button
+  class="album-hero__play-button"
+  type="button"
+  (click)="playAlbum()"
+>
+  <img
+    class="album-hero__play-icon"
+    [src]="isAlbumPlaying()
+      ? '/assets/icons/album-pause-main.png'
+      : '/assets/icons/album-play-main.png'"
+    [alt]="isAlbumPlaying() ? 'Pausar álbum' : 'Reproducir álbum'"
+  />
+</button>
+
+        <button
+          class="album-hero__save-button"
+          type="button"
+          (click)="toggleSaveAlbum()"
+        >
+          <img
+            class="album-hero__save-icon"
+            [src]="isAlbumSaved()
+              ? '/assets/icons/album-saved-filled.png'
+              : '/assets/icons/album-save-outline.png'"
+            [alt]="isAlbumSaved() ? 'Quitar de biblioteca' : 'Guardar álbum'"
+          />
+        </button>
+      </div>
+    </div>
+  </section>
+
+
+
+
+
+  <!-- HEADER LISTA -->
+  @if (albumSongs().length > 0) {
+    <section class="album-songs-header">
+      <div class="album-songs-header__index">#</div>
+      <div class="album-songs-header__title">Título</div>
+      <div class="album-songs-header__duration">
+        <img
+          class="album-songs-header__duration-icon"
+          src="/assets/icons/album-duration.png"
+          alt="Duración"
+        />
+      </div>
+    </section>
+  }
+
+  <!-- LISTA -->
+  <section class="album-songs-list">
+    @for (song of albumSongs(); track song.id) {
+      <article class="album-song-row">
+
+
+        <!-- INDEX / PLAY -->
+<button
+  class="album-song-row__index-button"
+  type="button"
+  (click)="playSong(song)"
+>
+  <span class="album-song-row__index-number">
+    {{ song.index }}
+  </span>
+
+  <img
+    class="album-song-row__play-icon"
+    [src]="isSongPlaying(song.songId)
+      ? '/assets/icons/album-song-pause.png'
+      : '/assets/icons/album-song-play.png'"
+    [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
+  />
+</button>
+
+
+
+        <!-- INFO -->
+        <div class="album-song-row__main">
+          <button
+            class="album-song-row__title-button"
+            type="button"
+            (click)="goToSongDetail(song, $event)"
+          >
+            {{ song.title }}
+          </button>
+
+          <button
+            class="album-song-row__artist-button"
+            type="button"
+            (click)="goToArtistFromSong(song, $event)"
+          >
+            {{ song.artistName }}
+          </button>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="album-song-row__right">
+
+          @if (song.isLiked) {
+            <button
+              class="album-song-row__liked-button"
+              type="button"
+              (click)="toggleSongLike(song.songId)"
+            >
+              <img
+                class="album-song-row__liked-icon"
+                src="/assets/icons/song-liked-filled.png"
+                alt="Quitar de Tus me gusta"
+              />
+            </button>
+          }
+
+          <span class="album-song-row__duration">
+            {{ song.durationLabel }}
+          </span>
+
+          <div class="album-song-row__menu-wrapper">
+            <button
+              class="album-song-row__menu-button"
+              type="button"
+              (click)="toggleSongMenu(song.songId, $event)"
+            >
+              <img
+                class="album-song-row__menu-icon"
+                src="/assets/icons/playlist-song-more.png"
+                alt="Más opciones"
+              />
+            </button>
+
+            @if (openSongMenuId() === song.songId) {
+              <div class="album-song-row__menu" (click)="$event.stopPropagation()">
+
+<div class="album-song-row__submenu-wrapper">
+  <button
+    class="album-song-row__menu-item"
+    type="button"
+    (click)="togglePlaylistSubmenu(song.songId, $event)"
+  >
+    <img
+      class="album-song-row__menu-item-icon"
+      src="/assets/icons/playlist-song-menu-add.png"
+      alt="Agregar a playlist"
+    />
+    <span>Agregar a playlist</span>
+  </button>
+
+  @if (openPlaylistSubmenuSongId() === song.songId) {
+    <div class="album-song-row__submenu" (click)="$event.stopPropagation()">
+
+      <button
+        class="album-song-row__submenu-item"
+        type="button"
+        (click)="addSongToNewPlaylist(song.songId)"
+      >
+        Nueva playlist
+      </button>
+
+      @for (playlist of customPlaylists(); track playlist.id) {
+        <button
+          class="album-song-row__submenu-item"
+          type="button"
+          (click)="addSongToExistingPlaylist(playlist.id, song.songId, $event)"
+        >
+          {{ playlist.name }}
+        </button>
+      }
+    </div>
+  }
+</div>
+
+
+
+                <button
+                  class="album-song-row__menu-item"
+                  type="button"
+                  (click)="toggleSongLike(song.songId)"
+                >
+                  <img
+                    class="album-song-row__menu-item-icon"
+                    [src]="isSongLiked(song.songId)
+                      ? '/assets/icons/song-liked-filled.png'
+                      : '/assets/icons/song-liked-outline.png'"
+                    [alt]="isSongLiked(song.songId)
+                      ? 'Eliminar de Tus me gusta'
+                      : 'Guardar en Tus me gusta'"
+                  />
+                  <span>
+                    {{ isSongLiked(song.songId)
+                      ? 'Eliminar de Tus me gusta'
+                      : 'Guardar en Tus me gusta' }}
+                  </span>
+                </button>
+
+
+
+                <button
+                  class="album-song-row__menu-item"
+                  type="button"
+                  (click)="goToArtistFromSong(song, $event)"
+                >
+                  <img
+                    class="album-song-row__menu-item-icon"
+                    src="/assets/icons/playlist-song-menu-artist.png"
+                    alt="Ir al artista"
+                  />
+                  <span>Ir al artista</span>
+                </button>
+
+              </div>
+            }
+          </div>
+        </div>
+      </article>
+    }
+  </section>
+
+@if (hasRelatedAlbums()) {
+  <section class="album-related">
+
+    <!-- HEADER -->
+    <div class="album-related__header">
+      <h2 class="album-related__title">
+        Más de {{ displayArtistName() }}
+      </h2>
+
+      <button
+        class="album-related__see-all"
+        type="button"
+        (click)="goToArtist()"
+      >
+       
+      </button>
+    </div>
+
+
+
+    
+    <!-- LISTA HORIZONTAL -->
+    <div class="album-related__list">
+      @for (album of relatedAlbums(); track album.id) {
+
+        <article
+          class="album-related__card"
+          (click)="goToAlbumDetail(album.id)"
+        >
+
+          <!-- IMAGE -->
+          <div class="album-related__image-wrapper">
+
+            <img
+              class="album-related__image"
+              [src]="album.coverUrl"
+              [alt]="album.title"
+            />
+
+            <!-- PLAY / PAUSE -->
+            <button
+              class="album-related__play-button"
+              type="button"
+              (click)="playRelatedAlbum(album.id, $event)"
+            >
+              <img
+                class="album-related__play-icon"
+                [src]="isRelatedAlbumPlaying(album.id)
+                  ? '/assets/icons/album-song-pause.png'
+                  : '/assets/icons/album-song-play.png'"
+                alt="Reproducir álbum"
+              />
+            </button>
+
+          </div>
+
+          <!-- INFO -->
+          <div class="album-related__info">
+            <p class="album-related__name">
+              {{ album.title }}
+            </p>
+
+            <p class="album-related__year">
+              {{ album.releaseYear }}
+            </p>
+          </div>
+
+          <!-- MENU -->
+          <div class="album-related__menu-wrapper">
+
+            <button
+              class="album-related__menu-button"
+              type="button"
+              (click)="toggleRelatedAlbumMenu(album.id, $event)"
+            >
+              <img
+                class="album-related__menu-icon"
+                src="/assets/icons/playlist-song-more.png"
+                alt="Opciones"
+              />
+            </button>
+
+            @if (openRelatedAlbumMenuId() === album.id) {
+              <div class="album-related__menu" (click)="$event.stopPropagation()">
+
+                <!-- GUARDAR -->
+                <button
+                  class="album-related__menu-item"
+                  type="button"
+                  (click)="toggleSaveRelatedAlbum(album.id, $event)"
+                >
+                  <span>
+                    {{ isRelatedAlbumSaved(album.id)
+                      ? 'Quitar de tu biblioteca'
+                      : 'Agregar a tu biblioteca' }}
+                  </span>
+                </button>
+
+                <!-- SUBMENU PLAYLIST -->
+                <div class="album-related__submenu-wrapper">
+
+                  <button
+                    class="album-related__menu-item"
+                    type="button"
+                    (click)="toggleRelatedAlbumPlaylistSubmenu(album.id, $event)"
+                  >
+                    <span>Agregar a playlist</span>
+                  </button>
+
+                  @if (openRelatedAlbumPlaylistSubmenuId() === album.id) {
+                    <div class="album-related__submenu">
+
+                      <button
+                        class="album-related__submenu-item"
+                        type="button"
+                        (click)="addRelatedAlbumToNewPlaylist(album.id)"
+                      >
+                        Nueva playlist
+                      </button>
+
+                      @for (playlist of customPlaylists(); track playlist.id) {
+                        <button
+                          class="album-related__submenu-item"
+                          type="button"
+                          (click)="addRelatedAlbumToExistingPlaylist(playlist.id, album.id, $event)"
+                        >
+                          {{ playlist.name }}
+                        </button>
+                      }
+
+                    </div>
+                  }
+
+                </div>
+
+              </div>
+            }
+
+          </div>
+
+        </article>
+
+      }
+    </div>
+
+  </section>
+}
+
+
+
+</div>

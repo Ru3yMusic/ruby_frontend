@@ -1,0 +1,112 @@
+<div class="station-page">
+  <!-- ===================== -->
+  <!-- TABS SUPERIORES -->
+  <!-- ===================== -->
+  <div class="home-tabs">
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('TODAS')"
+      (click)="setActiveTab('TODAS')"
+    >
+      Todas
+    </button>
+
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('MUSICA')"
+      (click)="setActiveTab('MUSICA')"
+    >
+      Música
+    </button>
+
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('ESTACION')"
+      (click)="setActiveTab('ESTACION')"
+    >
+      Estación
+    </button>
+  </div>
+
+  <!-- ===================== -->
+  <!-- SECCIÓN: TODAS LAS ESTACIONES -->
+  <!-- ===================== -->
+  <section class="station-section">
+    <h2 class="station-section-title">DISFRUTA DE TU MÚSICA EN VIVO</h2>
+
+    <div class="station-scroll">
+      @for (station of allStations(); track trackByStation($index, station)) {
+        <div
+          class="station-card"
+          (click)="goToStationDetail(station.id)"
+        >
+          <div
+            class="station-cover"
+            [style.background]="getStationBackground(station)"
+          >
+            <img
+              class="station-cover-image"
+              [src]="getStationImage(station)"
+              [alt]="station.name"
+            />
+          </div>
+
+          <h3 class="station-name">{{ station.name }}</h3>
+
+          <button
+            class="station-listen-button"
+            type="button"
+            (click)="goToStationDetail(station.id, $event)"
+          >
+            Escuchar
+          </button>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- ===================== -->
+  <!-- SECCIÓN: FAVORITAS -->
+  <!-- ===================== -->
+  <section class="station-section">
+    <h2 class="station-section-title station-section-title--secondary">
+      Tus estaciones favoritas
+    </h2>
+    <p class="station-section-subtitle">
+      Estaciones basadas en tus gustos
+    </p>
+
+    <div class="station-scroll">
+      @for (station of favoriteStations(); track trackByStation($index, station)) {
+        <div
+          class="station-card"
+          (click)="goToStationDetail(station.id)"
+        >
+          <div
+            class="station-cover"
+            [style.background]="getStationBackground(station)"
+          >
+            <img
+              class="station-cover-image"
+              [src]="getStationImage(station)"
+              [alt]="station.name"
+            />
+          </div>
+
+          <h3 class="station-name">{{ station.name }}</h3>
+
+          <button
+            class="station-listen-button"
+            type="button"
+            (click)="goToStationDetail(station.id, $event)"
+          >
+            Escuchar
+          </button>
+        </div>
+      }
+    </div>
+  </section>
+</div>

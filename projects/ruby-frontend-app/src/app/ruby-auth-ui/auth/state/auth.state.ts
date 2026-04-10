@@ -1,22 +1,28 @@
 import { computed, Injectable, signal } from '@angular/core';
-import { AuthToken, Gender, RegisterPayload } from 'lib-ruby-core';
+import { RegisterDraft } from '../models/register-draft.model';
 
-export interface RegisterDraft {
+export interface CurrentUser {
+  id: string;
   email: string;
-  password: string;
-  displayName: string;
-  birthDate: string;
-  gender: Gender | null;
-  acceptedTerms: boolean;
-  acceptedPrivacyPolicy: boolean;
+  name: string;
+  role: 'ADMIN' | 'USER';
+  status: 'ACTIVE' | 'BLOCKED' | 'INACTIVE';
+  avatarUrl: string | null;
+  onboardingCompleted: boolean;
+  selectedStationIds: string[];
 }
 
 @Injectable({ providedIn: 'root' })
 export class AuthState {
+  // ── Storage keys ────────────────────────────────────────────────────────────
+  private readonly SELECTED_STATIONS_KEY = 'ruby_selected_stations';
+  private readonly CURRENT_USER_KEY = 'ruby_current_user';
+
   // ── Auth session ────────────────────────────────────────────────────────────
-  private readonly _token = signal<AuthToken | null>(this.loadToken());
-  readonly token = this._token.asReadonly();
-  readonly isAuthenticated = computed(() => this._token() !== null);
+  private readonly _currentUser = signal<CurrentUser | null>(this.loadCurrentUser());
+  readonly currentUser = this._currentUser.asReadonly();
+
+  readonly isAuthenticated = computed(() => this._currentUser() !== null);
 
   // ── Register wizard draft ───────────────────────────────────────────────────
   private readonly _draft = signal<Partial<RegisterDraft>>({});
@@ -26,16 +32,30 @@ export class AuthState {
   private readonly _pendingEmail = signal<string>('');
   readonly pendingEmail = this._pendingEmail.asReadonly();
 
+  // ── Onboarding stations ─────────────────────────────────────────────────────
+  private readonly _selectedStations = signal<string[]>(this.loadSelectedStations());
+  readonly selectedStations = this._selectedStations.asReadonly();
+
   // ── Methods ─────────────────────────────────────────────────────────────────
 
-  setToken(token: AuthToken): void {
-    this._token.set(token);
-    localStorage.setItem('auth_token', JSON.stringify(token));
+  setStations(stationIds: string[]): void {
+    this._selectedStations.set(stationIds);
+    localStorage.setItem(this.SELECTED_STATIONS_KEY, JSON.stringify(stationIds));
   }
 
-  clearToken(): void {
-    this._token.set(null);
-    localStorage.removeItem('auth_token');
+  clearStations(): void {
+    this._selectedStations.set([]);
+    localStorage.removeItem(this.SELECTED_STATIONS_KEY);
+  }
+
+  setCurrentUser(user: CurrentUser): void {
+    this._currentUser.set(user);
+    localStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(user));
+  }
+
+  clearCurrentUser(): void {
+    this._currentUser.set(null);
+    localStorage.removeItem(this.CURRENT_USER_KEY);
   }
 
   patchDraft(patch: Partial<RegisterDraft>): void {
@@ -46,26 +66,35 @@ export class AuthState {
     this._draft.set({});
   }
 
-  getDraftAsPayload(): RegisterPayload {
-    const d = this._draft();
-    return {
-      email:                 d.email ?? '',
-      password:              d.password ?? '',
-      displayName:           d.displayName ?? '',
-      birthDate:             d.birthDate ?? '',
-      gender:                d.gender ?? 'OTHER',
-      acceptedTerms:         d.acceptedTerms ?? false,
-      acceptedPrivacyPolicy: d.acceptedPrivacyPolicy ?? false,
-    };
-  }
-
   setPendingEmail(email: string): void {
     this._pendingEmail.set(email);
   }
 
-  private loadToken(): AuthToken | null {
+  clearPendingEmail(): void {
+    this._pendingEmail.set('');
+  }
+
+  clearSession(): void {
+    this.clearCurrentUser();
+    this.clearStations();
+    this.clearPendingEmail();
+    this.resetDraft();
+  }
+
+  // ── Loaders ─────────────────────────────────────────────────────────────────
+
+  private loadSelectedStations(): string[] {
     try {
-      const raw = localStorage.getItem('auth_token');
+      const raw = localStorage.getItem(this.SELECTED_STATIONS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private loadCurrentUser(): CurrentUser | null {
+    try {
+      const raw = localStorage.getItem(this.CURRENT_USER_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;

@@ -1,191 +1,297 @@
-import { Component, computed, ElementRef, signal, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Component, computed, signal } from '@angular/core';
 import {
-  LucideAngularModule,
-  Menu, Plus, Search, Eye, Pencil, Trash2, X,
-  Crown, Star, ChevronDown, Check, TriangleAlert, UserRound,
+  Eye,
+  Menu,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
 } from 'lucide-angular';
+
+import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
 
-export interface Artist {
+/* =========================
+   MODELO ARTISTA
+========================= */
+interface Artist {
   id: string;
   name: string;
   photoUrl: string;
   bio: string;
   isTop: boolean;
-  followers: number;
-  monthlyListeners: number;
-  registeredAt: string;
+  followersCount: string;
+  monthlyListeners: string;
+  createdAt: string;
 }
 
-type FilterMode = 'ALL' | 'TOP';
-
-const MOCK_ARTISTS: Artist[] = [
-  {
-    id: '1', name: 'Kanye West',
-    photoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Kanye_West_at_the_2009_Tribeca_Film_Festival.jpg/440px-Kanye_West_at_the_2009_Tribeca_Film_Festival.jpg',
-    bio: 'Artista urbano estadounidense, líder del género hip-hop y trap.',
-    isTop: true, followers: 2_500_000, monthlyListeners: 8_500_000, registeredAt: '15/06/2023',
-  },
-  {
-    id: '2', name: 'Sting',
-    photoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Sting_2.jpg/440px-Sting_2.jpg',
-    bio: 'Músico y compositor inglés, ex vocalista de The Police.',
-    isTop: false, followers: 1_200_000, monthlyListeners: 3_800_000, registeredAt: '02/03/2023',
-  },
-  {
-    id: '3', name: 'Joji',
-    photoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Joji_-_Head_in_the_Clouds_2019.jpg/440px-Joji_-_Head_in_the_Clouds_2019.jpg',
-    bio: 'Cantante y productor japonés-australiano de R&B y lo-fi.',
-    isTop: false, followers: 980_000, monthlyListeners: 2_100_000, registeredAt: '19/07/2023',
-  },
-  {
-    id: '4', name: 'Jesse Rutherford',
-    photoUrl: 'https://picsum.photos/seed/jesse/200/200',
-    bio: 'Vocalista de The Neighbourhood, referente del indie rock oscuro.',
-    isTop: false, followers: 540_000, monthlyListeners: 1_300_000, registeredAt: '08/11/2023',
-  },
-];
-
+/* =========================
+   COMPONENTE
+========================= */
 @Component({
-  selector:    'rm-gestion-artistas-page',
-  standalone:  true,
-  imports:     [LucideAngularModule, AdminSidebarComponent],
+  selector: 'app-gestion-artistas-page',
+  standalone: true,
+  imports: [CommonModule, LucideAngularModule, AdminSidebarComponent],
   templateUrl: './gestion-artistas.page.html',
-  styleUrl:    './gestion-artistas.page.scss',
+  styleUrl: './gestion-artistas.page.scss',
 })
 export class GestionArtistasPage {
 
-  /* ── Icons ─────────────────────────────────────────────────────────── */
-  readonly Menu          = Menu;
-  readonly Plus          = Plus;
-  readonly Search        = Search;
-  readonly Eye           = Eye;
-  readonly Pencil        = Pencil;
-  readonly Trash2        = Trash2;
-  readonly X             = X;
-  readonly Crown         = Crown;
-  readonly Star          = Star;
-  readonly ChevronDown   = ChevronDown;
-  readonly Check         = Check;
-  readonly TriangleAlert = TriangleAlert;
-  readonly UserRound     = UserRound;
+  /* =========================
+     STORAGE
+  ========================== */
+  private readonly ARTISTS_KEY = 'ruby_artists';
 
-  /* ── Sidebar ────────────────────────────────────────────────────────── */
+  /* =========================
+     ICONOS
+  ========================== */
+  readonly Menu = Menu;
+  readonly Search = Search;
+  readonly Plus = Plus;
+  readonly Pencil = Pencil;
+  readonly Trash2 = Trash2;
+  readonly Eye = Eye;
+
+  /* =========================
+     UI STATE
+  ========================== */
   readonly sidebarOpen = signal(false);
+  readonly searchQuery = signal('');
+  readonly topFilter = signal('');
 
-  /* ── Data ───────────────────────────────────────────────────────────── */
-  private readonly _artists = signal<Artist[]>(structuredClone(MOCK_ARTISTS));
+  /* =========================
+     MODALES
+  ========================== */
+  readonly isCreateModalOpen = signal(false);
+  readonly isEditModalOpen = signal(false);
+  readonly isDetailModalOpen = signal(false);
+  readonly isDeleteModalOpen = signal(false);
 
-  /* ── Search & filter ────────────────────────────────────────────────── */
-  readonly searchQuery  = signal('');
-  readonly filterMode   = signal<FilterMode>('ALL');
-  readonly filterOpen   = signal(false);
+  /* =========================
+     SELECCION
+  ========================== */
+  readonly selectedArtist = signal<Artist | null>(null);
 
+  /* =========================
+     FORM CREATE
+  ========================== */
+  readonly createArtistName = signal('');
+  readonly createArtistPhotoUrl = signal('');
+  readonly createArtistBio = signal('');
+  readonly createArtistIsTop = signal(false);
+
+  /* =========================
+     FORM EDIT
+  ========================== */
+  readonly editArtistName = signal('');
+  readonly editArtistPhotoUrl = signal('');
+  readonly editArtistBio = signal('');
+  readonly editArtistIsTop = signal(false);
+
+  /* =========================
+     DATA
+  ========================== */
+  readonly artists = signal<Artist[]>(this.loadArtists());
+
+  /* =========================
+     COMPUTED
+  ========================== */
   readonly filteredArtists = computed(() => {
-    const q  = this.searchQuery().toLowerCase().trim();
-    const fm = this.filterMode();
-    return this._artists().filter(a => {
-      if (q  && !a.name.toLowerCase().includes(q)) return false;
-      if (fm === 'TOP' && !a.isTop)                return false;
-      return true;
-    });
-  });
+    let result = [...this.artists()];
 
-  filterLabel = computed(() => this.filterMode() === 'ALL' ? 'Todos' : 'Destacados');
+    const query = this.searchQuery().toLowerCase().trim();
+    const filter = this.topFilter();
 
-  setFilter(mode: FilterMode): void { this.filterMode.set(mode); this.filterOpen.set(false); }
-
-  /* ── Modal: View ────────────────────────────────────────────────────── */
-  readonly viewingArtist = signal<Artist | null>(null);
-  openViewModal(a: Artist): void  { this.viewingArtist.set(a); }
-  closeViewModal(): void          { this.viewingArtist.set(null); }
-
-  /* ── Modal: Create / Edit ───────────────────────────────────────────── */
-  readonly modalMode     = signal<'create' | 'edit' | null>(null);
-  readonly editingArtist = signal<Artist | null>(null);
-
-  readonly formName     = signal('');
-  readonly formPhotoUrl = signal('');
-  readonly formBio      = signal('');
-  readonly formIsTop    = signal(false);
-
-  readonly formValid = computed(() => this.formName().trim().length > 0);
-
-  openCreateModal(): void {
-    this.formName.set(''); this.formPhotoUrl.set('');
-    this.formBio.set('');  this.formIsTop.set(false);
-    this.editingArtist.set(null);
-    this.modalMode.set('create');
-  }
-
-  openEditModal(a: Artist): void {
-    this.formName.set(a.name);       this.formPhotoUrl.set(a.photoUrl);
-    this.formBio.set(a.bio);         this.formIsTop.set(a.isTop);
-    this.editingArtist.set(a);
-    this.modalMode.set('edit');
-  }
-
-  closeModal(): void { this.modalMode.set(null); this.editingArtist.set(null); }
-
-  submitModal(): void {
-    if (!this.formValid()) return;
-    const now  = new Date();
-    const date = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`;
-
-    if (this.modalMode() === 'create') {
-      const nuevo: Artist = {
-        id:              crypto.randomUUID(),
-        name:            this.formName().trim(),
-        photoUrl:        this.formPhotoUrl().trim(),
-        bio:             this.formBio().trim(),
-        isTop:           this.formIsTop(),
-        followers:       0,
-        monthlyListeners: 0,
-        registeredAt:   date,
-      };
-      this._artists.update(list => [nuevo, ...list]);
-    } else {
-      const target = this.editingArtist();
-      if (!target) return;
-      this._artists.update(list =>
-        list.map(a => a.id === target.id
-          ? { ...a, name: this.formName().trim(), photoUrl: this.formPhotoUrl().trim(),
-              bio: this.formBio().trim(), isTop: this.formIsTop() }
-          : a),
+    if (query) {
+      result = result.filter((artist) =>
+        artist.name.toLowerCase().includes(query)
       );
     }
-    this.closeModal();
+
+    if (filter === 'TOP') {
+      result = result.filter((artist) => artist.isTop);
+    }
+
+    return result;
+  });
+
+  readonly anyModalOpen = computed(() => {
+    return (
+      this.isCreateModalOpen() ||
+      this.isEditModalOpen() ||
+      this.isDetailModalOpen() ||
+      this.isDeleteModalOpen()
+    );
+  });
+
+  /* =========================
+     STORAGE LOGIC
+  ========================== */
+  private loadArtists(): Artist[] {
+    const stored = localStorage.getItem(this.ARTISTS_KEY);
+
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        localStorage.removeItem(this.ARTISTS_KEY);
+      }
+    }
+
+    const base: Artist[] = [
+     
+    ];
+
+    localStorage.setItem(this.ARTISTS_KEY, JSON.stringify(base));
+    return base;
   }
 
-  /* ── Modal: Delete confirm ──────────────────────────────────────────── */
-  readonly deletingArtist = signal<Artist | null>(null);
-  openDeleteModal(a: Artist): void { this.deletingArtist.set(a); }
-  closeDeleteModal(): void         { this.deletingArtist.set(null); }
-
-  confirmDelete(): void {
-    const a = this.deletingArtist();
-    if (!a) return;
-    this._artists.update(list => list.filter(x => x.id !== a.id));
-    this.closeDeleteModal();
+  private persistArtists(artists: Artist[]): void {
+    localStorage.setItem(this.ARTISTS_KEY, JSON.stringify(artists));
+    this.artists.set(artists);
   }
 
-  /* ── Helpers ────────────────────────────────────────────────────────── */
-  anyModalOpen(): boolean {
-    return !!this.modalMode() || !!this.viewingArtist() || !!this.deletingArtist();
+  /* =========================
+     HELPERS
+  ========================== */
+  private getToday(): string {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   }
 
-  formatNum(n: number): string {
-    if (n === 0) return '0';
-    if (n >= 1_000_000) return (n / 1_000_000).toLocaleString('es', { maximumFractionDigits: 1 }) + 'M';
-    if (n >= 1_000)     return (n / 1_000).toLocaleString('es',     { maximumFractionDigits: 1 }) + 'K';
-    return n.toLocaleString('es');
+  private normalize(text: string): string {
+    return text.trim().toLowerCase();
   }
 
-  formatNumFull(n: number): string {
-    return n.toLocaleString('es-ES');
+  private existsName(name: string, excludeId?: string): boolean {
+    const normalized = this.normalize(name);
+
+    return this.artists().some(
+      (a) =>
+        this.normalize(a.name) === normalized &&
+        a.id !== excludeId
+    );
   }
 
-  onImgError(event: Event): void {
-    (event.target as HTMLImageElement).style.display = 'none';
+  private resetForms(): void {
+    this.createArtistName.set('');
+    this.createArtistPhotoUrl.set('');
+    this.createArtistBio.set('');
+    this.createArtistIsTop.set(false);
+
+    this.editArtistName.set('');
+    this.editArtistPhotoUrl.set('');
+    this.editArtistBio.set('');
+    this.editArtistIsTop.set(false);
+  }
+
+  /* =========================
+     MODALES
+  ========================== */
+  openCreateModal(): void {
+    this.resetForms();
+    this.isCreateModalOpen.set(true);
+  }
+
+  openEditModal(artist: Artist): void {
+    this.selectedArtist.set(artist);
+
+    this.editArtistName.set(artist.name);
+    this.editArtistPhotoUrl.set(artist.photoUrl);
+    this.editArtistBio.set(artist.bio);
+    this.editArtistIsTop.set(artist.isTop);
+
+    this.isEditModalOpen.set(true);
+  }
+
+  openDetailModal(artist: Artist): void {
+    this.selectedArtist.set(artist);
+    this.isDetailModalOpen.set(true);
+  }
+
+  openDeleteModal(artist: Artist): void {
+    this.selectedArtist.set(artist);
+    this.isDeleteModalOpen.set(true);
+  }
+
+  /* =========================
+     CREATE
+  ========================== */
+  createArtist(): void {
+    const name = this.createArtistName().trim();
+    const photo = this.createArtistPhotoUrl().trim();
+
+    if (!name || !photo) return;
+    if (this.existsName(name)) return;
+
+    const newArtist: Artist = {
+      id: crypto.randomUUID(),
+      name,
+      photoUrl: photo,
+      bio: this.createArtistBio(),
+      isTop: this.createArtistIsTop(),
+      followersCount: '0 seguidores',
+      monthlyListeners: '0 oyentes / mes',
+      createdAt: this.getToday(),
+    };
+
+    this.persistArtists([newArtist, ...this.artists()]);
+    this.closeAllModals();
+  }
+
+  /* =========================
+     EDIT
+  ========================== */
+  saveArtistEdit(): void {
+    const current = this.selectedArtist();
+    if (!current) return;
+
+    const name = this.editArtistName().trim();
+    if (!name) return;
+    if (this.existsName(name, current.id)) return;
+
+    const updated = this.artists().map((a) =>
+      a.id === current.id
+        ? {
+            ...a,
+            name,
+            photoUrl: this.editArtistPhotoUrl(),
+            bio: this.editArtistBio(),
+            isTop: this.editArtistIsTop(),
+          }
+        : a
+    );
+
+    this.persistArtists(updated);
+    this.closeAllModals();
+  }
+
+  /* =========================
+     DELETE
+  ========================== */
+  confirmDeleteArtist(): void {
+    const current = this.selectedArtist();
+    if (!current) return;
+
+    const updated = this.artists().filter((a) => a.id !== current.id);
+    this.persistArtists(updated);
+    this.closeAllModals();
+  }
+
+  /* =========================
+     CLOSE
+  ========================== */
+  closeAllModals(): void {
+    this.isCreateModalOpen.set(false);
+    this.isEditModalOpen.set(false);
+    this.isDetailModalOpen.set(false);
+    this.isDeleteModalOpen.set(false);
+
+    this.selectedArtist.set(null);
+    this.resetForms();
   }
 }

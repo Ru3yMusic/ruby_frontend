@@ -1,0 +1,421 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.notifications-page {
+  min-height: 100%;
+  padding: 26px 28px 140px;
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    #8b6c6c 0%,
+    #2b2b2b 26%,
+    #111111 58%,
+    #050505 100%
+  );
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.notifications-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.notifications-title {
+  margin: 0;
+  color: #ffffff;
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.notifications-tabs {
+  margin-top: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  gap: 0;
+}
+
+.notifications-tab {
+  min-width: 220px;
+  height: 64px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(34, 34, 34, 0.72);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.notifications-tab.active {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111111;
+}
+
+.notifications-tab:hover {
+  transform: translateY(-1px);
+}
+
+.notifications-tab-icon {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+}
+
+.notifications-tab-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff1a1a;
+  flex-shrink: 0;
+}
+
+.notifications-counter-text {
+  margin: 20px 0 0;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 400;
+  text-align: center;
+}
+
+.notifications-counter-text strong {
+  font-weight: 800;
+}
+
+.notifications-content {
+  margin-top: 44px;
+  display: flex;
+  flex-direction: column;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.notifications-empty-state {
+  min-height: 180px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 18px;
+  text-align: center;
+  padding: 20px;
+}
+
+.notification-card {
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(10px);
+  padding: 22px 26px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+}
+
+.notification-card-main {
+  display: grid;
+  grid-template-columns: 56px 1fr 30px;
+  gap: 16px;
+  align-items: start;
+}
+
+.notification-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.notification-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.notification-text {
+  margin: 0;
+  color: rgba(24, 24, 24, 0.76);
+  font-size: 18px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.notification-text strong {
+  color: #111111;
+  font-weight: 800;
+}
+
+.notification-go-button {
+  width: 90px;
+  height: 42px;
+  border: none;
+  border-radius: 999px;
+  background: #ff2b1f;
+  color: #000000;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.notification-go-button:hover {
+  background: #ff3d32;
+  transform: scale(1.03);
+}
+
+.notification-more-button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-more-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+}
+
+.notification-request-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.notification-accept-button,
+.notification-reject-button {
+  min-width: 118px;
+  height: 42px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.notification-accept-button {
+  border: none;
+  background: #ff2b1f;
+  color: #ffffff;
+}
+
+.notification-accept-button:hover {
+  background: #ff3d32;
+  transform: scale(1.03);
+}
+
+.notification-reject-button {
+  border: 2px solid #ff2b1f;
+  background: transparent;
+  color: #ff2b1f;
+}
+
+.notification-reject-button:hover {
+  background: rgba(255, 43, 31, 0.08);
+  transform: scale(1.03);
+}
+
+/* ===================== */
+/* MODAL ELIMINAR */
+/* ===================== */
+.notification-delete-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  padding: 20px;
+}
+
+.notification-delete-modal {
+  width: min(360px, 100%);
+  padding: 22px 20px 18px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #242428 0%, #151518 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+}
+
+.notification-delete-modal-text {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.notification-delete-modal-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.notification-delete-cancel-button,
+.notification-delete-confirm-button {
+  min-width: 110px;
+  height: 40px;
+  border-radius: 999px;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notification-delete-cancel-button {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.notification-delete-confirm-button {
+  background: #ff2b1f;
+  color: #ffffff;
+}
+
+/* ===================== */
+/* TOAST */
+/* ===================== */
+.notifications-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 104px;
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-width: min(92vw, 420px);
+  padding: 14px 18px;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.94);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  z-index: 95;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+}
+
+/* ===================== */
+/* RESPONSIVE */
+/* ===================== */
+@media (max-width: 900px) {
+  .notifications-page {
+    padding: 22px 18px 140px;
+  }
+
+  .notifications-title {
+    font-size: 34px;
+  }
+
+  .notifications-tabs {
+    width: 100%;
+    max-width: 640px;
+  }
+
+  .notifications-tab {
+    min-width: 0;
+    width: 50%;
+    font-size: 16px;
+  }
+
+  .notification-card {
+    padding: 18px 18px;
+  }
+
+  .notification-card-main {
+    grid-template-columns: 50px 1fr 26px;
+    gap: 12px;
+  }
+
+  .notification-avatar {
+    width: 50px;
+    height: 50px;
+  }
+
+  .notification-text {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .notifications-title {
+    font-size: 28px;
+  }
+
+  .notifications-tabs {
+    margin-top: 24px;
+  }
+
+  .notifications-tab {
+    height: 58px;
+    font-size: 15px;
+    gap: 8px;
+  }
+
+  .notifications-tab-icon {
+    width: 25px;
+    height: 25px;
+  }
+
+  .notifications-counter-text {
+    font-size: 14px;
+  }
+
+  .notification-text {
+    font-size: 15px;
+  }
+
+  .notification-request-actions {
+    gap: 10px;
+  }
+
+  .notification-accept-button,
+  .notification-reject-button,
+  .notification-go-button {
+    min-width: 100px;
+    height: 40px;
+    font-size: 14px;
+  }
+
+  .notifications-toast {
+    bottom: 96px;
+    font-size: 13px;
+  }
+}

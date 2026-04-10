@@ -1,0 +1,617 @@
+<!-- =========================
+   SIDEBAR
+========================= -->
+<rm-admin-sidebar
+  [isOpen]="sidebarOpen()"
+  (closed)="sidebarOpen.set(false)"
+/>
+
+<div class="page" [class.page--dimmed]="anyModalOpen()">
+
+  <!-- =========================
+     HEADER
+  ========================= -->
+  <header class="page-header">
+    <div class="page-header__left">
+      <button
+        type="button"
+        class="icon-btn"
+        (click)="sidebarOpen.set(true)"
+        aria-label="Abrir menú"
+      >
+        <lucide-icon [img]="Menu" [size]="22" [strokeWidth]="2" />
+      </button>
+
+      <div class="brand">
+        <div class="brand__logo-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="brand__text">
+          <h2 class="brand__title">
+            <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
+          </h2>
+          <p class="brand__role">Administrador</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-header__right">
+      <img
+        class="page-header__avatar"
+        src="https://ui-avatars.com/api/?name=Admin&background=d70013&color=fff&bold=true&size=96"
+        alt="Administrador"
+      />
+    </div>
+  </header>
+
+  <!-- =========================
+     CONTENIDO PRINCIPAL
+  ========================= -->
+  <main class="page-content">
+
+    <!-- =========================
+       TITULO Y ACCION PRINCIPAL
+    ========================= -->
+    <section class="section-head section-head--with-action">
+      <div class="section-head__title-wrap">
+        <h1 class="section-head__title">Estaciones</h1>
+      </div>
+
+      <button
+        type="button"
+        class="add-btn"
+        (click)="openCreateModal()"
+        aria-label="Nueva estación"
+      >
+        <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.2" />
+      </button>
+    </section>
+
+    <!-- =========================
+       BUSCADOR
+    ========================= -->
+    <section class="toolbar toolbar--stack">
+      <div class="search-box">
+        <lucide-icon [img]="Search" [size]="18" />
+        <input
+          type="text"
+          placeholder="Buscar por nombre..."
+          [value]="searchQuery()"
+          (input)="searchQuery.set($any($event.target).value)"
+        />
+      </div>
+    </section>
+
+    <!-- =========================
+       LISTA DE ESTACIONES
+    ========================= -->
+    <section class="stations-list">
+
+      @for (station of filteredStations(); track station.id) {
+        <article class="station-card">
+
+          <!-- CABECERA CARD -->
+          <div class="station-card__top">
+
+            <!-- COVER -->
+            <div
+              class="station-card__cover"
+              [ngStyle]="{
+                background: 'linear-gradient(180deg, ' + station.gradientStart + ', ' + station.gradientEnd + ')'
+              }"
+            ></div>
+
+            <!-- INFO -->
+            <div class="station-card__info">
+              <h3>{{ station.name }}</h3>
+
+              <div
+                class="station-card__genre-pill"
+                [ngStyle]="{
+                  background: 'linear-gradient(180deg, ' + station.gradientStart + ', ' + station.gradientEnd + ')'
+                }"
+              >
+                {{ station.genreName }}
+              </div>
+
+              <p class="station-card__meta">
+                {{ station.songCount }} canciones
+              </p>
+            </div>
+
+            <!-- OYENTES -->
+            <div class="station-card__listeners">
+              <lucide-icon [img]="Radio" [size]="23" />
+              <span>{{ station.liveListenersLabel }}</span>
+            </div>
+
+          </div>
+
+          <!-- DIVISOR -->
+          <div class="station-card__divider"></div>
+
+          <!-- ACCIONES -->
+          <div class="station-card__actions">
+            <button
+              type="button"
+              class="action-btn action-btn--view"
+              (click)="openDetailModal(station)"
+            >
+              <lucide-icon [img]="Eye" [size]="17" />
+              <span>Ver</span>
+            </button>
+
+            <button
+              type="button"
+              class="action-btn action-btn--edit"
+              (click)="openEditModal(station)"
+            >
+              <lucide-icon [img]="Pencil" [size]="17" />
+              <span>Editar</span>
+            </button>
+
+            <button
+              type="button"
+              class="action-btn action-btn--delete"
+              (click)="openDeleteModal(station)"
+            >
+              <lucide-icon [img]="Trash2" [size]="17" />
+              <span>Eliminar</span>
+            </button>
+          </div>
+
+        </article>
+      }
+
+    </section>
+
+  </main>
+</div>
+
+<!-- =========================
+   MODAL CREAR ESTACION
+========================= -->
+@if (isCreateModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--form modal-content--station-form">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title">
+          <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.2" />
+          <h2>Nueva Estación</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-form modal-form--scroll">
+
+        <!-- NOMBRE -->
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input
+            type="text"
+            [value]="createStationName()"
+            (input)="createStationName.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- GENERO -->
+        <div class="form-group">
+          <label>Género *</label>
+          <select
+            [value]="createStationGenreId()"
+            (change)="onCreateGenreChange($any($event.target).value)"
+          >
+            <option value="">Selecciona un género</option>
+
+            @for (genre of availableGenres(); track genre.id) {
+              <option [value]="genre.id">
+                {{ genre.name }}
+              </option>
+            }
+          </select>
+        </div>
+
+        <!-- COLORES -->
+        <div class="color-grid">
+          <div class="form-group">
+            <label>Color Inicio *</label>
+            <input
+              type="color"
+              [value]="createGradientStart()"
+              (input)="createGradientStart.set($any($event.target).value)"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Color Fin *</label>
+            <input
+              type="color"
+              [value]="createGradientEnd()"
+              (input)="createGradientEnd.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <!-- PREVIEW -->
+        <div
+          class="station-preview"
+          [ngStyle]="{
+            background: 'linear-gradient(180deg, ' + createGradientStart() + ', ' + createGradientEnd() + ')'
+          }"
+        ></div>
+
+        <!-- FILTRO ARTISTA -->
+        <div class="filter-row">
+          <div class="form-group filter-row__select">
+            <label>Artista</label>
+            <select
+              [value]="createArtistFilterId()"
+              (change)="onCreateArtistFilterChange($any($event.target).value)"
+            >
+              <option value="">Todos los artistas</option>
+
+              @for (artist of filteredArtistsForCreate(); track artist.id) {
+                <option [value]="artist.id">
+                  {{ artist.name }}
+                </option>
+              }
+            </select>
+          </div>
+
+          <div class="filter-row__search">
+            <lucide-icon [img]="Search" [size]="16" />
+            <input
+              type="text"
+              placeholder="Filtrar artista"
+              [value]="createArtistFilterQuery()"
+              (input)="createArtistFilterQuery.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <!-- FILTRO ALBUM -->
+        <div class="filter-row">
+          <div class="form-group filter-row__select">
+            <label>Álbum</label>
+            <select
+              [value]="createAlbumFilterId()"
+              (change)="createAlbumFilterId.set($any($event.target).value)"
+            >
+              <option value="">Todos los álbumes</option>
+
+              @for (album of filteredAlbumsForCreateStation(); track album.id) {
+                <option [value]="album.id">
+                  {{ album.title }}
+                </option>
+              }
+            </select>
+          </div>
+
+          <div class="filter-row__search">
+            <lucide-icon [img]="Search" [size]="16" />
+            <input
+              type="text"
+              placeholder="Filtrar álbum"
+              [value]="createAlbumFilterQuery()"
+              (input)="createAlbumFilterQuery.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <!-- CANCIONES -->
+        <div class="form-group">
+          <label>Canciones * (mínimo 2)</label>
+
+          <div class="songs-checklist">
+            @for (song of filteredSongsForCreateStation(); track song.id) {
+              <label class="song-check">
+                <input
+                  type="checkbox"
+                  [checked]="isCreateSongSelected(song.id)"
+                  (change)="toggleCreateSongSelection(song.id)"
+                />
+                <span>{{ song.title }}</span>
+              </label>
+            }
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions">
+        <button type="button" (click)="closeAllModals()">Cancelar</button>
+        <button type="button" class="confirm" (click)="createStation()">Crear</button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- =========================
+   MODAL EDITAR ESTACION
+========================= -->
+@if (isEditModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--form modal-content--station-form">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title">
+          <lucide-icon [img]="Pencil" [size]="20" [strokeWidth]="2.2" />
+          <h2>Editar Estación</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-form modal-form--scroll">
+
+        <!-- NOMBRE -->
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input
+            type="text"
+            [value]="editStationName()"
+            (input)="editStationName.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- GENERO BLOQUEADO -->
+        <div class="form-group">
+          <label>Género (bloqueado)</label>
+          <input
+            type="text"
+            [value]="selectedStation()?.genreName"
+            readonly
+          />
+        </div>
+
+        <!-- COLORES -->
+        <div class="color-grid">
+          <div class="form-group">
+            <label>Color Inicio *</label>
+            <input
+              type="color"
+              [value]="editGradientStart()"
+              (input)="editGradientStart.set($any($event.target).value)"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Color Fin *</label>
+            <input
+              type="color"
+              [value]="editGradientEnd()"
+              (input)="editGradientEnd.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <!-- PREVIEW -->
+        <div
+          class="station-preview"
+          [ngStyle]="{
+            background: 'linear-gradient(180deg, ' + editGradientStart() + ', ' + editGradientEnd() + ')'
+          }"
+        ></div>
+
+        <!-- FILTRO ARTISTA -->
+        <div class="filter-row">
+          <div class="form-group filter-row__select">
+            <label>Artista</label>
+            <select
+              [value]="editArtistFilterId()"
+              (change)="onEditArtistFilterChange($any($event.target).value)"
+            >
+              <option value="">Todos los artistas</option>
+
+              @for (artist of filteredArtistsForEdit(); track artist.id) {
+                <option [value]="artist.id">
+                  {{ artist.name }}
+                </option>
+              }
+            </select>
+          </div>
+
+          <div class="filter-row__search">
+            <lucide-icon [img]="Search" [size]="16" />
+            <input
+              type="text"
+              placeholder="Filtrar artista"
+              [value]="editArtistFilterQuery()"
+              (input)="editArtistFilterQuery.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <!-- FILTRO ALBUM -->
+        <div class="filter-row">
+          <div class="form-group filter-row__select">
+            <label>Álbum</label>
+            <select
+              [value]="editAlbumFilterId()"
+              (change)="editAlbumFilterId.set($any($event.target).value)"
+            >
+              <option value="">Todos los álbumes</option>
+
+              @for (album of filteredAlbumsForEditStation(); track album.id) {
+                <option [value]="album.id">
+                  {{ album.title }}
+                </option>
+              }
+            </select>
+          </div>
+
+          <div class="filter-row__search">
+            <lucide-icon [img]="Search" [size]="16" />
+            <input
+              type="text"
+              placeholder="Filtrar álbum"
+              [value]="editAlbumFilterQuery()"
+              (input)="editAlbumFilterQuery.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <!-- CANCIONES -->
+        <div class="form-group">
+          <label>Canciones * (mínimo 2)</label>
+
+          <div class="songs-checklist">
+            @for (song of filteredSongsForEditStation(); track song.id) {
+              <label class="song-check">
+                <input
+                  type="checkbox"
+                  [checked]="isEditSongSelected(song.id)"
+                  (change)="toggleEditSongSelection(song.id)"
+                />
+                <span>{{ song.title }}</span>
+              </label>
+            }
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions">
+        <button type="button" (click)="closeAllModals()">Cancelar</button>
+        <button type="button" class="confirm" (click)="saveStationEdit()">Guardar</button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- =========================
+   MODAL DETALLE
+========================= -->
+@if (isDetailModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--detail">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title modal-head__title--simple">
+          <h2>{{ selectedStation()?.name }}</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="station-detail">
+
+        <div
+          class="station-detail__cover"
+          [ngStyle]="{
+            background: selectedStation()
+              ? 'linear-gradient(180deg, ' + selectedStation()!.gradientStart + ', ' + selectedStation()!.gradientEnd + ')'
+              : '#111111'
+          }"
+        ></div>
+
+        <div class="station-detail__field">
+          <span>Género:</span>
+          <strong>{{ selectedStation()?.genreName }}</strong>
+        </div>
+
+        <div class="station-detail__field">
+          <span>Canciones:</span>
+          <strong>{{ selectedStation()?.songCount }}</strong>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions modal-actions--single">
+        <button type="button" (click)="closeAllModals()">Cerrar</button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- =========================
+   MODAL ELIMINAR
+========================= -->
+@if (isDeleteModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--delete">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title">
+          <lucide-icon [img]="AlertTriangle" [size]="22" [strokeWidth]="2.2" />
+          <h2>Confirmar eliminación</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="delete-body">
+        <p>
+          ¿Estás seguro de eliminar la estación
+          <strong>{{ selectedStation()?.name }}</strong>?
+        </p>
+
+        <p class="delete-body__secondary">
+          Las canciones NO se eliminarán del catálogo solo, de estación.
+        </p>
+
+        <p class="delete-body__warning">
+          Esta accion NO se podra deshacer.
+        </p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions">
+        <button type="button" (click)="closeAllModals()">Cancelar</button>
+        <button type="button" class="danger" (click)="confirmDeleteStation()">
+          Eliminar
+        </button>
+      </div>
+
+    </div>
+  </div>
+}

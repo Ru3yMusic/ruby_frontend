@@ -50,6 +50,11 @@
               {
                 "glob": "**/*",
                 "input": "projects/ruby-frontend-app/public"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/ruby-frontend-app/src/assets",
+                "output": "assets"
               }
             ],
             "styles": ["projects/ruby-frontend-app/src/styles.scss"]
@@ -82,10 +87,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-                "buildTarget": "ruby-frontend:build:production"
+              "buildTarget": "ruby-frontend:build:production"
             },
             "development": {
-                "buildTarget": "ruby-frontend:build:development"
+              "buildTarget": "ruby-frontend:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -128,10 +133,10 @@
           "builder": "@angular/build:ng-packagr",
           "configurations": {
             "production": {
-                "tsConfig": "projects/lib-ruby-core-ui/tsconfig.lib.prod.json"
+              "tsConfig": "projects/lib-ruby-core-ui/tsconfig.lib.prod.json"
             },
             "development": {
-                "tsConfig": "projects/lib-ruby-core-ui/tsconfig.lib.json"
+              "tsConfig": "projects/lib-ruby-core-ui/tsconfig.lib.json"
             }
           },
           "defaultConfiguration": "production"
@@ -139,7 +144,7 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-              "tsConfig": "projects/lib-ruby-core-ui/tsconfig.spec.json"
+            "tsConfig": "projects/lib-ruby-core-ui/tsconfig.spec.json"
           }
         }
       }

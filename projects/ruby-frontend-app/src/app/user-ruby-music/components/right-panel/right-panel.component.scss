@@ -1,0 +1,567 @@
+:host {
+  display: block;
+  min-height: 100%;
+}
+
+.right-panel {
+  min-height: 100%;
+  padding: 2px 0px 132px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+/* ===================== */
+/* SECCIONES */
+/* ===================== */
+.right-panel__section {
+  background: linear-gradient(180deg, rgba(34, 34, 34, 0.92) 0%, rgba(10, 10, 10, 0.98) 100%);
+  border-radius: 5px;
+  padding: 0px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+}
+
+.right-panel__section--current-song {
+  padding-top: 16px;
+}
+
+.right-panel__section--related {
+  position: relative;
+  overflow: hidden;
+}
+
+.right-panel__section--artist-about {
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.right-panel__section--artist-about:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(42, 42, 42, 0.94) 0%, rgba(14, 14, 14, 0.99) 100%);
+}
+
+.right-panel__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.right-panel__section-header--left {
+  justify-content: flex-start;
+}
+
+.right-panel__section-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+}
+
+/* ===================== */
+/* SECCIÓN 1 */
+/* ===================== */
+.right-panel__current-song-heading {
+  margin: 0 0 14px;
+  text-align: left;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.right-panel__current-song-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.right-panel__current-song-cover-wrapper {
+  width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  box-sizing: border-box;
+}
+
+.right-panel__current-song-cover {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+.right-panel__current-song-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.right-panel__current-song-title {
+  border: none;
+  background: transparent;
+  color: #fff;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.right-panel__current-song-title:hover {
+  text-decoration: underline;
+}
+
+.right-panel__current-song-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.right-panel__current-song-artist {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.right-panel__current-song-artist:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.right-panel__current-song-like-button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.right-panel__current-song-like-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+/* ===================== */
+/* SECCIÓN 2 */
+/* ===================== */
+.right-panel__carousel-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.right-panel__carousel-button {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(18, 18, 18, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+  opacity: 0;
+}
+
+.right-panel__section--related:hover .right-panel__carousel-button {
+  opacity: 1;
+}
+
+.right-panel__carousel-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(34, 34, 34, 0.95);
+}
+
+.right-panel__carousel-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.right-panel__carousel-button-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.right-panel__related-list {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.right-panel__related-card {
+  min-width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  position: relative;
+}
+
+.right-panel__related-card:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.11);
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.2);
+}
+
+.right-panel__related-card-image-wrapper {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.right-panel__related-card-image {
+  width: 100%;
+  aspect-ratio: 1.32 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+.right-panel__related-card-play-button {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 45, 45, 0.96);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.28);
+}
+
+.right-panel__related-card:hover .right-panel__related-card-play-button {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.right-panel__related-card-play-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: brightness(0);
+}
+
+.right-panel__related-card-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.right-panel__related-card-title,
+.right-panel__related-card-artist {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.right-panel__related-card-title {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.right-panel__related-card-title:hover {
+  text-decoration: underline;
+}
+
+.right-panel__related-card-artist {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.92rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.right-panel__related-card-artist:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* ===================== */
+/* SECCIÓN 3 */
+/* ===================== */
+.right-panel__artist-about-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.right-panel__artist-about-image-wrapper {
+  position: relative;
+  width: 100%;
+  padding: 14px 14px 0;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+}
+
+.right-panel__artist-about-image {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+.right-panel__artist-about-image-overlay {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.65) 0%,
+    rgba(255, 255, 255, 0.35) 38%,
+    rgba(255, 255, 255, 0.08) 72%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+.right-panel__artist-about-content {
+  padding: 16px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: linear-gradient(180deg, rgba(38, 38, 38, 0.96) 0%, rgba(21, 21, 21, 0.98) 100%);
+}
+
+.right-panel__artist-about-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.right-panel__artist-about-header-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.right-panel__artist-about-name {
+  border: none;
+  background: transparent;
+  color: #fff;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.right-panel__artist-about-name:hover {
+  text-decoration: underline;
+}
+
+.right-panel__artist-about-listeners {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.right-panel__artist-about-follow-button {
+  min-width: 96px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  background: #000;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.right-panel__artist-about-follow-button:hover {
+  transform: translateY(-1px);
+}
+
+.right-panel__artist-about-follow-button--active {
+  background: #fff;
+  color: #111;
+}
+
+.right-panel__artist-about-bio-preview {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* ===================== */
+/* MODAL */
+/* ===================== */
+.right-panel__modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1300;
+  padding: 20px;
+}
+
+.right-panel__modal {
+  width: min(360px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #1f1f1f 0%, #090909 100%);
+  padding: 22px 20px 24px;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.42);
+}
+
+.right-panel__modal-image-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.right-panel__modal-image {
+  width: 156px;
+  height: 156px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.right-panel__modal-title {
+  margin: 0 0 14px;
+  text-align: center;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.right-panel__modal-bio {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.96rem;
+  line-height: 1.65;
+}
+
+/* ===================== */
+/* RESPONSIVE */
+/* ===================== */
+@media (max-width: 1100px) {
+  .right-panel {
+    padding: 12px 12px 126px;
+    gap: 18px;
+  }
+
+  .right-panel__section {
+    padding: 16px;
+  }
+
+  .right-panel__artist-about-image,
+  .right-panel__artist-about-image-overlay {
+    width: 160px;
+    height: 160px;
+  }
+}
+
+@media (max-width: 760px) {
+  .right-panel {
+    padding: 10px 10px 124px;
+    gap: 16px;
+  }
+
+  .right-panel__section {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .right-panel__current-song-cover-wrapper {
+    border-width: 8px;
+  }
+
+  .right-panel__artist-about-image,
+  .right-panel__artist-about-image-overlay {
+    width: 142px;
+    height: 142px;
+  }
+
+  .right-panel__artist-about-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .right-panel__artist-about-follow-button {
+    min-width: 92px;
+  }
+
+  .right-panel__modal {
+    width: min(340px, 94vw);
+    padding: 18px 16px 22px;
+  }
+
+  .right-panel__modal-image {
+    width: 142px;
+    height: 142px;
+  }
+}

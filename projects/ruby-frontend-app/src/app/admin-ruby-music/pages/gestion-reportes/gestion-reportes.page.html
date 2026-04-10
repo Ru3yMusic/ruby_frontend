@@ -1,0 +1,415 @@
+<!-- =========================
+   SIDEBAR
+========================= -->
+<rm-admin-sidebar
+  [isOpen]="sidebarOpen()"
+  (closed)="sidebarOpen.set(false)"
+/>
+
+<div class="page" [class.page--dimmed]="anyModalOpen()">
+
+  <!-- =========================
+     HEADER
+  ========================= -->
+  <header class="page-header">
+    <div class="page-header__left">
+      <button
+        type="button"
+        class="icon-btn"
+        (click)="sidebarOpen.set(true)"
+        aria-label="Abrir menú"
+      >
+        <lucide-icon [img]="Menu" [size]="22" [strokeWidth]="2" />
+      </button>
+
+      <div class="brand">
+        <div class="brand__logo-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="brand__text">
+          <h2 class="brand__title">
+            <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
+          </h2>
+          <p class="brand__role">Administrador</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-header__right">
+      <img
+        class="page-header__avatar"
+        src="https://ui-avatars.com/api/?name=Admin&background=d70013&color=fff&bold=true&size=96"
+        alt="Administrador"
+      />
+    </div>
+  </header>
+
+  <!-- =========================
+     CONTENIDO PRINCIPAL
+  ========================= -->
+  <main class="page-content">
+
+    <!-- =========================
+       TITULO
+    ========================= -->
+    <section class="section-head">
+      <div class="section-head__title-wrap">
+        <h1 class="section-head__title">Reportes</h1>
+      </div>
+    </section>
+
+    <!-- =========================
+       BUSCADOR
+    ========================= -->
+    <section class="toolbar">
+      <div class="search-box">
+        <lucide-icon
+          [img]="Search"
+          [size]="18"
+          [strokeWidth]="2"
+          class="search-box__icon"
+        />
+        <input
+          type="text"
+          class="search-box__input"
+          placeholder="Buscar por nombre..."
+          [value]="searchQuery()"
+          (input)="searchQuery.set($any($event.target).value)"
+        />
+      </div>
+    </section>
+
+<!-- =========================
+   LISTA DE REPORTES
+========================= -->
+<section class="reports-list">
+  @for (report of filteredReports(); track report.reportedUserId) {
+    <article class="report-card">
+
+      <!-- HEADER -->
+      <div class="report-card__top">
+
+        <div class="report-card__chips">
+
+          <!-- TIPO -->
+          <span class="report-chip report-chip--type">
+            <lucide-icon [img]="UserRound" [size]="13" />
+            Usuario
+          </span>
+
+          <!-- CANTIDAD -->
+          <span
+            class="report-chip report-chip--level"
+            [class.report-chip--yellow]="report.totalReports === 1"
+            [class.report-chip--orange]="report.totalReports === 2"
+            [class.report-chip--red]="report.totalReports >= 3"
+          >
+            {{ report.totalReports }} Reporte{{ report.totalReports > 1 ? 's' : '' }}
+          </span>
+
+        </div>
+
+        <!-- FECHA -->
+        <span class="report-card__date">
+          {{ report.lastReportAt }}
+        </span>
+
+      </div>
+
+      <!-- BODY -->
+      <div class="report-card__body">
+
+        <img
+          class="report-card__avatar"
+          [src]="report.reportedUserAvatarUrl"
+        />
+
+        <div class="report-card__info">
+          <h3 class="report-card__name">
+            {{ report.reportedUserName }}
+          </h3>
+
+          <p class="report-card__reason">
+            Motivo: {{ report.mostFrequentReason }}
+          </p>
+        </div>
+
+      </div>
+
+      <!-- PRIORIDAD -->
+      @if (report.totalReports >= 2) {
+        <div
+          class="report-card__priority-bar"
+          [class.report-card__priority-bar--orange]="report.totalReports === 2"
+          [class.report-card__priority-bar--red]="report.totalReports >= 3"
+        ></div>
+      }
+
+      <!-- ACCIONES -->
+      <div class="report-card__actions">
+
+        <button
+          class="report-action-btn report-action-btn--view"
+          (click)="openDetailModal(report)"
+        >
+          <lucide-icon [img]="Eye" [size]="16" />
+          Ver
+        </button>
+
+        <button
+          class="report-action-btn report-action-btn--block"
+          (click)="openBlockModal(report)"
+        >
+          <lucide-icon [img]="Ban" [size]="16" />
+          Bloquear
+        </button>
+
+        <button
+          class="report-action-btn report-action-btn--discard"
+          (click)="openDiscardModal(report)"
+        >
+          <lucide-icon [img]="X" [size]="16" />
+          Descartar
+        </button>
+
+      </div>
+
+    </article>
+  }
+</section>
+
+  </main>
+</div>
+
+<!-- =========================
+   OVERLAY GENERAL
+========================= -->
+@if (anyModalOpen()) {
+  <div class="modal-overlay" (click)="closeAllModals()"></div>
+}
+
+<!-- =========================
+   MODAL DETALLE DE REPORTES
+========================= -->
+@if (isDetailModalOpen() && selectedReport()) {
+  <section class="modal-shell" aria-modal="true" role="dialog">
+    <div class="modal-card modal-card--detail" (click)="$event.stopPropagation()">
+
+      <!-- HEADER -->
+      <div class="modal-card__header">
+        <div class="modal-card__title-wrap">
+          <lucide-icon [img]="FileText" [size]="22" [strokeWidth]="2" />
+          <h2 class="modal-card__title">Detalles de Reportes</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-card__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-card__body">
+
+        <!-- DATOS PRINCIPALES -->
+        <div class="detail-section">
+          <div class="detail-field">
+            <p class="detail-field__label">Reportado</p>
+            <p class="detail-field__value">{{ selectedReport()?.reportedUserName }}</p>
+          </div>
+
+          <div class="detail-field">
+            <p class="detail-field__label">Tipo</p>
+            <div class="detail-type-badge">
+              <lucide-icon [img]="UserRound" [size]="13" [strokeWidth]="2" />
+              <span>Usuario</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- HISTORIAL -->
+        <div class="detail-history">
+          <h3 class="detail-history__title">
+            Historial de reportes ({{ selectedReport()?.totalReports }})
+          </h3>
+
+          <div class="detail-history__scroll">
+            @for (item of selectedReport()?.reportHistory ?? []; track item.id) {
+              <div class="history-card">
+                <div class="history-card__icon">
+                  <lucide-icon [img]="CalendarDays" [size]="16" [strokeWidth]="2" />
+                </div>
+
+                <div class="history-card__content">
+                  <p class="history-card__date">{{ item.createdAt }}</p>
+                  <p class="history-card__reason">{{ item.reason }}</p>
+                </div>
+              </div>
+            }
+          </div>
+
+          <p class="detail-history__summary">
+            <strong>Motivo más frecuente:</strong>
+            {{ selectedReport()?.mostFrequentReason }}
+            ({{ selectedReport()?.mostFrequentReasonCount }}/{{ selectedReport()?.totalReports }})
+          </p>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-card__footer">
+        <button
+          type="button"
+          class="modal-btn modal-btn--ghost modal-btn--full"
+          (click)="closeAllModals()"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </section>
+}
+
+<!-- =========================
+   MODAL BLOQUEAR USUARIO
+========================= -->
+@if (isBlockModalOpen() && selectedReport()) {
+  <section class="modal-shell" aria-modal="true" role="dialog">
+    <div class="modal-card modal-card--block" (click)="$event.stopPropagation()">
+
+      <!-- HEADER -->
+      <div class="modal-card__header">
+        <div class="modal-card__title-wrap modal-card__title-wrap--danger">
+          <lucide-icon [img]="Ban" [size]="24" [strokeWidth]="2.5" />
+          <h2 class="modal-card__title">Bloquear Usuario</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-card__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-card__body">
+        <p class="confirm-copy confirm-copy--question">
+          ¿Estás seguro de bloquear a
+          <strong>{{ selectedReport()?.reportedUserName }}</strong>?
+        </p>
+
+        <div class="form-field">
+          <label class="form-field__label">Motivo del bloqueo *</label>
+
+          <select
+            class="form-field__select"
+            [value]="selectedBlockReason()"
+            (change)="selectedBlockReason.set($any($event.target).value)"
+          >
+            <option value="">Seleccionar motivo...</option>
+            <option value="Acoso o bullying">Acoso o bullying</option>
+            <option value="Incita a la violencia">Incita a la violencia</option>
+            <option value="Racismo o discriminación">Racismo o discriminación</option>
+            <option value="Contenido inapropiado">Contenido inapropiado</option>
+            <option value="Spam o publicidad">Spam o publicidad</option>
+          </select>
+        </div>
+
+        <div class="warning-note">
+          <p>
+            <strong>Nota:</strong> El usuario no podrá iniciar sesión y verá este motivo al
+            intentar entrar a la plataforma.
+          </p>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-card__footer">
+        <button
+          type="button"
+          class="modal-btn modal-btn--ghost"
+          (click)="closeAllModals()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="modal-btn modal-btn--danger"
+          (click)="confirmBlockUser()"
+        >
+          Confirmar Bloqueo
+        </button>
+      </div>
+    </div>
+  </section>
+}
+
+<!-- =========================
+   MODAL DESCARTAR REPORTE
+========================= -->
+@if (isDiscardModalOpen() && selectedReport()) {
+  <section class="modal-shell" aria-modal="true" role="dialog">
+    <div class="modal-card modal-card--discard" (click)="$event.stopPropagation()">
+
+      <!-- HEADER -->
+      <div class="modal-card__header">
+        <div class="modal-card__title-wrap modal-card__title-wrap--danger">
+          <lucide-icon [img]="X" [size]="24" [strokeWidth]="2.5" />
+          <h2 class="modal-card__title">Descartar Reporte</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-card__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-card__body">
+        <p class="confirm-copy confirm-copy--question">
+          ¿Estás seguro de descartar este reporte?
+        </p>
+
+        <p class="confirm-copy confirm-copy--muted">
+          El usuario NO será bloqueado y el reporte se eliminará.
+        </p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-card__footer">
+        <button
+          type="button"
+          class="modal-btn modal-btn--ghost"
+          (click)="closeAllModals()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="modal-btn modal-btn--dark"
+          (click)="confirmDiscardReport()"
+        >
+          Descartar
+        </button>
+      </div>
+    </div>
+  </section>
+}

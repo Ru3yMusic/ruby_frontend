@@ -1,0 +1,499 @@
+<div class="library-page" [style.background]="libraryGradient()">
+
+  <!-- CABECERA -->
+  <section class="library-header">
+    <div class="library-user-block">
+      <img
+        class="library-user-avatar"
+        [src]="displayAvatarUrl()"
+        alt="Foto del usuario"
+      />
+
+      <h1 class="library-title">Tu Biblioteca</h1>
+    </div>
+
+    <div class="library-header-actions">
+
+      <div class="library-search-wrapper" (click)="$event.stopPropagation()">
+        @if (isSearchOpen()) {
+          <input
+            class="library-search-input"
+            type="text"
+            [value]="librarySearch()"
+            (input)="onSearchInput($event)"
+            placeholder="Buscar en tu biblioteca"
+          />
+        }
+
+        <button
+          class="library-search-button"
+          type="button"
+          (click)="toggleSearch($event)"
+        >
+          <img
+            src="/assets/icons/library-search.png"
+            alt="Buscar en biblioteca"
+          />
+        </button>
+      </div>
+
+      <div class="library-create-wrapper">
+        <button
+          class="library-create-button"
+          type="button"
+          (click)="toggleCreateMenu($event)"
+        >
+          <img
+            class="library-create-icon"
+            src="/assets/icons/library-create-plus.png"
+            alt="Crear"
+          />
+          <span>Crear</span>
+        </button>
+
+        @if (isCreateMenuOpen()) {
+          <div class="library-create-menu" (click)="$event.stopPropagation()">
+            <button
+              class="library-create-menu-item"
+              type="button"
+              (click)="createPlaylist()"
+            >
+              Crear playlist
+            </button>
+
+            <button
+              class="library-create-menu-item"
+              type="button"
+              (click)="goToLikedSongs()"
+            >
+              Ir a Tus me gusta
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- FILTROS -->
+  @if (hasPlaylists() || hasArtists() || hasAlbums()) {
+    <section class="library-filters">
+      @for (filter of visibleFilters(); track filter) {
+        <button
+          class="library-filter-button"
+          type="button"
+          [class.library-filter-button--active]="isFilterActive(filter)"
+          (click)="setFilter(filter)"
+        >
+          {{ getFilterLabel(filter) }}
+        </button>
+      }
+    </section>
+  }
+
+  <div class="library-divider"></div>
+
+  <!-- BOTONES CENTRALES -->
+  <section class="library-top-actions">
+    <button
+      class="library-pill-button"
+      type="button"
+      (click)="addAlbums()"
+    >
+      Agregar álbumes
+    </button>
+
+    <button
+      class="library-pill-button"
+      type="button"
+      (click)="addArtists()"
+    >
+      Agregar artistas
+    </button>
+  </section>
+
+  <!-- TUS ME GUSTA -->
+  @if (likedSongsPlaylist(); as likedSongs) {
+    <section class="library-liked-section">
+      <article
+        class="library-liked-card"
+        role="button"
+        tabindex="0"
+        (click)="goToLikedSongs()"
+      >
+        <div class="library-liked-cover-wrapper">
+          <img
+            class="library-liked-cover"
+            src="/assets/icons/library-liked-songs-cover.png"
+            alt="Tus me gusta"
+          />
+
+          <button
+            class="library-card-play-button"
+            type="button"
+            (click)="$event.stopPropagation(); goToLikedSongs()"
+          >
+            <img
+              class="library-card-play-icon"
+              src="/assets/icons/library-play.png"
+              alt="Reproducir"
+            />
+          </button>
+        </div>
+
+        <div class="library-liked-info">
+          <h2 class="library-liked-title">{{ likedSongs.title }}</h2>
+          <p class="library-liked-subtitle">{{ likedSongs.subtitle }}</p>
+        </div>
+      </article>
+    </section>
+  }
+
+  <!-- ESTADO VACÍO -->
+  @if (!hasAnyLibraryContent()) {
+    <section class="library-empty-state">
+      <h2 class="library-empty-title">¡ Comienza tu viaje musical !</h2>
+      <p class="library-empty-line">creando tus playlist</p>
+      <p class="library-empty-line">agregando tus primeros álbumes y artistas favoritos</p>
+
+      <img
+        class="library-empty-icon"
+        src="/assets/icons/library-empty-note.png"
+        alt="Biblioteca vacía"
+      />
+    </section>
+  }
+
+  <!-- CONTENIDO -->
+  @if (hasAnyLibraryContent()) {
+    <section class="library-columns">
+
+      <!-- ARTISTAS -->
+      @if (showArtistsColumn()) {
+        <div class="library-column">
+          @for (artist of filteredArtists(); track artist.id) {
+            <article
+              class="library-item-card library-item-card--artist"
+              role="button"
+              tabindex="0"
+              (click)="goToArtistDetail(artist.id)"
+            >
+              <div class="library-item-image-wrapper library-item-image-wrapper--circle">
+                <img
+                  class="library-item-image"
+                  [src]="artist.photoUrl"
+                  [alt]="artist.name"
+                />
+
+                <button
+                  class="library-card-play-button"
+                  type="button"
+                  (click)="playArtistFromLibrary(artist.id, $event)"
+                >
+                  <img
+                    class="library-card-play-icon"
+                    [src]="isArtistPlaying(artist.id)
+                      ? '/assets/icons/library-pause.png'
+                      : '/assets/icons/library-play.png'"
+                    [alt]="isArtistPlaying(artist.id) ? 'Pausar' : 'Reproducir'"
+                  />
+                </button>
+              </div>
+
+              <div class="library-item-info">
+                <h3 class="library-item-title">{{ artist.name }}</h3>
+                <p class="library-item-subtitle">{{ artist.typeLabel }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      }
+
+      <!-- PLAYLISTS -->
+      @if (showPlaylistsColumn()) {
+        <div class="library-column">
+          @for (playlist of customPlaylists(); track playlist.id) {
+            <article
+              class="library-item-card"
+              role="button"
+              tabindex="0"
+              (click)="goToPlaylistDetail(playlist.id)"
+            >
+              <div class="library-item-image-wrapper">
+                <img
+                  class="library-item-image"
+                  [src]="playlist.coverUrl || '/assets/icons/playlist-cover-placeholder.png'"
+                  [alt]="playlist.title"
+                />
+
+            <button
+              class="library-card-play-button"
+              type="button"
+              (click)="playPlaylistFromLibrary(playlist.id, $event)"
+            >
+              <img
+                class="library-card-play-icon"
+                [src]="isPlaylistPlaying(playlist.id)
+                  ? '/assets/icons/library-pause.png'
+                  : '/assets/icons/library-play.png'"
+                [alt]="isPlaylistPlaying(playlist.id) ? 'Pausar' : 'Reproducir'"
+              />
+            </button>
+              </div>
+
+              <div class="library-item-info">
+                <h3 class="library-item-title">{{ playlist.title }}</h3>
+                <p class="library-item-subtitle">{{ playlist.subtitle }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      }
+
+      <!-- ÁLBUMES -->
+      @if (showAlbumsColumn()) {
+        <div class="library-column">
+          @for (album of filteredAlbums(); track album.id) {
+            <article
+              class="library-item-card"
+              role="button"
+              tabindex="0"
+              (click)="goToAlbumDetail(album.id)"
+            >
+              <div class="library-item-image-wrapper">
+                <img
+                  class="library-item-image"
+                  [src]="album.coverUrl"
+                  [alt]="album.title"
+                />
+
+                <button
+                  class="library-card-play-button"
+                  type="button"
+                  (click)="playAlbumFromLibrary(album.id, $event)"
+                >
+                  <img
+                    class="library-card-play-icon"
+                    [src]="isAlbumPlaying(album.id)
+                      ? '/assets/icons/library-pause.png'
+                      : '/assets/icons/library-play.png'"
+                    [alt]="isAlbumPlaying(album.id) ? 'Pausar' : 'Reproducir'"
+                  />
+                </button>
+              </div>
+
+              <div class="library-item-info">
+                <h3 class="library-item-title">{{ album.title }}</h3>
+                <p class="library-item-subtitle">{{ album.subtitle }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      }
+
+    </section>
+  }
+
+  <!-- MODAL ARTISTAS -->
+  @if (isArtistsModalOpen()) {
+    <div class="library-modal-backdrop" (click)="closeArtistsModal()">
+      <div class="library-modal" (click)="$event.stopPropagation()">
+        <div class="library-modal-header library-modal-header--center">
+          <h2 class="library-modal-title">Elige tus artistas</h2>
+
+          <div class="library-modal-search">
+            <img
+              class="library-modal-search-icon"
+              src="/assets/icons/library-search.png"
+              alt="Buscar"
+            />
+
+            <input
+              class="library-modal-search-input"
+              type="text"
+              [value]="artistModalSearch()"
+              (input)="onArtistModalSearchInput($event)"
+              placeholder="Buscar artistas"
+            />
+          </div>
+        </div>
+
+        <div class="library-modal-fixed-top">
+          <h3 class="library-modal-section-title library-modal-section-title--big">top artistas</h3>
+
+          <div class="library-top-grid">
+            @for (artist of topArtists(); track artist.id; let i = $index) {
+              <button
+                class="library-top-item"
+                type="button"
+                (click)="toggleArtistSelection(artist.id)"
+              >
+                <div class="library-top-item-image-wrapper">
+                  <img
+                    class="library-top-item-image library-top-item-image--circle"
+                    [src]="artist.photoUrl || '/assets/icons/avatar-placeholder.png'"
+                    [alt]="artist.name"
+                  />
+
+                  <div class="library-top-item-rank">{{ i + 1 }}</div>
+
+                  @if (isArtistSelected(artist.id)) {
+                    <div class="library-item-check">✓</div>
+                  }
+                </div>
+
+                <span class="library-top-item-name">{{ artist.name }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="library-modal-scroll">
+          <h3 class="library-modal-section-title">Sugerencias</h3>
+
+          <div class="library-suggestions-grid">
+            @for (artist of artistSuggestions(); track artist.id) {
+              <button
+                class="library-suggestion-item"
+                type="button"
+                (click)="toggleArtistSelection(artist.id)"
+              >
+                <div class="library-suggestion-image-wrapper">
+                  <img
+                    class="library-suggestion-image library-suggestion-image--circle"
+                    [src]="artist.photoUrl || '/assets/icons/avatar-placeholder.png'"
+                    [alt]="artist.name"
+                  />
+
+                  @if (isArtistSelected(artist.id)) {
+                    <div class="library-item-check">✓</div>
+                  }
+                </div>
+
+                <span class="library-suggestion-name">{{ artist.name }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="library-modal-footer">
+          <button
+            class="library-modal-confirm-button"
+            type="button"
+            (click)="saveSelectedArtists()"
+          >
+            Listo
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- MODAL ÁLBUMES -->
+  @if (isAlbumsModalOpen()) {
+    <div class="library-modal-backdrop" (click)="closeAlbumsModal()">
+      <div class="library-modal library-modal--albums" (click)="$event.stopPropagation()">
+        <div class="library-modal-header library-modal-header--center">
+          <h2 class="library-modal-title">Explorar Álbumes</h2>
+          <p class="library-modal-subtitle">Descubre lo nuevo de tus artistas favoritos</p>
+
+          <div class="library-modal-search">
+            <img
+              class="library-modal-search-icon"
+              src="/assets/icons/library-search.png"
+              alt="Buscar"
+            />
+
+            <input
+              class="library-modal-search-input"
+              type="text"
+              [value]="albumModalSearch()"
+              (input)="onAlbumModalSearchInput($event)"
+              placeholder="Buscar álbumes"
+            />
+          </div>
+        </div>
+
+        <div class="library-modal-fixed-top">
+          <div class="library-featured-albums-row">
+            @for (album of topAlbums(); track album.id) {
+              <button
+                class="library-featured-album-card"
+                type="button"
+                (click)="toggleAlbumSelection(album.id)"
+              >
+                <div class="library-featured-album-cover-wrapper">
+                  <img
+                    class="library-featured-album-cover"
+                    [src]="album.coverUrl || '/assets/icons/playlist-cover-placeholder.png'"
+                    [alt]="album.title"
+                  />
+
+                  @if (isAlbumSelected(album.id)) {
+                    <div class="library-item-check">✓</div>
+                  }
+                </div>
+
+                <div class="library-featured-album-info">
+                  <h4 class="library-featured-album-title">{{ album.title }}</h4>
+                  <p class="library-featured-album-artist">{{ getAlbumArtistName(album) }}</p>
+                  <p class="library-featured-album-meta">{{ album.releaseDate || album.createdAt }}</p>
+                </div>
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="library-modal-scroll">
+          <div class="library-modal-section-header">
+            <h3 class="library-modal-section-title">Sugerencias</h3>
+            <span class="library-modal-section-count">{{ albumSuggestions().length }} ÁLBUMES</span>
+          </div>
+
+          <div class="library-album-suggestions-list">
+            @for (album of albumSuggestions(); track album.id) {
+              <button
+                class="library-album-row"
+                type="button"
+                (click)="toggleAlbumSelection(album.id)"
+              >
+                <img
+                  class="library-album-row-cover"
+                  [src]="album.coverUrl || '/assets/icons/playlist-cover-placeholder.png'"
+                  [alt]="album.title"
+                />
+
+                <div class="library-album-row-info">
+                  <h4 class="library-album-row-title">{{ album.title }}</h4>
+                  <p class="library-album-row-artist">{{ getAlbumArtistName(album) }}</p>
+                  <p class="library-album-row-meta">{{ album.releaseDate || album.createdAt }} · {{ album.songsCount }} canciones</p>
+                </div>
+
+                <div
+                  class="library-album-row-action"
+                  [class.library-album-row-action--selected]="isAlbumSelected(album.id)"
+                >
+                  @if (isAlbumSelected(album.id)) {
+                    ✓
+                  } @else {
+                    +
+                  }
+                </div>
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="library-modal-footer">
+          <button
+            class="library-modal-confirm-button"
+            type="button"
+            (click)="saveSelectedAlbums()"
+          >
+            Listo
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+</div>
