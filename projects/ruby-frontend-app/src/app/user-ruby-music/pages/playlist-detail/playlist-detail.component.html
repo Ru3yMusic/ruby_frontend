@@ -178,19 +178,19 @@
 
           @if (hasSongs()) {
             <!-- PLAY ROJO -->
-          <button
-            class="playlist-main-play-button"
-            type="button"
-            (click)="playPlaylist()"
-          >
-            <img
-              class="playlist-main-play-icon"
-              [src]="isPlaylistPlaying()
-                ? '/assets/icons/library-pause-main.png'
-                : '/assets/icons/playlist-play-main.png'"
-              [alt]="isPlaylistPlaying() ? 'Pausar playlist' : 'Reproducir playlist'"
-            />
-          </button>
+            <button
+              class="playlist-main-play-button"
+              type="button"
+              (click)="playPlaylist()"
+            >
+              <img
+                class="playlist-main-play-icon"
+                [src]="isPlaylistPlaying()
+                  ? '/assets/icons/library-pause-main.png'
+                  : '/assets/icons/playlist-play-main.png'"
+                [alt]="isPlaylistPlaying() ? 'Pausar playlist' : 'Reproducir playlist'"
+              />
+            </button>
           }
         </div>
 
@@ -250,21 +250,21 @@
       @for (song of playlistSongs(); track song.id; let i = $index) {
         <article class="playlist-song-row">
 
-    <button
-      class="playlist-song-index-button"
-      type="button"
-      (click)="playSong(song)"
-    >
-      <span class="playlist-song-index-number">{{ i + 1 }}</span>
+          <button
+            class="playlist-song-index-button"
+            type="button"
+            (click)="playSong(song)"
+          >
+            <span class="playlist-song-index-number">{{ i + 1 }}</span>
 
-      <img
-        class="playlist-song-index-play-icon"
-        [src]="isSongPlaying(song.songId)
-          ? '/assets/icons/library-pause.png'
-          : '/assets/icons/playlist-song-play.png'"
-        [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
-      />
-    </button>
+            <img
+              class="playlist-song-index-play-icon"
+              [src]="isSongPlaying(song.songId)
+                ? '/assets/icons/library-pause.png'
+                : '/assets/icons/playlist-song-play.png'"
+              [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
+            />
+          </button>
 
           <!-- cover -->
           <div class="playlist-song-cover-wrapper">
@@ -312,74 +312,116 @@
           }
 
           <!-- more -->
-          <details class="playlist-song-more-dropdown">
-            <summary class="playlist-song-more-button">
+          <div class="playlist-song-more-wrapper">
+            <button
+              class="playlist-song-more-button"
+              type="button"
+              (click)="toggleSongMenu(song.id, $event)"
+            >
               <img
                 class="playlist-song-more-icon"
                 src="/assets/icons/playlist-song-more.png"
                 alt="Más opciones"
               />
-            </summary>
+            </button>
 
-            <div class="playlist-song-more-menu">
-              <button
-                class="playlist-song-more-menu-item"
-                type="button"
-              >
-                <img
-                  class="playlist-song-more-menu-icon"
-                  src="/assets/icons/playlist-song-menu-add.png"
-                  alt="Agregar a playlist"
-                />
-                <span>Agregar a playlist</span>
-              </button>
+            @if (openSongMenuId() === song.id) {
+              <div class="playlist-song-more-menu" (click)="$event.stopPropagation()">
 
-              @if (isLikedSongsPlaylist()) {
                 <button
                   class="playlist-song-more-menu-item"
                   type="button"
-                  (click)="removeFromLikedSongs(song.songId)"
+                  (click)="togglePlaylistSubmenu(song.id, $event)"
                 >
                   <img
                     class="playlist-song-more-menu-icon"
-                    src="/assets/icons/playlist-song-menu-remove-liked.png"
-                    alt="Eliminar de Tus me gusta"
+                    src="/assets/icons/playlist-song-menu-add.png"
+                    alt="Agregar a playlist"
                   />
-                  <span>Eliminar de Tus me gusta</span>
+                  <span>Agregar a playlist</span>
                 </button>
-              }
 
-              <button
-                class="playlist-song-more-menu-item"
-                type="button"
-              >
-                <img
-                  class="playlist-song-more-menu-icon"
-                  src="/assets/icons/playlist-song-menu-artist.png"
-                  alt="Ir al artista"
-                />
-                <span>Ir al artista</span>
-              </button>
+                @if (openPlaylistSubmenuSongId() === song.id) {
+                  <div class="playlist-song-submenu">
+                    <button
+                      class="playlist-song-more-menu-item"
+                      type="button"
+                      (click)="addSongToNewPlaylist(song.songId)"
+                    >
+                      <span>+ Nueva playlist</span>
+                    </button>
 
-              @if (
-                song.albumTitle &&
-                song.albumTitle !== 'Sencillo' &&
-                song.albumTitle !== 'Single'
-              ) {
+                    @for (pl of customPlaylists(); track pl.id) {
+                      <button
+                        class="playlist-song-more-menu-item"
+                        type="button"
+                        (click)="addSongToExistingPlaylist(pl.id, song.songId, $event)"
+                      >
+                        <span>{{ pl.name }}</span>
+                      </button>
+                    }
+                  </div>
+                }
+
+                @if (isSongLiked(song.songId)) {
+                  <button
+                    class="playlist-song-more-menu-item"
+                    type="button"
+                    (click)="removeFromLikedSongs(song.songId)"
+                  >
+                    <img
+                      class="playlist-song-more-menu-icon"
+                      src="/assets/icons/playlist-song-menu-remove-liked.png"
+                      alt="Eliminar de Tus me gusta"
+                    />
+                    <span>Eliminar de Tus me gusta</span>
+                  </button>
+                } @else {
+                  <button
+                    class="playlist-song-more-menu-item"
+                    type="button"
+                    (click)="addSongToLikedSongs(song.songId)"
+                  >
+                    <img
+                      class="playlist-song-more-menu-icon"
+                      src="/assets/icons/song-liked-outline.png"
+                      alt="Guardar en Tus me gusta"
+                    />
+                    <span>Guardar en Tus me gusta</span>
+                  </button>
+                }
+
                 <button
                   class="playlist-song-more-menu-item"
                   type="button"
+                  (click)="goToArtist(song, $event)"
                 >
                   <img
                     class="playlist-song-more-menu-icon"
-                    src="/assets/icons/playlist-song-menu-album.png"
-                    alt="Ir al álbum"
+                    src="/assets/icons/playlist-song-menu-artist.png"
+                    alt="Ir al artista"
                   />
-                  <span>Ir al álbum</span>
+                  <span>Ir al artista</span>
                 </button>
-              }
-            </div>
-          </details>
+
+                @if (hasAlbum(song)) {
+                  <button
+                    class="playlist-song-more-menu-item"
+                    type="button"
+                    (click)="goToAlbum(song, $event)"
+                  >
+                    <img
+                      class="playlist-song-more-menu-icon"
+                      src="/assets/icons/playlist-song-menu-album.png"
+                      alt="Ir al álbum"
+                    />
+                    <span>Ir al álbum</span>
+                  </button>
+                }
+
+              </div>
+            }
+          </div>
         </article>
       }
     </section>

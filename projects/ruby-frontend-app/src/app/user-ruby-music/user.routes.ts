@@ -12,6 +12,7 @@ import { ArtistDetailComponent } from './pages/artist-detail/artist-detail.compo
 import { MusicComponent } from './pages/music/music.component';
 import { StationComponent } from './pages/station/station.component';
 import { StationDetailComponent } from './pages/station-detail/station-detail.component';
+import { SongDetailComponent } from './pages/song-detail/song-detail.component';
 
 export const USER_ROUTES: Routes = [
   {
@@ -70,6 +71,10 @@ export const USER_ROUTES: Routes = [
       {
         path: 'station/:id',
         component: StationDetailComponent,
+      },
+      {
+        path: 'song/:id',
+        component: SongDetailComponent,
       },
 
     ],

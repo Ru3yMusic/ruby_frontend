@@ -66,7 +66,7 @@ export class PlaylistDetailComponent {
   private readonly router = inject(Router);
   private readonly authState = inject(AuthState);
   private readonly playlistState = inject(PlaylistState);
- private readonly playerState = inject(PlayerState);
+  private readonly playerState = inject(PlayerState);
 
   private readonly SONGS_STORAGE_KEY = 'ruby_songs';
   private readonly ARTISTS_STORAGE_KEY = 'ruby_artists';
@@ -93,6 +93,9 @@ export class PlaylistDetailComponent {
   readonly feedbackMessage = signal('');
   readonly isFeedbackVisible = signal(false);
 
+  readonly openSongMenuId = signal<string | null>(null);
+  readonly openPlaylistSubmenuSongId = signal<string | null>(null);
+
   private readonly songsCatalog = signal<StoredSong[]>(this.loadStorageArray<StoredSong>(this.SONGS_STORAGE_KEY));
   private readonly artistsCatalog = signal<StoredArtist[]>(this.loadStorageArray<StoredArtist>(this.ARTISTS_STORAGE_KEY));
   private readonly albumsCatalog = signal<StoredAlbum[]>(this.loadStorageArray<StoredAlbum>(this.ALBUMS_STORAGE_KEY));
@@ -100,10 +103,7 @@ export class PlaylistDetailComponent {
   /* ===================== */
   /* FALLBACK TEMPORAL */
   /* ===================== */
-  readonly initialRecommendedSongs = signal<RecommendedSongRow[]>([
- 
-
-  ]); 
+  readonly initialRecommendedSongs = signal<RecommendedSongRow[]>([]);
 
   /* ===================== */
   /* PLAYLIST ACTUAL */
@@ -312,6 +312,13 @@ export class PlaylistDetailComponent {
     return this.initialRecommendedSongs().slice(0, 8);
   });
 
+  readonly customPlaylists = computed<Playlist[]>(() => {
+    const user = this.currentUser();
+    if (!user?.id) return [];
+
+    return this.playlistState.getCustomPlaylistsByUser(user.id);
+  });
+
   readonly gradientStyle = computed(() => {
     const color = this.headerAccentColor();
     return `linear-gradient(180deg, ${color} 0%, ${color} 38%, #171717 70%, #0d0d0d 100%)`;
@@ -355,6 +362,7 @@ export class PlaylistDetailComponent {
   toggleMoreMenu(event?: MouseEvent): void {
     event?.stopPropagation();
     this.isMoreMenuOpen.set(!this.isMoreMenuOpen());
+    this.closeSongMenu();
   }
 
   closeMoreMenu(): void {
@@ -521,72 +529,106 @@ export class PlaylistDetailComponent {
     console.log('Eliminar playlist - pendiente');
   }
 
-      playPlaylist(): void {
-        const playlist = this.currentPlaylist();
-        const firstSongRow = this.playlistSongs()[0];
-        const currentSong = this.playerState.currentSong();
+  playPlaylist(): void {
+    const playlist = this.currentPlaylist();
+    const firstSongRow = this.playlistSongs()[0];
+    const currentSong = this.playerState.currentSong();
 
-        if (!playlist || !firstSongRow) return;
+    if (!playlist || !firstSongRow) return;
 
-        if (
-          currentSong &&
-          playlist.songIds.includes(currentSong.id) &&
-          this.playerState.isPlaying()
-        ) {
-          this.playerState.pause();
-          return;
-        }
+    if (
+      currentSong &&
+      playlist.songIds.includes(currentSong.id) &&
+      this.playerState.isPlaying()
+    ) {
+      this.playerState.pause();
+      return;
+    }
 
-        if (
-          currentSong &&
-          playlist.songIds.includes(currentSong.id) &&
-          !this.playerState.isPlaying()
-        ) {
-          this.playerState.resume();
-          return;
-        }
+    if (
+      currentSong &&
+      playlist.songIds.includes(currentSong.id) &&
+      !this.playerState.isPlaying()
+    ) {
+      this.playerState.resume();
+      return;
+    }
 
-        const firstStoredSong = this.songsCatalog().find(item => item.id === firstSongRow.songId);
-        if (!firstStoredSong) return;
+    const firstStoredSong = this.songsCatalog().find(item => item.id === firstSongRow.songId);
+    if (!firstStoredSong) return;
 
-        this.playerState.playSong(firstStoredSong);
-      }
+    this.playerState.playSong(firstStoredSong);
+  }
 
+  playSong(song: PlaylistSongRow): void {
+    const storedSong = this.songsCatalog().find(item => item.id === song.songId);
+    const currentSong = this.playerState.currentSong();
 
-      playSong(song: PlaylistSongRow): void {
-        const storedSong = this.songsCatalog().find(item => item.id === song.songId);
-        const currentSong = this.playerState.currentSong();
+    if (!storedSong) return;
 
-        if (!storedSong) return;
+    if (currentSong?.id === storedSong.id && this.playerState.isPlaying()) {
+      this.playerState.pause();
+      return;
+    }
 
-        if (currentSong?.id === storedSong.id && this.playerState.isPlaying()) {
-          this.playerState.pause();
-          return;
-        }
+    if (currentSong?.id === storedSong.id && !this.playerState.isPlaying()) {
+      this.playerState.resume();
+      return;
+    }
 
-        if (currentSong?.id === storedSong.id && !this.playerState.isPlaying()) {
-          this.playerState.resume();
-          return;
-        }
+    this.playerState.playSong(storedSong);
+  }
 
-        this.playerState.playSong(storedSong);
-      }
+  isPlaylistPlaying(): boolean {
+    const playlist = this.currentPlaylist();
+    const currentSong = this.playerState.currentSong();
 
-     isPlaylistPlaying(): boolean {
-        const playlist = this.currentPlaylist();
-        const currentSong = this.playerState.currentSong();
+    if (!playlist || !currentSong) return false;
 
-        if (!playlist || !currentSong) return false;
+    return playlist.songIds.includes(currentSong.id) && this.playerState.isPlaying();
+  }
 
-        return playlist.songIds.includes(currentSong.id) && this.playerState.isPlaying();
-      }
+  isSongPlaying(songId: string): boolean {
+    const currentSong = this.playerState.currentSong();
+    return !!currentSong && currentSong.id === songId && this.playerState.isPlaying();
+  }
 
-      isSongPlaying(songId: string): boolean {
-        const currentSong = this.playerState.currentSong();
-        return !!currentSong && currentSong.id === songId && this.playerState.isPlaying();
-      }
+  /* ===================== */
+  /* SONG MENU */
+  /* ===================== */
+  toggleSongMenu(songId: string, event?: MouseEvent): void {
+    event?.stopPropagation();
 
+    if (this.openSongMenuId() === songId) {
+      this.openSongMenuId.set(null);
+      this.openPlaylistSubmenuSongId.set(null);
+      return;
+    }
 
+    this.openSongMenuId.set(songId);
+    this.openPlaylistSubmenuSongId.set(null);
+    this.closeMoreMenu();
+  }
+
+  togglePlaylistSubmenu(songId: string, event?: MouseEvent): void {
+    event?.stopPropagation();
+
+    if (this.openPlaylistSubmenuSongId() === songId) {
+      this.openPlaylistSubmenuSongId.set(null);
+      return;
+    }
+
+    this.openPlaylistSubmenuSongId.set(songId);
+  }
+
+  closeSongMenu(): void {
+    this.openSongMenuId.set(null);
+    this.openPlaylistSubmenuSongId.set(null);
+  }
+
+  /* ===================== */
+  /* LIKES */
+  /* ===================== */
   toggleSongLike(songId: string): void {
     if (this.isSongLiked(songId)) {
       this.removeFromLikedSongs(songId);
@@ -609,6 +651,7 @@ export class PlaylistDetailComponent {
     if (!user?.id) return;
 
     this.playlistState.addSongToLikedSongs(user.id, songId);
+    this.closeSongMenu();
     this.showFeedback('Se agregó a Tus me gusta');
   }
 
@@ -617,7 +660,86 @@ export class PlaylistDetailComponent {
     if (!user?.id) return;
 
     this.playlistState.removeSongFromLikedSongs(user.id, songId);
+    this.closeSongMenu();
     this.showFeedback('Se eliminó de Tus me gusta');
+  }
+
+  /* ===================== */
+  /* SONG PLAYLISTS */
+  /* ===================== */
+  addSongToNewPlaylist(songId: string): void {
+    const user = this.currentUser();
+    if (!user?.id) return;
+
+    const nextNumber = this.playlistState.getCustomPlaylistsByUser(user.id).length + 1;
+
+    const created = this.playlistState.createPlaylist({
+      userId: user.id,
+      name: `Mi playlist n.° ${nextNumber}`,
+      description: null,
+      coverUrl: null,
+      visibility: 'PUBLIC',
+    });
+
+    this.playlistState.addSongToPlaylist(created.id, songId);
+
+    const storedSong = this.songsCatalog().find(song => song.id === songId);
+    if (storedSong?.coverUrl) {
+      this.playlistState.updatePlaylist(created.id, {
+        coverUrl: storedSong.coverUrl,
+      });
+    }
+
+    this.closeSongMenu();
+    this.showFeedback('Se creó una nueva playlist');
+  }
+
+  addSongToExistingPlaylist(playlistId: string, songId: string, event?: MouseEvent): void {
+    event?.stopPropagation();
+
+    if (!playlistId || !songId) return;
+
+    this.playlistState.addSongToPlaylist(playlistId, songId);
+
+    const playlist = this.playlistState.playlists().find(item => item.id === playlistId);
+    const storedSong = this.songsCatalog().find(song => song.id === songId);
+
+    if (playlist && !playlist.coverUrl && storedSong?.coverUrl) {
+      this.playlistState.updatePlaylist(playlistId, {
+        coverUrl: storedSong.coverUrl,
+      });
+    }
+
+    this.closeSongMenu();
+    this.showFeedback('Se agregó a la playlist');
+  }
+
+  /* ===================== */
+  /* SONG NAVIGATION */
+  /* ===================== */
+  hasAlbum(song: PlaylistSongRow): boolean {
+    const storedSong = this.songsCatalog().find(item => item.id === song.songId);
+    return !!storedSong?.albumId;
+  }
+
+  goToArtist(song: PlaylistSongRow, event?: MouseEvent): void {
+    event?.stopPropagation();
+
+    const storedSong = this.songsCatalog().find(item => item.id === song.songId);
+    if (!storedSong?.artistId) return;
+
+    this.closeSongMenu();
+    this.router.navigate(['/user/artist', storedSong.artistId]);
+  }
+
+  goToAlbum(song: PlaylistSongRow, event?: MouseEvent): void {
+    event?.stopPropagation();
+
+    const storedSong = this.songsCatalog().find(item => item.id === song.songId);
+    if (!storedSong?.albumId) return;
+
+    this.closeSongMenu();
+    this.router.navigate(['/user/album', storedSong.albumId]);
   }
 
   addRecommendedSong(song: RecommendedSongRow): void {
@@ -665,6 +787,7 @@ export class PlaylistDetailComponent {
   @HostListener('document:click')
   onDocumentClick(): void {
     this.closeMoreMenu();
+    this.closeSongMenu();
   }
 
   /* ===================== */
