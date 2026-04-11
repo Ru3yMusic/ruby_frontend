@@ -1,0 +1,106 @@
+<div class="friends-page">
+
+  <!-- HEADER -->
+  <div class="friends-header">
+    <h1>Amigos</h1>
+
+    <div class="friends-search">
+      <input
+        type="text"
+        placeholder="Buscar amigos"
+        [value]="searchTerm()"
+        (input)="updateSearchTerm(($any($event.target)).value)"
+      />
+    </div>
+
+    <p class="friends-count">
+      {{ totalFriends() }} amigos
+    </p>
+  </div>
+
+  <!-- LISTA -->
+  <div class="friends-list">
+    @for (friend of filteredFriends(); track trackByFriend($index, friend)) {
+      <div class="friend-item">
+
+        <!-- LEFT -->
+        <div class="friend-left">
+          <img
+            class="friend-avatar"
+            [src]="getFriendAvatar(friend)"
+            [alt]="friend.friendName"
+          />
+
+          <span class="friend-name">
+            @{{ friend.friendName }}
+          </span>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="friend-right">
+
+          <div
+            class="friend-status"
+            [class.active]="isFriendOnline(friend)"
+            [class.inactive]="!isFriendOnline(friend)"
+          >
+            <span class="status-dot"></span>
+            <span>
+              {{ isFriendOnline(friend) ? 'Activo' : 'Inactivo' }}
+            </span>
+          </div>
+
+          <button
+            class="friend-menu-btn"
+            (click)="openRemoveFriendModal(friend)"
+          >
+            <img src="/assets/icons/station-comment-more.png" alt="Opciones" />
+          </button>
+
+        </div>
+
+      </div>
+    }
+  </div>
+
+  <!-- MODAL ELIMINAR -->
+  @if (isRemoveModalOpen()) {
+    <div class="modal-overlay" (click)="closeRemoveFriendModal()">
+
+      <div
+        class="modal-container"
+        (click)="$event.stopPropagation()"
+      >
+        <p class="modal-title">
+          ¿Estás seguro de eliminar a
+          <strong>@{{ selectedFriend()?.friendName }}</strong>?
+        </p>
+
+        <div class="modal-actions">
+          <button
+            class="btn btn-cancel"
+            (click)="closeRemoveFriendModal()"
+          >
+            Cancelar
+          </button>
+
+          <button
+            class="btn btn-danger"
+            (click)="confirmRemoveFriend()"
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
+
+    </div>
+  }
+
+  <!-- TOAST -->
+  @if (isToastVisible()) {
+    <div class="toast">
+      {{ toastMessage() }}
+    </div>
+  }
+
+</div>

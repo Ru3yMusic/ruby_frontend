@@ -1,0 +1,32 @@
+<!-- HEADER SUPERIOR GLOBAL -->
+<header class="header">
+  <app-top-header></app-top-header>
+</header>
+
+<!-- CONTENEDOR PRINCIPAL -->
+<div class="layout">
+
+  <!-- SECCIÓN IZQUIERDA -->
+  <aside class="sidebar">
+    <app-left-sidebar></app-left-sidebar>
+  </aside>
+
+  <!-- SECCIÓN CENTRAL -->
+  <main class="main">
+    <section class="content">
+      <router-outlet></router-outlet>
+    </section>
+  </main>
+
+  <!-- SECCIÓN DERECHA -->
+  <aside class="right">
+    <app-right-panel></app-right-panel>
+  </aside>
+
+
+</div>
+
+<!-- FOOTER PLAYER -->
+<footer class="player">
+  <app-footer-player></app-footer-player>
+</footer>

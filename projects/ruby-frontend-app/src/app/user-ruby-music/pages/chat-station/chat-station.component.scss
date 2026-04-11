@@ -1,0 +1,253 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.chat-station-page {
+  min-height: 100%;
+  padding: 28px 18px 140px;
+  border-radius: 22px;
+  background: linear-gradient(
+    180deg,
+    #8f7676 0%,
+    #2a2a2a 28%,
+    #111111 58%,
+    #050505 100%
+  );
+  box-sizing: border-box;
+  color: #ffffff;
+}
+
+/* ===================== */
+/* HEADER */
+/* ===================== */
+.chat-station-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.chat-station-title {
+  margin: 0;
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: center;
+  color: #ffffff;
+}
+
+.chat-station-search {
+  width: min(100%, 660px);
+  height: 66px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 22px;
+  box-sizing: border-box;
+}
+
+.chat-station-search-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.chat-station-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.chat-station-search input::placeholder {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ===================== */
+/* LISTA */
+/* ===================== */
+.chat-station-list {
+  margin-top: 38px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-station-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  border-radius: 18px;
+}
+
+.chat-station-item:hover {
+  background: rgba(217, 217, 217, 0.11);
+}
+
+.chat-station-item-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.chat-station-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.chat-station-text {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.chat-station-text strong {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.chat-station-listen-button {
+  min-width: 128px;
+  height: 48px;
+  border: none;
+  border-radius: 999px;
+  background: #ff2b1f;
+  color: #000000;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.chat-station-listen-button:hover {
+  background: #ff3d32;
+  transform: scale(1.03);
+  box-shadow: 0 10px 24px rgba(255, 43, 31, 0.18);
+}
+
+/* ===================== */
+/* EMPTY */
+/* ===================== */
+.chat-station-empty {
+  min-height: 200px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 26px;
+  text-align: center;
+}
+
+.chat-station-empty p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* ===================== */
+/* RESPONSIVE */
+/* ===================== */
+@media (max-width: 900px) {
+  .chat-station-page {
+    padding: 24px 16px 140px;
+  }
+
+  .chat-station-title {
+    font-size: 2.7rem;
+  }
+
+  .chat-station-search {
+    height: 60px;
+    padding: 0 18px;
+  }
+
+  .chat-station-search-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .chat-station-item {
+    padding: 20px 0;
+  }
+
+  .chat-station-avatar {
+    width: 54px;
+    height: 54px;
+  }
+
+  .chat-station-text {
+    font-size: 1rem;
+  }
+
+  .chat-station-listen-button {
+    min-width: 118px;
+    height: 46px;
+    font-size: 0.96rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-station-title {
+    font-size: 2.35rem;
+  }
+
+  .chat-station-search {
+    height: 56px;
+    gap: 12px;
+  }
+
+  .chat-station-search input {
+    font-size: 0.98rem;
+  }
+
+  .chat-station-item {
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .chat-station-item-left {
+    gap: 14px;
+  }
+
+  .chat-station-avatar {
+    width: 50px;
+    height: 50px;
+  }
+
+  .chat-station-text {
+    font-size: 0.96rem;
+  }
+
+  .chat-station-listen-button {
+    min-width: 108px;
+    height: 44px;
+    font-size: 0.92rem;
+  }
+}

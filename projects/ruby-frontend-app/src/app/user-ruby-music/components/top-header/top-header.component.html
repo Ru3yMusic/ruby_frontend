@@ -1,0 +1,163 @@
+<div class="top-header">
+  <div class="header-left">
+    <div class="header-logo">
+      <button class="logo-button" type="button" (click)="goToHome()">
+        <img
+          class="logo-image"
+          src="/assets/icons/Logo-ruby-tune.png"
+          alt="Logo RubyTune"
+        />
+      </button>
+    </div>
+  </div>
+
+  <div class="header-middle">
+    <div class="header-center">
+      <button class="home-button" type="button" (click)="goToHome()">
+        <img
+          class="header-icon"
+          src="/assets/icons/header-home.png"
+          alt="Ir al inicio"
+        />
+      </button>
+
+      <div class="search-wrapper" (click)="openSearch($event)">
+        <div class="search-box">
+          <img
+            class="search-icon"
+            src="/assets/icons/header-search.png"
+            alt="Buscar"
+          />
+
+          <input
+            class="search-input"
+            type="text"
+            placeholder="Buscar"
+            [value]="searchQuery"
+            (input)="onSearchInput($event)"
+            (click)="$event.stopPropagation()"
+          />
+
+          @if (searchQuery) {
+            <button
+              class="search-clear-button"
+              type="button"
+              (click)="clearSearch($event)"
+              aria-label="Limpiar búsqueda"
+            >
+              ×
+            </button>
+          }
+        </div>
+
+        @if (isSearchOpen) {
+          <div class="search-dropdown" (click)="$event.stopPropagation()">
+            @if (!hasSearchTerm) {
+              <div class="search-empty-state">
+                <p class="search-empty-title">Empieza a escribir para buscar</p>
+                <p class="search-empty-subtitle">Canciones, álbumes y artistas</p>
+              </div>
+            } @else if (!hasSearchResults) {
+              <div class="search-empty-state">
+                <p class="search-empty-title">No se encontraron resultados</p>
+                <p class="search-empty-subtitle">Prueba con otro nombre</p>
+              </div>
+            } @else {
+              <div class="search-results-list">
+                @for (result of searchResults; track trackBySearchResult($index, result)) {
+                  <button
+                    class="search-result-item"
+                    type="button"
+                    (click)="goToSearchResult(result)"
+                  >
+                    <div
+                      class="search-result-image-wrapper"
+                      [class.search-result-image-wrapper--artist]="isArtistResult(result)"
+                    >
+                      <img
+                        class="search-result-image"
+                        [class.search-result-image--artist]="isArtistResult(result)"
+                        [src]="result.imageUrl || '/assets/icons/playlist-cover-placeholder.png'"
+                        [alt]="result.title"
+                      />
+                    </div>
+
+                    <div class="search-result-content">
+                      <p class="search-result-title">{{ result.title }}</p>
+
+                      @if (isSongResult(result)) {
+                        <p class="search-result-type">Canción</p>
+                      }
+
+                      @if (isAlbumResult(result)) {
+                        <p class="search-result-type">Álbum</p>
+                      }
+
+                      @if (isArtistResult(result)) {
+                        <p class="search-result-type">Artista</p>
+                      }
+                    </div>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <button class="library-button" type="button" (click)="goToLibrary()">
+        <img
+          class="header-icon"
+          src="/assets/icons/sidebar-library.png"
+          alt="Biblioteca"
+        />
+      </button>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="header-profile">
+      <button
+        class="profile-button"
+        type="button"
+        (click)="toggleProfileMenu($event)"
+      >
+        <img
+          class="profile-avatar"
+          [src]="currentUser()?.avatarUrl || '/assets/icons/avatar-placeholder.png'"
+          alt="Foto de perfil"
+        />
+      </button>
+
+      @if (isProfileMenuOpen) {
+        <div class="profile-menu" (click)="$event.stopPropagation()">
+          <button
+            class="profile-menu-item"
+            type="button"
+            (click)="goToProfile()"
+          >
+            <img
+              class="profile-menu-icon"
+              src="/assets/icons/profile-menu-profile.png"
+              alt="Perfil"
+            />
+            <span>Perfil</span>
+          </button>
+
+          <button
+            class="profile-menu-item profile-menu-item--danger"
+            type="button"
+            (click)="logout()"
+          >
+            <img
+              class="profile-menu-icon"
+              src="/assets/icons/profile-menu-logout.png"
+              alt="Cerrar sesión"
+            />
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+</div>

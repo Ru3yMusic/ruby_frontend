@@ -1,0 +1,277 @@
+:host {
+  display: block;
+  min-height: 100%;
+}
+
+.music-page {
+  display: flex;
+  flex-direction: column;
+  gap: 54px;
+  padding: 16px 28px 140px;
+  border-radius: 15px;
+  background: linear-gradient(
+    180deg,
+    #8d4c4c 2%,
+    #202020 18%,
+    #120c0c 24%,
+    #202020 66%,
+    #442a2a 100%
+  );
+  min-height: 100%;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+/* ===================== */
+/* TABS SUPERIORES */
+/* ===================== */
+.home-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.tab {
+  min-width: 164px;
+  padding: 12px 22px;
+  border: none;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.073);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.tab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(86, 86, 86, 0.18);
+}
+
+.tab.active {
+  background: #161616;
+  color: #ffffff;
+}
+
+/* ===================== */
+/* SECCIÓN */
+/* ===================== */
+.music-section {
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  align-items: center;
+  justify-content: center;
+}
+
+.music-section__header {
+  text-align: center;
+  max-width: 760px;
+}
+
+.music-section__title {
+  margin: 0 0 10px;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 0.95;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+}
+
+.music-section__subtitle {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* ===================== */
+/* RANKING */
+/* ===================== */
+.music-ranking {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+/* ===================== */
+/* CARD */
+/* ===================== */
+.music-card {
+  position: relative;
+  width: 280px;
+  min-height: 420px;
+  border-radius: 22px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.18),
+    0 2px 10px rgba(0, 0, 0, 0.12);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    filter 0.22s ease;
+}
+
+.music-card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 20px 36px rgba(0, 0, 0, 0.24),
+    0 6px 14px rgba(0, 0, 0, 0.14);
+  filter: brightness(1.03);
+}
+
+.music-card__rank {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 3;
+  font-size: 52px;
+  line-height: 1;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+}
+
+.music-card__image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+}
+
+.music-card__image {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  object-fit: cover;
+  display: block;
+}
+
+.music-card__image-fade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.00) 42%,
+      rgba(255, 255, 255, 0.10) 62%,
+      rgba(255, 255, 255, 0.22) 76%,
+      rgba(255, 255, 255, 0.34) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.00) 0%,
+      rgba(0, 0, 0, 0.10) 34%,
+      rgba(0, 0, 0, 0.46) 72%,
+      rgba(0, 0, 0, 0.78) 100%
+    );
+  z-index: 1;
+}
+
+.music-card__overlay-info {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 22px 20px 20px;
+  box-sizing: border-box;
+}
+
+.music-card__title {
+  margin: 0 0 6px;
+  font-size: 28px;
+  line-height: 1.02;
+  font-weight: 900;
+  color: #ffffff;
+  word-break: break-word;
+}
+
+.music-card__artist {
+  margin: 0 0 6px;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.music-card__minutes {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+/* ===================== */
+/* RESPONSIVE */
+/* ===================== */
+@media (max-width: 980px) {
+  .music-page {
+    padding: 16px 20px 140px;
+  }
+
+  .music-ranking {
+    gap: 18px;
+  }
+
+  .music-card {
+    width: min(280px, 100%);
+  }
+}
+
+@media (max-width: 760px) {
+  .home-tabs {
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    min-width: 140px;
+  }
+
+  .music-section {
+    gap: 26px;
+  }
+
+  .music-section__title {
+    font-size: clamp(28px, 8vw, 38px);
+  }
+
+  .music-section__subtitle {
+    font-size: 16px;
+  }
+
+  .music-card {
+    width: 100%;
+    max-width: 360px;
+    min-height: 360px;
+  }
+
+  .music-card__image-wrapper,
+  .music-card__image {
+    min-height: 360px;
+  }
+
+  .music-card__rank {
+    font-size: 44px;
+  }
+
+  .music-card__title {
+    font-size: 24px;
+  }
+
+  .music-card__artist {
+    font-size: 17px;
+  }
+}

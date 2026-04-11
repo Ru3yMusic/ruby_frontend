@@ -1,0 +1,129 @@
+<div class="footer-player" [class.footer-player--empty]="!hasSong()">
+  <audio
+    #audioRef
+    (timeupdate)="onTimeUpdate()"
+    (loadedmetadata)="onLoadedMetadata()"
+    (ended)="onEnded()"
+  ></audio>
+
+  <div class="footer-player__left">
+    <div class="footer-player__cover-wrapper">
+      <img
+        class="footer-player__cover"
+        [src]="displayCoverUrl()"
+        [alt]="displayTitle()"
+      />
+    </div>
+
+    <div class="footer-player__meta">
+      <p class="footer-player__title">{{ displayTitle() }}</p>
+      <p class="footer-player__artist">{{ displayArtistName() }}</p>
+    </div>
+  </div>
+
+  <div class="footer-player__center">
+    <div class="footer-player__controls">
+      <button
+        class="footer-player__icon-button"
+        type="button"
+        [disabled]="!hasSong()"
+        aria-label="Aleatorio"
+      >
+        <img
+          class="footer-player__icon"
+          src="/assets/icons/footer-shuffle.png"
+          alt="Aleatorio"
+        />
+      </button>
+
+      <button
+        class="footer-player__icon-button"
+        type="button"
+        [disabled]="!hasSong()"
+        aria-label="Anterior"
+      >
+        <img
+          class="footer-player__icon"
+          src="/assets/icons/footer-previous.png"
+          alt="Anterior"
+        />
+      </button>
+
+      <button
+        class="footer-player__play-button"
+        type="button"
+        [disabled]="!hasSong()"
+        (click)="togglePlayPause()"
+        [attr.aria-label]="isPlaying() ? 'Pausar' : 'Reproducir'"
+      >
+        <img
+          class="footer-player__play-icon"
+          [src]="isPlaying()
+            ? '/assets/icons/footer-pause.png'
+            : '/assets/icons/footer-play.png'"
+          [alt]="isPlaying() ? 'Pausar' : 'Reproducir'"
+        />
+      </button>
+
+      <button
+        class="footer-player__icon-button"
+        type="button"
+        [disabled]="!hasSong()"
+        aria-label="Siguiente"
+      >
+        <img
+          class="footer-player__icon"
+          src="/assets/icons/footer-next.png"
+          alt="Siguiente"
+        />
+      </button>
+
+      <button
+        class="footer-player__icon-button"
+        type="button"
+        [disabled]="!hasSong()"
+        aria-label="Repetir"
+      >
+        <img
+          class="footer-player__icon"
+          src="/assets/icons/footer-repeat.png"
+          alt="Repetir"
+        />
+      </button>
+    </div>
+
+    <div class="footer-player__progress-row">
+      <span class="footer-player__time">{{ currentTimeLabel() }}</span>
+
+      <input
+        class="footer-player__progress"
+        type="range"
+        min="0"
+        [max]="duration() || 0"
+        [value]="currentTime()"
+        [disabled]="!hasSong()"
+        (input)="onSeekInput($event)"
+      />
+
+      <span class="footer-player__time">{{ durationLabel() }}</span>
+    </div>
+  </div>
+
+  <div class="footer-player__right">
+    <img
+      class="footer-player__volume-icon-image"
+      src="/assets/icons/footer-volume.png"
+      alt="Volumen"
+    />
+
+    <input
+      class="footer-player__volume"
+      type="range"
+      min="0"
+      max="1"
+      step="0.01"
+      [value]="volume()"
+      (input)="onVolumeInput($event)"
+    />
+  </div>
+</div>

@@ -1,130 +1,370 @@
-<rm-admin-sidebar [isOpen]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
+<rm-admin-sidebar
+  [isOpen]="sidebarOpen()"
+  (closed)="sidebarOpen.set(false)"
+/>
 
-<div class="dashboard">
-  <!-- ── Header ─────────────────────────────────────────────────────────── -->
-  <header class="dashboard__header">
-    <div class="header__left">
-      <button type="button" class="header__burger" (click)="toggleSidebar()" aria-label="Abrir menú">
+<div class="page">
+
+  <!-- =========================
+     HEADER
+  ========================= -->
+  <header class="page-header">
+    <div class="page-header__left">
+      <button
+        type="button"
+        class="icon-btn"
+        (click)="sidebarOpen.set(true)"
+        aria-label="Abrir menú"
+      >
         <lucide-icon [img]="Menu" [size]="22" [strokeWidth]="2" />
       </button>
-      <div class="header__brand">
-        <span class="header__brand-ruby">Ruby</span><span class="header__brand-tune">Tune</span>
-        <p class="header__brand-role">Admin Layout</p>
+
+      <div class="brand">
+        <div class="brand__logo-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="brand__text">
+          <h2 class="brand__title">
+            <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
+          </h2>
+          <p class="brand__role">Administrador</p>
+        </div>
       </div>
     </div>
 
-    <div class="header__avatar">
+    <div class="page-header__right">
       <img
+        class="page-header__avatar"
         src="https://ui-avatars.com/api/?name=Admin&background=d70013&color=fff&bold=true&size=96"
-        alt="Foto de admin"
+        alt="Administrador"
       />
     </div>
   </header>
 
-  <!-- ── Stat Cards ─────────────────────────────────────────────────────── -->
-  <section class="stat-grid">
-    @for (stat of stats; track stat.label) {
-      <div class="stat-card">
-        <div class="stat-card__icon" [style.background]="stat.bg" [style.color]="stat.color">
-          <lucide-icon [img]="stat.icon" [size]="18" [strokeWidth]="2" />
+  <!-- =========================
+     CONTENIDO PRINCIPAL
+  ========================= -->
+  <main class="page-content">
+
+    <!-- =========================
+       KPI CARDS
+    ========================= -->
+    <section class="kpi-grid">
+
+      <!-- Usuarios activos -->
+      <article class="kpi-card kpi-card--users">
+        <div class="kpi-card__icon">
+          <lucide-icon [img]="Users" [size]="34" [strokeWidth]="2.1" />
         </div>
-        <div class="stat-card__body">
-          <p class="stat-card__value">{{ stat.value }}</p>
-          <p class="stat-card__label">{{ stat.label }}</p>
+
+        <div class="kpi-card__value">
+          {{ totalActiveUsers() }}
         </div>
+
+        <div class="kpi-card__label">
+          Usuarios<br />
+          Activos
+        </div>
+      </article>
+
+      <!-- Reportes pendientes -->
+      <article class="kpi-card kpi-card--reports">
+        <div class="kpi-card__icon">
+          <lucide-icon [img]="TriangleAlert" [size]="34" [strokeWidth]="2.1" />
+        </div>
+
+        <div class="kpi-card__value">
+          {{ totalPendingReports() }}
+        </div>
+
+        <div class="kpi-card__label">
+          Reportes<br />
+          Pendientes
+        </div>
+      </article>
+
+      <!-- Canciones totales -->
+      <article class="kpi-card kpi-card--songs">
+        <div class="kpi-card__icon">
+          <lucide-icon [img]="Music4" [size]="34" [strokeWidth]="2.1" />
+        </div>
+
+        <div class="kpi-card__value">
+          {{ totalSongs() }}
+        </div>
+
+        <div class="kpi-card__label">
+          Canciones<br />
+          Totales
+        </div>
+      </article>
+
+      <!-- Artistas registrados -->
+      <article class="kpi-card kpi-card--artists">
+        <div class="kpi-card__icon">
+          <lucide-icon [img]="MicVocal" [size]="34" [strokeWidth]="2.1" />
+        </div>
+
+        <div class="kpi-card__value">
+          {{ totalArtists() }}
+        </div>
+
+        <div class="kpi-card__label">
+          Artistas<br />
+          Registrados
+        </div>
+      </article>
+
+    </section>
+
+    <!-- =========================
+       DISTRIBUCION POR GENERO
+    ========================= -->
+    <section class="dashboard-panel">
+
+      <div class="dashboard-panel__header">
+        <h2>Distribucion por Género</h2>
       </div>
-    }
-  </section>
 
-  <!-- ── Distribución de Género ─────────────────────────────────────────── -->
-  <section class="chart-card">
-    <h2 class="chart-card__title">Distribución de Género</h2>
-    <div class="chart-card__canvas chart-card__canvas--bar">
-      <canvas #barChartCanvas></canvas>
-    </div>
-  </section>
+      <div class="genre-distribution">
 
-  <!-- ── Reporte de Gravedad ────────────────────────────────────────────── -->
-  <section class="chart-card">
-    <h2 class="chart-card__title">Reporte de Gravedad</h2>
-    <div class="chart-card__canvas chart-card__canvas--donut">
-      <canvas #donutChartCanvas></canvas>
-    </div>
-  </section>
+        @for (genre of topGenreDistribution(); track genre.id) {
+          <div class="genre-distribution__row">
 
-  <!-- ── Últimos Usuarios Registrados ──────────────────────────────────── -->
-  <section class="list-card">
-    <h2 class="list-card__title">Últimos Usuarios Registrados</h2>
-    <ul class="list-card__list">
-      @for (user of recentUsers; track user.id) {
-        <li class="user-item">
-          <div class="user-item__avatar" [style.background]="user.avatarColor">
-            {{ user.initials }}
-          </div>
-          <div class="user-item__info">
-            <p class="user-item__name">{{ user.name }}</p>
-            <p class="user-item__meta">{{ user.email }}</p>
-          </div>
-          <span class="user-item__date">{{ user.date }}</span>
-        </li>
-      }
-    </ul>
-  </section>
+            <!-- Nombre / dot -->
+            <div class="genre-distribution__label">
+              <span
+                class="genre-distribution__dot"
+                [ngStyle]="{
+                  background: 'linear-gradient(135deg, ' + genre.gradientStart + ', ' + genre.gradientEnd + ')'
+                }"
+              ></span>
 
-  <!-- ── Últimas Canciones Agregadas ────────────────────────────────────── -->
-  <section class="list-card">
-    <h2 class="list-card__title">Últimas Canciones Agregadas</h2>
-    <ul class="list-card__list">
-      @for (song of recentSongs; track song.id) {
-        <li class="song-item">
-          <img class="song-item__cover" [src]="song.cover" [alt]="song.title" />
-          <div class="song-item__info">
-            <p class="song-item__title">{{ song.title }}</p>
-            <p class="song-item__meta">{{ song.artist }} · {{ song.genre }}</p>
-          </div>
+              <span class="genre-distribution__name">
+                {{ genre.name }}
+              </span>
+            </div>
 
-          <!-- Hamburger menu -->
-          <div class="song-item__menu-wrap">
-            <button
-              type="button"
-              class="song-item__menu-btn"
-              (click)="toggleMenu(song.id)"
-              [attr.aria-expanded]="openMenuId() === song.id"
-              aria-label="Opciones"
-            >
-              <lucide-icon [img]="MoreVertical" [size]="18" [strokeWidth]="2" />
-            </button>
-
-            @if (openMenuId() === song.id) {
-              <div class="song-item__dropdown" (click)="$event.stopPropagation()">
-                <button type="button" class="dropdown__item" (click)="onMenuAction('ver', song)">
-                  <lucide-icon [img]="Eye" [size]="15" [strokeWidth]="2" />
-                  Ver detalles
-                </button>
-                <button type="button" class="dropdown__item dropdown__item--danger" (click)="onMenuAction('eliminar', song)">
-                  <lucide-icon [img]="Trash2" [size]="15" [strokeWidth]="2" />
-                  Eliminar canción
-                </button>
-                <button type="button" class="dropdown__item dropdown__item--warn" (click)="onMenuAction('bloquear-artista', song)">
-                  <lucide-icon [img]="UserX" [size]="15" [strokeWidth]="2" />
-                  Bloquear artista
-                </button>
-                <button type="button" class="dropdown__item dropdown__item--success" (click)="onMenuAction('aprobar', song)">
-                  <lucide-icon [img]="CheckCircle" [size]="15" [strokeWidth]="2" />
-                  Aprobar canción
-                </button>
+            <!-- Barra -->
+            <div class="genre-distribution__bar-wrap">
+              <div class="genre-distribution__bar-bg">
+                <div
+                  class="genre-distribution__bar-fill"
+                  [ngStyle]="{
+                    width: genre.percentage + '%',
+                    background: 'linear-gradient(90deg, ' + genre.gradientStart + ', ' + genre.gradientEnd + ')'
+                  }"
+                ></div>
               </div>
-            }
+            </div>
+
+            <!-- Valor -->
+            <div class="genre-distribution__value">
+              {{ genre.percentage }}%
+            </div>
+
           </div>
-        </li>
-      }
-    </ul>
-  </section>
+        }
 
-  <div class="dashboard__footer-space"></div>
+        <!-- Otros -->
+        @if (otherGenresSummary()) {
+          <div class="genre-distribution__row genre-distribution__row--others">
+
+            <div class="genre-distribution__label">
+              <span class="genre-distribution__dot genre-distribution__dot--others"></span>
+
+              <span class="genre-distribution__name">
+                Otros ({{ otherGenresSummary()!.remainingCount }} restantes)
+              </span>
+            </div>
+
+            <div class="genre-distribution__bar-wrap">
+              <div class="genre-distribution__bar-bg">
+                <div
+                  class="genre-distribution__bar-fill genre-distribution__bar-fill--others"
+                  [style.width.%]="otherGenresSummary()!.percentage"
+                ></div>
+              </div>
+            </div>
+
+            <div class="genre-distribution__value">
+              {{ otherGenresSummary()!.percentage }}%
+            </div>
+
+          </div>
+        }
+
+      </div>
+    </section>
+
+    <!-- =========================
+       REPORTES DE GRAVEDAD
+    ========================= -->
+    <section class="dashboard-panel">
+
+      <div class="dashboard-panel__header">
+        <h2>Reportes de Gravedad</h2>
+      </div>
+
+      <div class="severity-section">
+
+        <!-- Donut visual -->
+        <div class="severity-section__chart">
+          <div
+            class="severity-donut"
+            [ngStyle]="{
+              background: donutBackground()
+            }"
+          >
+            <div class="severity-donut__hole"></div>
+          </div>
+        </div>
+
+        <!-- Leyenda -->
+        <div class="severity-section__legend">
+
+          <!-- Leve -->
+          <div class="severity-item">
+            <span class="severity-item__dot severity-item__dot--low"></span>
+
+            <span class="severity-item__label">
+              Leve
+            </span>
+
+            <span class="severity-item__meta">
+              (1 reporte)
+            </span>
+
+            <strong class="severity-item__value">
+              {{ severityStats().lowPercentage }}%
+            </strong>
+          </div>
+
+          <!-- Moderado -->
+          <div class="severity-item">
+            <span class="severity-item__dot severity-item__dot--medium"></span>
+
+            <span class="severity-item__label">
+              Moderado
+            </span>
+
+            <span class="severity-item__meta">
+              (2 reportes)
+            </span>
+
+            <strong class="severity-item__value">
+              {{ severityStats().mediumPercentage }}%
+            </strong>
+          </div>
+
+          <!-- Critico -->
+          <div class="severity-item">
+            <span class="severity-item__dot severity-item__dot--critical"></span>
+
+            <span class="severity-item__label">
+              Crítico
+            </span>
+
+            <span class="severity-item__meta">
+              (3+ reportes)
+            </span>
+
+            <strong class="severity-item__value">
+              {{ severityStats().criticalPercentage }}%
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================
+       LISTAS INFERIORES
+    ========================= -->
+    <section class="dashboard-grid-two">
+
+      <!-- Ultimos usuarios -->
+      <article class="dashboard-panel dashboard-panel--list">
+        <div class="dashboard-panel__header">
+          <h2>Últimos Usuarios Registrados</h2>
+        </div>
+
+        <div class="simple-list">
+
+          @for (user of latestUsers(); track user.id) {
+            <div class="simple-list__item">
+
+              <div class="simple-list__left">
+                <img
+                  class="simple-list__avatar"
+                  [src]="user.avatarUrl"
+                  [alt]="user.name"
+                />
+
+                <div class="simple-list__text">
+                  <strong>{{ user.name }}</strong>
+                </div>
+              </div>
+
+              <div class="simple-list__right">
+                {{ user.formattedDate }}
+              </div>
+
+            </div>
+          }
+
+        </div>
+      </article>
+
+      <!-- Ultimas canciones -->
+      <article class="dashboard-panel dashboard-panel--list">
+        <div class="dashboard-panel__header">
+          <h2>Últimas Canciones Agregadas</h2>
+        </div>
+
+        <div class="simple-list">
+
+          @for (song of latestSongs(); track song.id) {
+            <div class="simple-list__item">
+
+              <div class="simple-list__left">
+                <img
+                  class="simple-list__cover"
+                  [src]="song.coverUrl"
+                  [alt]="song.title"
+                />
+
+                <div class="simple-list__text">
+                  <strong>{{ song.title }}</strong>
+                  <span>{{ song.artistName }}</span>
+                </div>
+              </div>
+
+              <div class="simple-list__right simple-list__right--song">
+                <span>{{ song.playCountLabel }}</span>
+                <lucide-icon [img]="Play" [size]="14" [strokeWidth]="2.3" />
+              </div>
+
+            </div>
+          }
+
+        </div>
+      </article>
+
+    </section>
+
+    <!-- =========================
+       FOOTER
+    ========================= -->
+    <footer class="dashboard-footer">
+      <span>© 2026 Ruby Tune Admin Panel</span>
+    </footer>
+
+  </main>
 </div>
-
-<!-- Close dropdown on outside click -->
-@if (openMenuId()) {
-  <div class="global-overlay" (click)="closeMenu()"></div>
-}

@@ -1,0 +1,52 @@
+<div class="register-gender-container">
+
+  <!-- BOTÓN VOLVER -->
+  <button class="back-button" (click)="onBackClick()">
+    Volver
+  </button>
+
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <h2 class="title">¿Cómo te identificas?</h2>
+    <p class="subtitle">Selecciona una opción</p>
+  </div>
+
+  <!-- OPCIONES DE GÉNERO -->
+  <div class="options">
+
+    <div
+      class="option"
+      *ngFor="let option of genderOptions"
+      [class.selected]="isSelected(option.value)"
+      (click)="selectGender(option.value)"
+    >
+
+      <!-- TEXTO -->
+      <span class="label">
+        {{ option.label }}
+      </span>
+
+      <!-- CHECK SOLO SI ESTÁ SELECCIONADO -->
+      <span class="check" *ngIf="isSelected(option.value)">
+        ✓
+      </span>
+
+    </div>
+
+  </div>
+
+  <!-- ERROR -->
+  <p class="error" *ngIf="generalError()">
+    {{ generalError() }}
+  </p>
+
+  <!-- BOTÓN CONTINUAR -->
+  <button
+    class="submit-button"
+    (click)="submit()"
+    [disabled]="isSubmitting()"
+  >
+    Continuar
+  </button>
+
+</div>

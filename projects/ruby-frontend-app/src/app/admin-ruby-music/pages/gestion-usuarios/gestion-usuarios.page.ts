@@ -1,226 +1,375 @@
+import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
-import { NgClass } from '@angular/common';
 import {
+  Check,
+  Eye,
   LucideAngularModule,
-  Menu, Eye, Pencil, X, ChevronDown, Users, Check, ShieldAlert,
+  Menu,
+  Pencil,
+  Search,
 } from 'lucide-angular';
+
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
 
-export type UserStatus   = 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
-export type StatusFilter  = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
-export type ReportsFilter = 'ALL' | 'WITH_REPORTS' | 'CRITICAL';
+/* =========================
+   TIPOS / MODELOS
+========================= */
+type UserStatus = 'ACTIVO' | 'INACTIVO' | 'BLOQUEADO';
 
-export interface AdminUser {
+interface AdminUser {
   id: string;
   name: string;
   email: string;
-  initials: string;
-  avatarColor: string;
+  avatarUrl: string;
   status: UserStatus;
+  createdAt: string;
   reportCount: number;
-  blockReason: string;
-  registeredAt: string;
+  blockReason: string | null;
+  blockedAt: string | null;
 }
 
-const MOCK_USERS: AdminUser[] = [
-  { id: '1', name: 'Mateo Ignacio',    email: 'mateo.ignacio@example.com',    initials: 'MI', avatarColor: '#7c3aed', status: 'ACTIVE',   reportCount: 0, blockReason: '', registeredAt: '10/01/2026' },
-  { id: '2', name: 'Luis García',      email: 'luisgarcia@example.com',       initials: 'LG', avatarColor: '#0891b2', status: 'ACTIVE',   reportCount: 1, blockReason: '', registeredAt: '15/01/2026' },
-  { id: '3', name: 'Diego Martínez',   email: 'diegomar12tinez@example.com',  initials: 'DM', avatarColor: '#374151', status: 'BLOCKED',  reportCount: 5, blockReason: 'Acoso o bullying', registeredAt: '02/03/2026' },
-  { id: '4', name: 'María Fernández',  email: 'marieler1234@example.com',     initials: 'MF', avatarColor: '#be185d', status: 'ACTIVE',   reportCount: 0, blockReason: '', registeredAt: '20/02/2026' },
-  { id: '5', name: 'Mateo Acosta',     email: 'macosta@example.com',          initials: 'MA', avatarColor: '#15803d', status: 'ACTIVE',   reportCount: 2, blockReason: '', registeredAt: '28/02/2026' },
-  { id: '6', name: 'Valentina Cruz',   email: 'vcruz@example.com',            initials: 'VC', avatarColor: '#b45309', status: 'INACTIVE', reportCount: 0, blockReason: '', registeredAt: '05/03/2026' },
-  { id: '7', name: 'Andrés Romero',    email: 'aromero@example.com',          initials: 'AR', avatarColor: '#c2410c', status: 'BLOCKED',  reportCount: 4, blockReason: 'Incita la violencia', registeredAt: '12/02/2026' },
-  { id: '8', name: 'Sofía Herrera',    email: 'sofiaH@example.com',           initials: 'SH', avatarColor: '#6d28d9', status: 'ACTIVE',   reportCount: 3, blockReason: '', registeredAt: '01/03/2026' },
-];
+interface AuthUser {
+  id: string;
+  email: string;
+  password: string;
+  authProvider: 'EMAIL';
+  name: string;
+  birthDate: string;
+  gender: string;
+  avatarUrl: string | null;
+  role: 'ADMIN' | 'USER';
+  status: 'ACTIVE' | 'BLOCKED' | 'INACTIVE';
+  blockReason: string | null;
+  blockedAt: string | null;
+  onboardingCompleted: boolean;
+  selectedStationIds: string[];
+  createdAt: string;
+}
 
-export const BLOCK_REASONS = [
-  'Acoso o bullying',
-  'Incita la violencia',
-  'Contenido inapropiado',
-  'Spam a la plataforma',
-  'Lenguaje ofensivo',
-  'Suplantación de identidad',
-];
-
+/* =========================
+   COMPONENTE
+========================= */
 @Component({
-  selector:    'rm-gestion-usuarios-page',
-  standalone:  true,
-  imports:     [LucideAngularModule, AdminSidebarComponent, NgClass],
+  selector: 'app-gestion-usuarios-page',
+  standalone: true,
+  imports: [CommonModule, LucideAngularModule, AdminSidebarComponent],
   templateUrl: './gestion-usuarios.page.html',
-  styleUrl:    './gestion-usuarios.page.scss',
+  styleUrl: './gestion-usuarios.page.scss',
 })
 export class GestionUsuariosPage {
+  /* =========================
+     STORAGE KEYS
+  ========================= */
+  private readonly USERS_KEY = 'ruby_users';
+  private readonly AUTH_USERS_KEY = 'ruby_auth_users';
 
-  /* ── Icons ─────────────────────────────────────────────────────────── */
-  readonly Menu       = Menu;
-  readonly Eye        = Eye;
-  readonly Pencil     = Pencil;
-  readonly X          = X;
-  readonly ChevronDown = ChevronDown;
-  readonly Users      = Users;
-  readonly Check      = Check;
-  readonly ShieldAlert = ShieldAlert;
+  /* =========================
+     ICONOS
+  ========================= */
+  readonly Menu = Menu;
+  readonly Search = Search;
+  readonly Eye = Eye;
+  readonly Pencil = Pencil;
+  readonly Check = Check;
 
-  /* ── Sidebar ────────────────────────────────────────────────────────── */
+  /* =========================
+     UI STATE
+  ========================= */
   readonly sidebarOpen = signal(false);
+  readonly searchQuery = signal('');
+  readonly statusFilter = signal('');
+  readonly reportFilter = signal('');
 
-  /* ── Data ───────────────────────────────────────────────────────────── */
-  private readonly _users = signal<AdminUser[]>(structuredClone(MOCK_USERS));
-  readonly blockReasons   = BLOCK_REASONS;
+  /* =========================
+     MODALES
+  ========================= */
+  readonly isDetailModalOpen = signal(false);
+  readonly isEditModalOpen = signal(false);
+  readonly isReactivateModalOpen = signal(false);
 
-  /* ── Filters ────────────────────────────────────────────────────────── */
-  readonly searchQuery   = signal('');
-  readonly statusFilter  = signal<StatusFilter>('ALL');
-  readonly reportsFilter = signal<ReportsFilter>('ALL');
+  /* =========================
+     USUARIO SELECCIONADO
+  ========================= */
+  readonly selectedUser = signal<AdminUser | null>(null);
 
-  /* Only one filter dropdown open at a time */
-  readonly openFilter = signal<'status' | 'reports' | null>(null);
+  /* =========================
+     FORM EDITAR ESTADO
+  ========================= */
+  readonly newStatus = signal<UserStatus>('ACTIVO');
+  readonly blockReason = signal('');
 
-  readonly filteredUsers = computed(() => {
-    const q   = this.searchQuery().toLowerCase().trim();
-    const sf  = this.statusFilter();
-    const rf  = this.reportsFilter();
+  /* =========================
+     DATA
+  ========================= */
+  readonly users = signal<AdminUser[]>(this.loadUsers());
 
-    return this._users().filter(u => {
-      if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
-      if (sf !== 'ALL' && u.status !== sf) return false;
-      if (rf === 'WITH_REPORTS' && u.reportCount === 0) return false;
-      if (rf === 'CRITICAL'     && u.reportCount < 3)  return false;
-      return true;
-    });
+  /* =========================
+     COMPUTED: OVERLAY
+  ========================= */
+  readonly anyModalOpen = computed(() => {
+    return (
+      this.isDetailModalOpen() ||
+      this.isEditModalOpen() ||
+      this.isReactivateModalOpen()
+    );
   });
 
-  /* ── Modal: View user ───────────────────────────────────────────────── */
-  readonly viewingUser = signal<AdminUser | null>(null);
+  /* =========================
+     COMPUTED: FILTRADO
+  ========================= */
+  readonly filteredUsers = computed(() => {
+    let result = [...this.users()];
 
-  openViewModal(user: AdminUser): void { this.viewingUser.set(user); }
-  closeViewModal(): void               { this.viewingUser.set(null); }
+    const query = this.searchQuery().trim().toLowerCase();
+    const status = this.statusFilter();
+    const reports = this.reportFilter();
 
-  /* ── Modal: Edit status ─────────────────────────────────────────────── */
-  readonly editingUser           = signal<AdminUser | null>(null);
-  readonly newStatus             = signal<UserStatus>('ACTIVE');
-  readonly newStatusDropOpen     = signal(false);
-  readonly blockReason           = signal('');
-  readonly blockReasonDropOpen   = signal(false);
+    if (query) {
+      result = result.filter(
+        (user) =>
+          user.name.toLowerCase().includes(query) ||
+          user.email.toLowerCase().includes(query)
+      );
+    }
 
+    if (status) {
+      result = result.filter((user) => user.status === status);
+    }
+
+    if (reports === 'CON') {
+      result = result.filter((user) => user.reportCount >= 1);
+    }
+
+    if (reports === 'CRITICO') {
+      result = result.filter((user) => user.reportCount >= 3);
+    }
+
+    result.sort(
+      (a, b) => this.parseDateToTime(b.createdAt) - this.parseDateToTime(a.createdAt)
+    );
+
+    return result;
+  });
+
+  /* =========================
+     PERSISTENCIA BASE
+  ========================= */
+  private loadUsers(): AdminUser[] {
+    const storedUsers = localStorage.getItem(this.USERS_KEY);
+
+    if (!storedUsers) {
+      return [];
+    }
+
+    try {
+      const users = JSON.parse(storedUsers) as AdminUser[];
+      return users.map((user) => this.normalizeUserForView(user));
+    } catch {
+      localStorage.removeItem(this.USERS_KEY);
+      return [];
+    }
+  }
+
+  private persistUsers(users: AdminUser[]): void {
+    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+    this.users.set(users.map((user) => this.normalizeUserForView(user)));
+  }
+
+  private loadAuthUsers(): AuthUser[] {
+    try {
+      const raw = localStorage.getItem(this.AUTH_USERS_KEY);
+      return raw ? (JSON.parse(raw) as AuthUser[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private persistAuthUsers(users: AuthUser[]): void {
+    localStorage.setItem(this.AUTH_USERS_KEY, JSON.stringify(users));
+  }
+
+  private normalizeUserForView(user: AdminUser): AdminUser {
+    return {
+      ...user,
+      avatarUrl: user.avatarUrl ?? '',
+      reportCount: user.reportCount ?? 0,
+      createdAt: user.createdAt,
+      blockedAt: user.blockedAt,
+    };
+  }
+
+  /* =========================
+     HELPERS
+  ========================= */
+  private getTodayFormatted(): string {
+    return new Date().toISOString();
+  }
+
+  formatDateForView(value: string | null): string {
+    if (!value) return '';
+
+    const date = new Date(value);
+
+    if (!Number.isNaN(date.getTime())) {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+
+      return `${day}/${month}/${year}`;
+    }
+
+    const parts = value.split('/');
+
+    if (parts.length >= 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2].slice(0, 4);
+
+      return `${day}/${month}/${year}`;
+    }
+
+    return value;
+  }
+
+  private parseDateToTime(value: string): number {
+    if (!value) return 0;
+
+    const isoDate = new Date(value);
+    if (!Number.isNaN(isoDate.getTime())) {
+      return isoDate.getTime();
+    }
+
+    const parts = value.split('/').map(Number);
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return new Date(year, month - 1, day).getTime();
+    }
+
+    return 0;
+  }
+
+  private resetEditForm(): void {
+    this.newStatus.set('ACTIVO');
+    this.blockReason.set('');
+  }
+
+  private mapAdminStatusToAuthStatus(status: UserStatus): AuthUser['status'] {
+    if (status === 'BLOQUEADO') return 'BLOCKED';
+    if (status === 'INACTIVO') return 'INACTIVE';
+    return 'ACTIVE';
+  }
+
+  private syncStatusToAuthUsers(
+    userId: string,
+    status: UserStatus,
+    reason: string | null,
+    blockedAt: string | null
+  ): void {
+    const authUsers = this.loadAuthUsers();
+
+    const updatedAuthUsers = authUsers.map((user) => {
+      if (user.id !== userId) return user;
+
+      return {
+        ...user,
+        status: this.mapAdminStatusToAuthStatus(status),
+        blockReason: status === 'BLOQUEADO' ? reason : null,
+        blockedAt: status === 'BLOQUEADO' ? blockedAt : null,
+      };
+    });
+
+    this.persistAuthUsers(updatedAuthUsers);
+  }
+
+  /* =========================
+     MODAL DETALLE
+  ========================= */
+  openDetailModal(user: AdminUser): void {
+    this.selectedUser.set(user);
+    this.isDetailModalOpen.set(true);
+  }
+
+  /* =========================
+     MODAL CAMBIAR ESTADO
+  ========================= */
   openEditModal(user: AdminUser): void {
-    this.editingUser.set(user);
+    this.selectedUser.set(user);
     this.newStatus.set(user.status);
-    this.blockReason.set(user.blockReason);
-    this.newStatusDropOpen.set(false);
-    this.blockReasonDropOpen.set(false);
+    this.blockReason.set(user.blockReason ?? '');
+    this.isEditModalOpen.set(true);
   }
 
-  closeEditModal(): void {
-    this.editingUser.set(null);
-    this.newStatusDropOpen.set(false);
-    this.blockReasonDropOpen.set(false);
-  }
+  updateUserStatus(): void {
+    const current = this.selectedUser();
+    if (!current) return;
 
-  selectNewStatus(s: UserStatus): void {
-    this.newStatus.set(s);
-    this.newStatusDropOpen.set(false);
-    if (s !== 'BLOCKED') this.blockReason.set('');
-  }
+    const nextStatus = this.newStatus();
+    const reason = this.blockReason().trim();
+    const blockedAt = nextStatus === 'BLOQUEADO' ? this.getTodayFormatted() : null;
 
-  selectBlockReason(r: string): void {
-    this.blockReason.set(r);
-    this.blockReasonDropOpen.set(false);
-  }
-
-  confirmStatusChange(): void {
-    const user  = this.editingUser();
-    const next  = this.newStatus();
-    if (!user) return;
-
-    /* Blocked → needs a reason */
-    if (next === 'BLOCKED' && !this.blockReason()) return;
-
-    /* Reactivating a blocked/inactive user */
-    if (next === 'ACTIVE' && user.status !== 'ACTIVE') {
-      this.closeEditModal();
-      this.reactivatingUser.set(user);
-      this._pendingReactivate = true;
+    if (nextStatus === 'BLOQUEADO' && !reason) {
       return;
     }
 
-    this.applyStatusChange(user, next, this.blockReason());
-    this.closeEditModal();
-  }
+    const updatedUsers = this.users().map((user) => {
+      if (user.id !== current.id) return user;
 
-  /* ── Modal: Reactivate confirm ──────────────────────────────────────── */
-  readonly reactivatingUser  = signal<AdminUser | null>(null);
-  private  _pendingReactivate = false;
+      return {
+        ...user,
+        status: nextStatus,
+        blockReason: nextStatus === 'BLOQUEADO' ? reason : null,
+        blockedAt,
+      };
+    });
 
-  confirmReactivate(): void {
-    const user = this.reactivatingUser();
-    if (!user) return;
-    this.applyStatusChange(user, 'ACTIVE', '');
-    this.reactivatingUser.set(null);
-    this._pendingReactivate = false;
-  }
-
-  cancelReactivate(): void {
-    this.reactivatingUser.set(null);
-    this._pendingReactivate = false;
-  }
-
-  /* ── Helpers ────────────────────────────────────────────────────────── */
-  private applyStatusChange(user: AdminUser, status: UserStatus, reason: string): void {
-    this._users.update(list =>
-      list.map(u =>
-        u.id === user.id ? { ...u, status, blockReason: reason } : u
-      )
+    this.persistUsers(updatedUsers);
+    this.syncStatusToAuthUsers(
+      current.id,
+      nextStatus,
+      nextStatus === 'BLOQUEADO' ? reason : null,
+      blockedAt
     );
+
+    this.closeAllModals();
   }
 
-  reportBadgeClass(count: number): string {
-    if (count === 0) return 'badge--none';
-    if (count === 1) return 'badge--yellow';
-    if (count === 2) return 'badge--orange';
-    return 'badge--red';
+  /* =========================
+     MODAL REACTIVAR
+  ========================= */
+  openReactivateModal(user: AdminUser): void {
+    this.selectedUser.set(user);
+    this.isReactivateModalOpen.set(true);
   }
 
-  statusLabel(s: UserStatus): string {
-    return s === 'ACTIVE' ? 'Activo' : s === 'INACTIVE' ? 'Inactivo' : 'Bloqueado';
+  reactivateUser(): void {
+    const current = this.selectedUser();
+    if (!current) return;
+
+    const updatedUsers = this.users().map((user) => {
+      if (user.id !== current.id) return user;
+
+      return {
+        ...user,
+        status: 'ACTIVO' as UserStatus,
+        blockReason: null,
+        blockedAt: null,
+      };
+    });
+
+    this.persistUsers(updatedUsers);
+    this.syncStatusToAuthUsers(current.id, 'ACTIVO', null, null);
+
+    this.closeAllModals();
   }
 
-  statusFilterLabel(): string {
-    const map: Record<StatusFilter, string> = {
-      ALL:      'Todos los estados',
-      ACTIVE:   'Activos',
-      INACTIVE: 'Inactivos',
-      BLOCKED:  'Bloqueados',
-    };
-    return map[this.statusFilter()];
-  }
-
-  reportsFilterLabel(): string {
-    const map: Record<ReportsFilter, string> = {
-      ALL:          'Todos los reportes',
-      WITH_REPORTS: 'Con reportes',
-      CRITICAL:     'Críticos (3+)',
-    };
-    return map[this.reportsFilter()];
-  }
-
-  setStatusFilter(f: StatusFilter): void {
-    this.statusFilter.set(f);
-    this.openFilter.set(null);
-  }
-
-  setReportsFilter(f: ReportsFilter): void {
-    this.reportsFilter.set(f);
-    this.openFilter.set(null);
-  }
-
-  toggleFilter(which: 'status' | 'reports'): void {
-    this.openFilter.update(cur => (cur === which ? null : which));
-  }
-
-  closeFilters(): void { this.openFilter.set(null); }
-
-  anyModalOpen(): boolean {
-    return !!this.viewingUser() || !!this.editingUser() || !!this.reactivatingUser();
+  /* =========================
+     CIERRE GENERAL MODALES
+  ========================= */
+  closeAllModals(): void {
+    this.isDetailModalOpen.set(false);
+    this.isEditModalOpen.set(false);
+    this.isReactivateModalOpen.set(false);
+    this.selectedUser.set(null);
+    this.resetEditForm();
   }
 }

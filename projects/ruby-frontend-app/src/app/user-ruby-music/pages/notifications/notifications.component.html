@@ -1,0 +1,201 @@
+<div class="notifications-page">
+  <div class="notifications-header">
+    <h1 class="notifications-title">Notificaciones</h1>
+
+    <div class="notifications-tabs">
+      <button
+        class="notifications-tab"
+        type="button"
+        [class.active]="isTabActive('ACTIVIDAD')"
+        (click)="setActiveTab('ACTIVIDAD')"
+      >
+        <img
+          class="notifications-tab-icon"
+          src="/assets/icons/notifications-activity.png"
+          alt="Actividad"
+        />
+        <span>Actividad</span>
+
+        @if (hasUnreadActivity() && !isTabActive('ACTIVIDAD')) {
+          <span class="notifications-tab-dot"></span>
+        }
+      </button>
+
+      <button
+        class="notifications-tab"
+        type="button"
+        [class.active]="isTabActive('SOLICITUDES')"
+        (click)="setActiveTab('SOLICITUDES')"
+      >
+        <img
+          class="notifications-tab-icon"
+          src="/assets/icons/notifications-requests.png"
+          alt="Solicitudes"
+        />
+        <span>Solicitudes</span>
+
+        @if (hasUnreadRequests() && !isTabActive('SOLICITUDES')) {
+          <span class="notifications-tab-dot"></span>
+        }
+      </button>
+    </div>
+
+    <p class="notifications-counter-text">
+      Tienes <strong>{{ currentTabCount() }}</strong>
+      {{ isTabActive('ACTIVIDAD') ? 'Notificaciones' : 'Solicitudes' }}
+      el día de hoy.
+    </p>
+  </div>
+
+  <div class="notifications-content">
+    @if (isTabActive('ACTIVIDAD')) {
+      <div class="notifications-list">
+        @if (activityNotifications().length === 0) {
+          <div class="notifications-empty-state">
+            <p>No tienes actividad reciente.</p>
+          </div>
+        } @else {
+          @for (notification of activityNotifications(); track trackByNotification($index, notification)) {
+            <div class="notification-card">
+              <div class="notification-card-main">
+                <img
+                  class="notification-avatar"
+                  [src]="getNotificationAvatar(notification)"
+                  alt="Usuario"
+                />
+
+                <div class="notification-body">
+                  <p class="notification-text">
+                    <strong>
+                      {{ notification.meta.actorUserName ? '@' + notification.meta.actorUserName : 'Usuario' }}
+                    </strong>
+                    {{ notification.message }}
+                  </p>
+
+                  <button
+                    class="notification-go-button"
+                    type="button"
+                    (click)="goToNotificationStation(notification)"
+                  >
+                    Ir
+                  </button>
+                </div>
+
+                <button
+                  class="notification-more-button"
+                  type="button"
+                  (click)="openDeleteNotificationModal(notification)"
+                >
+                  <img
+                    class="notification-more-icon"
+                    src="/assets/icons/notifications-more.png"
+                    alt="Más opciones"
+                  />
+                </button>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    }
+
+    @if (isTabActive('SOLICITUDES')) {
+      <div class="notifications-list">
+        @if (friendRequests().length === 0) {
+          <div class="notifications-empty-state">
+            <p>No tienes solicitudes pendientes.</p>
+          </div>
+        } @else {
+          @for (request of friendRequests(); track trackByRequest($index, request)) {
+            <div class="notification-card">
+              <div class="notification-card-main">
+                <img
+                  class="notification-avatar"
+                  [src]="getRequestAvatar(request)"
+                  alt="Usuario"
+                />
+
+                <div class="notification-body">
+                  <p class="notification-text">
+                    <strong>@{{ request.requesterName }}</strong>
+                    te ha invitado a conectar.
+                  </p>
+
+                  <div class="notification-request-actions">
+                    <button
+                      class="notification-accept-button"
+                      type="button"
+                      (click)="acceptRequest(request)"
+                    >
+                      Aceptar
+                    </button>
+
+                    <button
+                      class="notification-reject-button"
+                      type="button"
+                      (click)="rejectRequest(request)"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  class="notification-more-button"
+                  type="button"
+                  (click)="rejectRequest(request)"
+                >
+                  <img
+                    class="notification-more-icon"
+                    src="/assets/icons/notifications-more.png"
+                    alt="Más opciones"
+                  />
+                </button>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  @if (isDeleteModalOpen()) {
+    <div
+      class="notification-delete-modal-backdrop"
+      (click)="closeDeleteNotificationModal()"
+    >
+      <div
+        class="notification-delete-modal"
+        (click)="$event.stopPropagation()"
+      >
+        <p class="notification-delete-modal-text">
+          ¿Eliminar esta notificación?
+        </p>
+
+        <div class="notification-delete-modal-actions">
+          <button
+            class="notification-delete-cancel-button"
+            type="button"
+            (click)="closeDeleteNotificationModal()"
+          >
+            Cancelar
+          </button>
+
+          <button
+            class="notification-delete-confirm-button"
+            type="button"
+            (click)="confirmDeleteNotification()"
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (isToastVisible()) {
+    <div class="notifications-toast">
+      {{ toastMessage() }}
+    </div>
+  }
+</div>

@@ -1,0 +1,68 @@
+<div class="music-page">
+  <div class="home-tabs">
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('TODAS')"
+      (click)="setActiveTab('TODAS')"
+    >
+      Todas
+    </button>
+
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('MUSICA')"
+      (click)="setActiveTab('MUSICA')"
+    >
+      Música
+    </button>
+
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('ESTACION')"
+      (click)="setActiveTab('ESTACION')"
+    >
+      Estación
+    </button>
+  </div>
+
+  <section class="music-section">
+    <div class="music-section__header">
+      <h1 class="music-section__title">Tus álbumes más largos</h1>
+      <p class="music-section__subtitle">
+        Los álbumes con más minutos para sumergirte por completo.
+      </p>
+    </div>
+
+    <div class="music-ranking">
+      @for (album of topAlbumsByMinutes(); track album.id) {
+        <article
+          class="music-card"
+          (click)="goToAlbum(album.id)"
+        >
+          <div class="music-card__rank">
+            {{ album.rank }}
+          </div>
+
+          <div class="music-card__image-wrapper">
+            <img
+              class="music-card__image"
+              [src]="album.coverUrl"
+              [alt]="album.title"
+            />
+
+            <div class="music-card__image-fade"></div>
+
+            <div class="music-card__overlay-info">
+              <h3 class="music-card__title">{{ album.title }}</h3>
+              <p class="music-card__artist">{{ album.artistName }}</p>
+              <p class="music-card__minutes">{{ album.totalMinutesLabel }}</p>
+            </div>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+</div>

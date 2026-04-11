@@ -1,221 +1,539 @@
+import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import {
-  LucideAngularModule,
-  Menu, Plus, Search, Eye, Pencil, Trash2, X,
-  ChevronDown, Check, TriangleAlert, Disc3, UserRound,
+  AlertTriangle,
+  Eye,
+  Menu,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
 } from 'lucide-angular';
+
+import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
 
-/* ── Shared artist references (reuses artistas mock) ───────────────────── */
-export interface ArtistRef {
+/* =========================
+   MODELOS BASE
+========================= */
+interface Artist {
   id: string;
   name: string;
   photoUrl: string;
+  bio: string;
+  isTop: boolean;
+  followersCount: string;
+  monthlyListeners: string;
+  createdAt: string;
 }
 
-export const ALBUM_ARTISTS: ArtistRef[] = [
-  { id: 'a1', name: 'Kanye West',           photoUrl: 'https://picsum.photos/seed/kanye/40/40' },
-  { id: 'a2', name: 'Sting',                photoUrl: 'https://picsum.photos/seed/sting/40/40' },
-  { id: 'a3', name: 'Joji',                 photoUrl: 'https://picsum.photos/seed/joji/40/40' },
-  { id: 'a4', name: 'Jesse Rutherford',     photoUrl: 'https://picsum.photos/seed/jesse/40/40' },
-  { id: 'a5', name: 'Cigarettes After Sex', photoUrl: 'https://picsum.photos/seed/cigs/40/40' },
-  { id: 'a6', name: 'TV Girl',              photoUrl: 'https://picsum.photos/seed/tvgirl/40/40' },
-  { id: 'a7', name: 'Patrick Watson',       photoUrl: 'https://picsum.photos/seed/patrick/40/40' },
-];
-
-export interface Album {
+interface Album {
   id: string;
   title: string;
   artistId: string;
   coverUrl: string;
-  releaseDate: string; // YYYY-MM-DD
-  songCount: number;
-  totalStreams: number;
-  registeredAt: string;
+  releaseDate: string;
+  songsCount: number;
+  totalStreams: string;
+  createdAt: string;
 }
 
-const MOCK_ALBUMS: Album[] = [
-  { id: '1', title: '808s & Heartbreak', artistId: 'a1',
-    coverUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/8/84/Heartbreak_cover.jpg/220px-Heartbreak_cover.jpg',
-    releaseDate: '2024-02-23', songCount: 15, totalStreams: 1_900_000, registeredAt: '19/03/2024' },
-  { id: '2', title: "X's",              artistId: 'a5',
-    coverUrl: 'https://picsum.photos/seed/xs/200/200',
-    releaseDate: '2023-03-09', songCount: 10, totalStreams: 3_200_000, registeredAt: '09/03/2023' },
-  { id: '3', title: 'Close to Paradise', artistId: 'a7',
-    coverUrl: 'https://picsum.photos/seed/paradise/200/200',
-    releaseDate: '2022-02-15', songCount: 12, totalStreams: 850_000,   registeredAt: '15/02/2022' },
-  { id: '4', title: 'Liminal',           artistId: 'a3',
-    coverUrl: 'https://picsum.photos/seed/liminal/200/200',
-    releaseDate: '2023-06-01', songCount: 9,  totalStreams: 420_000,   registeredAt: '01/06/2023' },
-];
+/* =========================
+   MODELO UI
+========================= */
+interface AlbumView extends Album {
+  artistName: string;
+  artistPhotoUrl: string;
+}
 
+/* =========================
+   COMPONENTE
+========================= */
 @Component({
-  selector:    'rm-gestion-albumes-page',
-  standalone:  true,
-  imports:     [LucideAngularModule, AdminSidebarComponent],
+  selector: 'app-gestion-albumes-page',
+  standalone: true,
+  imports: [CommonModule, LucideAngularModule, AdminSidebarComponent],
   templateUrl: './gestion-albumes.page.html',
-  styleUrl:    './gestion-albumes.page.scss',
+  styleUrl: './gestion-albumes.page.scss',
 })
 export class GestionAlbumesPage {
+  /* =========================
+     STORAGE KEYS
+  ========================== */
+  private readonly ALBUMS_KEY = 'ruby_albums';
+  private readonly ARTISTS_KEY = 'ruby_artists';
 
-  /* ── Icons ─────────────────────────────────────────────────────────── */
-  readonly Menu          = Menu;
-  readonly Plus          = Plus;
-  readonly Search        = Search;
-  readonly Eye           = Eye;
-  readonly Pencil        = Pencil;
-  readonly Trash2        = Trash2;
-  readonly X             = X;
-  readonly ChevronDown   = ChevronDown;
-  readonly Check         = Check;
-  readonly TriangleAlert = TriangleAlert;
-  readonly Disc3         = Disc3;
-  readonly UserRound     = UserRound;
+  /* =========================
+     ICONOS
+  ========================== */
+  readonly Menu = Menu;
+  readonly Search = Search;
+  readonly Plus = Plus;
+  readonly Pencil = Pencil;
+  readonly Trash2 = Trash2;
+  readonly Eye = Eye;
+  readonly AlertTriangle = AlertTriangle;
 
-  /* ── Sidebar ────────────────────────────────────────────────────────── */
+  /* =========================
+     UI STATE
+  ========================== */
   readonly sidebarOpen = signal(false);
-
-  /* ── Data ───────────────────────────────────────────────────────────── */
-  private readonly _albums  = signal<Album[]>(structuredClone(MOCK_ALBUMS));
-  readonly artists           = ALBUM_ARTISTS;
-
-  /* ── Search ─────────────────────────────────────────────────────────── */
   readonly searchQuery = signal('');
+  readonly minAlbumReleaseDate = this.getTodayInputDate();
 
-  readonly filteredAlbums = computed(() => {
-    const q = this.searchQuery().toLowerCase().trim();
-    if (!q) return this._albums();
-    return this._albums().filter(a => {
-      const artist = this.getArtist(a.artistId);
-      return a.title.toLowerCase().includes(q)
-          || (artist?.name.toLowerCase().includes(q) ?? false);
-    });
+  /* =========================
+     MODALES
+  ========================== */
+  readonly isCreateModalOpen = signal(false);
+  readonly isEditModalOpen = signal(false);
+  readonly isDetailModalOpen = signal(false);
+  readonly isDeleteModalOpen = signal(false);
+
+  /* =========================
+     SELECCION
+  ========================== */
+  readonly selectedAlbum = signal<AlbumView | null>(null);
+
+  /* =========================
+     FORM CREATE
+  ========================== */
+  readonly createAlbumTitle = signal('');
+  readonly createAlbumArtistId = signal('');
+  readonly createAlbumCoverUrl = signal('');
+  readonly createAlbumReleaseDate = signal('');
+
+  /* =========================
+     FORM EDIT
+  ========================== */
+  readonly editAlbumTitle = signal('');
+  readonly editAlbumArtistId = signal('');
+  readonly editAlbumCoverUrl = signal('');
+  readonly editAlbumReleaseDate = signal('');
+
+  /* =========================
+     DATA BASE
+  ========================== */
+  readonly artists = signal<Artist[]>(this.loadArtists());
+  readonly albums = signal<Album[]>(this.loadAlbums());
+
+  /* =========================
+     COMPUTED
+  ========================== */
+  readonly availableArtists = computed(() => {
+    return [...this.artists()].sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  /* ── Modal: View ────────────────────────────────────────────────────── */
-  readonly viewingAlbum = signal<Album | null>(null);
-  openViewModal(a: Album): void  { this.viewingAlbum.set(a); }
-  closeViewModal(): void         { this.viewingAlbum.set(null); }
+  readonly albumViews = computed<AlbumView[]>(() => {
+    const artists = this.artists();
+    const albums = this.albums();
 
-  /* ── Modal: Create / Edit ───────────────────────────────────────────── */
-  readonly modalMode     = signal<'create' | 'edit' | null>(null);
-  readonly editingAlbum  = signal<Album | null>(null);
+    return albums
+      .map((album) => {
+        const artist = artists.find((item) => item.id === album.artistId);
 
-  readonly formTitle       = signal('');
-  readonly formArtistId    = signal('');
-  readonly formCoverUrl    = signal('');
-  readonly formReleaseDate = signal(this.todayISO());
-  readonly artistDropOpen  = signal(false);
-
-  readonly formValid = computed(() =>
-    this.formTitle().trim().length > 0
-    && this.formArtistId().length > 0
-    && this.formReleaseDate().length > 0,
-  );
-
-  readonly selectedArtist = computed(() =>
-    this.artists.find(a => a.id === this.formArtistId()) ?? null,
-  );
-
-  openCreateModal(): void {
-    this.formTitle.set('');
-    this.formArtistId.set('');
-    this.formCoverUrl.set('');
-    this.formReleaseDate.set(this.todayISO());
-    this.artistDropOpen.set(false);
-    this.editingAlbum.set(null);
-    this.modalMode.set('create');
-  }
-
-  openEditModal(a: Album): void {
-    this.formTitle.set(a.title);
-    this.formArtistId.set(a.artistId);
-    this.formCoverUrl.set(a.coverUrl);
-    this.formReleaseDate.set(a.releaseDate);
-    this.artistDropOpen.set(false);
-    this.editingAlbum.set(a);
-    this.modalMode.set('edit');
-  }
-
-  closeModal(): void {
-    this.modalMode.set(null);
-    this.editingAlbum.set(null);
-    this.artistDropOpen.set(false);
-  }
-
-  selectArtist(id: string): void {
-    this.formArtistId.set(id);
-    this.artistDropOpen.set(false);
-  }
-
-  submitModal(): void {
-    if (!this.formValid()) return;
-    const now = new Date();
-    const reg = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
-
-    if (this.modalMode() === 'create') {
-      const nuevo: Album = {
-        id:           crypto.randomUUID(),
-        title:        this.formTitle().trim(),
-        artistId:     this.formArtistId(),
-        coverUrl:     this.formCoverUrl().trim(),
-        releaseDate:  this.formReleaseDate(),
-        songCount:    0,
-        totalStreams:  0,
-        registeredAt: reg,
-      };
-      this._albums.update(list => [nuevo, ...list]);
-    } else {
-      const target = this.editingAlbum();
-      if (!target) return;
-      this._albums.update(list =>
-        list.map(a => a.id === target.id
-          ? { ...a, title: this.formTitle().trim(), artistId: this.formArtistId(),
-              coverUrl: this.formCoverUrl().trim(), releaseDate: this.formReleaseDate() }
-          : a),
+        return {
+          ...album,
+          artistName: artist?.name ?? 'Artista no disponible',
+          artistPhotoUrl:
+            artist?.photoUrl ??
+            'https://ui-avatars.com/api/?name=Artist&background=e5e7eb&color=111&bold=true',
+        };
+      })
+      .sort(
+        (a, b) =>
+          this.parseDateToTime(b.releaseDate) - this.parseDateToTime(a.releaseDate)
       );
+  });
+
+  readonly filteredAlbums = computed(() => {
+    const query = this.searchQuery().trim().toLowerCase();
+
+    if (!query) {
+      return this.albumViews();
     }
-    this.closeModal();
+
+    return this.albumViews().filter(
+      (album) =>
+        album.title.toLowerCase().includes(query) ||
+        album.artistName.toLowerCase().includes(query)
+    );
+  });
+
+  readonly anyModalOpen = computed(() => {
+    return (
+      this.isCreateModalOpen() ||
+      this.isEditModalOpen() ||
+      this.isDetailModalOpen() ||
+      this.isDeleteModalOpen()
+    );
+  });
+
+  /* =========================
+     STORAGE
+  ========================== */
+  private loadArtists(): Artist[] {
+    const storedArtists = localStorage.getItem(this.ARTISTS_KEY);
+
+    if (!storedArtists) return [];
+
+    try {
+      return JSON.parse(storedArtists) as Artist[];
+    } catch {
+      localStorage.removeItem(this.ARTISTS_KEY);
+      return [];
+    }
   }
 
-  /* ── Modal: Delete confirm ──────────────────────────────────────────── */
-  readonly deletingAlbum = signal<Album | null>(null);
-  openDeleteModal(a: Album): void { this.deletingAlbum.set(a); }
-  closeDeleteModal(): void        { this.deletingAlbum.set(null); }
+  private loadAlbums(): Album[] {
+    const storedAlbums = localStorage.getItem(this.ALBUMS_KEY);
 
-  confirmDelete(): void {
-    const a = this.deletingAlbum();
-    if (!a) return;
-    this._albums.update(list => list.filter(x => x.id !== a.id));
-    this.closeDeleteModal();
+    if (storedAlbums) {
+      try {
+        return JSON.parse(storedAlbums) as Album[];
+      } catch {
+        localStorage.removeItem(this.ALBUMS_KEY);
+      }
+    }
+
+    const artists = this.loadArtists();
+
+    if (artists.length === 0) {
+      return [];
+    }
+
+    const getArtistIdByNameOrFallback = (
+      preferredName: string,
+      fallbackIndex = 0
+    ): string => {
+      const preferredArtist = artists.find(
+        (artist) => this.normalize(artist.name) === this.normalize(preferredName)
+      );
+
+      if (preferredArtist) return preferredArtist.id;
+      return artists[fallbackIndex]?.id ?? artists[0].id;
+    };
+
+    const baseAlbums: Album[] = [
+      {
+        id: crypto.randomUUID(),
+        title: '808s & Heartbreak',
+        artistId: getArtistIdByNameOrFallback('Kanye West', 0),
+        coverUrl:
+          'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=1200&auto=format&fit=crop',
+        releaseDate: '23/02/2027',
+        songsCount: 15,
+        totalStreams: '1.9 M streams',
+        createdAt: '23/02/2026',
+      },
+      {
+        id: crypto.randomUUID(),
+        title: 'Nectar',
+        artistId: getArtistIdByNameOrFallback('Joji', 1),
+        coverUrl:
+          'https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1200&auto=format&fit=crop',
+        releaseDate: '10/07/2026',
+        songsCount: 9,
+        totalStreams: '3 M streams',
+        createdAt: '10/07/2026',
+      },
+      {
+        id: crypto.randomUUID(),
+        title: 'Ten Summoner’s Tales',
+        artistId: getArtistIdByNameOrFallback('Sting', 2),
+        coverUrl:
+          'https://images.unsplash.com/photo-1501612780327-45045538702b?q=80&w=1200&auto=format&fit=crop',
+        releaseDate: '15/09/2026',
+        songsCount: 7,
+        totalStreams: '1.3 M streams',
+        createdAt: '15/09/2026',
+      },
+      {
+        id: crypto.randomUUID(),
+        title: 'GARAGEB&',
+        artistId: getArtistIdByNameOrFallback('Jesse Rutherford', 3),
+        coverUrl:
+          'https://images.unsplash.com/photo-1487180144351-b8472da7d491?q=80&w=1200&auto=format&fit=crop',
+        releaseDate: '22/04/2026',
+        songsCount: 12,
+        totalStreams: '980 K streams',
+        createdAt: '22/04/2026',
+      },
+    ];
+
+    localStorage.setItem(this.ALBUMS_KEY, JSON.stringify(baseAlbums));
+    return baseAlbums;
   }
 
-  /* ── Helpers ────────────────────────────────────────────────────────── */
-  anyModalOpen(): boolean {
-    return !!this.modalMode() || !!this.viewingAlbum() || !!this.deletingAlbum();
+  private persistAlbums(albums: Album[]): void {
+    localStorage.setItem(this.ALBUMS_KEY, JSON.stringify(albums));
+    this.albums.set(albums);
   }
 
-  getArtist(id: string): ArtistRef | undefined {
-    return this.artists.find(a => a.id === id);
+  /* =========================
+     HELPERS
+  ========================== */
+  private normalize(value: string): string {
+    return value.trim().toLowerCase();
   }
 
-  formatDate(iso: string): string {
-    if (!iso) return '—';
-    const [y, m, d] = iso.split('-');
-    const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
+
+
+  private getTodayFormatted(): string {
+    const date = new Date();
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+
+    return `${day}/${month}/${year}`;
   }
 
-  formatStreams(n: number): string {
-    return n.toLocaleString('es-ES');
+  private getTodayInputDate(): string {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
   }
 
-  todayISO(): string {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  private formatInputDateToDisplay(value: string): string {
+    const [year, month, day] = value.split('-');
+
+    if (!year || !month || !day) {
+      return '';
+    }
+
+    return `${day}/${month}/${year}`;
   }
 
-  onImgError(event: Event): void {
-    (event.target as HTMLImageElement).style.display = 'none';
+  private formatDisplayDateToInput(value: string): string {
+    const [day, month, year] = value.split('/');
+
+    if (!day || !month || !year) {
+      return '';
+    }
+
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  private parseDateToTime(value: string): number {
+    const parts = value.split('/').map(Number);
+
+    if (parts.length !== 3) return 0;
+
+    const [day, month, year] = parts;
+    return new Date(year, month - 1, day).getTime();
+  }
+
+    private isPastDisplayDate(value: string): boolean {
+    const inputDate = this.formatDisplayDateToInput(value);
+
+    if (!inputDate) {
+      return false;
+    }
+
+    return inputDate < this.minAlbumReleaseDate;
+  }
+
+
+  isEditReleaseDateLocked(): boolean {
+    const current = this.selectedAlbum();
+
+    if (!current) {
+      return false;
+    }
+
+    return this.isPastDisplayDate(current.releaseDate);
+  }
+
+
+
+  private existsAlbumTitle(
+    title: string,
+    artistId: string,
+    excludeId?: string
+  ): boolean {
+    const normalizedTitle = this.normalize(title);
+
+    return this.albums().some(
+      (album) =>
+        this.normalize(album.title) === normalizedTitle &&
+        album.artistId === artistId &&
+        album.id !== excludeId
+    );
+  }
+
+  private resetCreateForm(): void {
+    this.createAlbumTitle.set('');
+    this.createAlbumArtistId.set('');
+    this.createAlbumCoverUrl.set('');
+    this.createAlbumReleaseDate.set('');
+  }
+
+  private resetEditForm(): void {
+    this.editAlbumTitle.set('');
+    this.editAlbumArtistId.set('');
+    this.editAlbumCoverUrl.set('');
+    this.editAlbumReleaseDate.set('');
+  }
+
+  /* =========================
+     MODALES
+  ========================== */
+  openCreateModal(): void {
+    this.resetCreateForm();
+    this.isCreateModalOpen.set(true);
+  }
+
+  openEditModal(album: AlbumView): void {
+    this.selectedAlbum.set(album);
+
+    this.editAlbumTitle.set(album.title);
+    this.editAlbumArtistId.set(album.artistId);
+    this.editAlbumCoverUrl.set(album.coverUrl);
+    this.editAlbumReleaseDate.set(this.formatDisplayDateToInput(album.releaseDate));
+
+    this.isEditModalOpen.set(true);
+  }
+
+  openDetailModal(album: AlbumView): void {
+    this.selectedAlbum.set(album);
+    this.isDetailModalOpen.set(true);
+  }
+
+  openDeleteModal(album: AlbumView): void {
+    this.selectedAlbum.set(album);
+    this.isDeleteModalOpen.set(true);
+  }
+
+  /* =========================
+     CREATE
+  ========================== */
+  createAlbum(): void {
+    const title = this.createAlbumTitle().trim();
+    const artistId = this.createAlbumArtistId().trim();
+    const coverUrl = this.createAlbumCoverUrl().trim();
+    const releaseDateInput = this.createAlbumReleaseDate().trim();
+
+    if (!title || !artistId || !coverUrl || !releaseDateInput) {
+      return;
+    }
+
+    if (releaseDateInput < this.minAlbumReleaseDate) {
+      return;
+    }
+
+    const artistExists = this.artists().some((artist) => artist.id === artistId);
+    if (!artistExists) {
+      return;
+    }
+
+    if (this.existsAlbumTitle(title, artistId)) {
+      return;
+    }
+
+    const newAlbum: Album = {
+      id: crypto.randomUUID(),
+      title,
+      artistId,
+      coverUrl,
+      releaseDate: this.formatInputDateToDisplay(releaseDateInput),
+      songsCount: 0,
+      totalStreams: '0 streams',
+      createdAt: this.getTodayFormatted(),
+    };
+
+    this.persistAlbums([newAlbum, ...this.albums()]);
+    this.closeAllModals();
+  }
+
+  /* =========================
+     EDIT
+  ========================== */
+saveAlbumEdit(): void {
+  const current = this.selectedAlbum();
+
+  if (!current) {
+    return;
+  }
+
+  const title = this.editAlbumTitle().trim();
+  const artistId = this.editAlbumArtistId().trim();
+  const coverUrl = this.editAlbumCoverUrl().trim();
+
+  if (!title || !artistId || !coverUrl) {
+    return;
+  }
+
+  const artistExists = this.artists().some((artist) => artist.id === artistId);
+  if (!artistExists) {
+    return;
+  }
+
+  if (this.existsAlbumTitle(title, artistId, current.id)) {
+    return;
+  }
+
+  const isReleaseDateLocked = this.isEditReleaseDateLocked();
+
+  const finalReleaseDate = isReleaseDateLocked
+    ? current.releaseDate
+    : this.formatInputDateToDisplay(this.editAlbumReleaseDate().trim());
+
+  if (!isReleaseDateLocked && !this.editAlbumReleaseDate().trim()) {
+    return;
+  }
+
+  if (!isReleaseDateLocked && this.editAlbumReleaseDate().trim() < this.minAlbumReleaseDate) {
+    return;
+  }
+
+  const updatedAlbums = this.albums().map((album) =>
+    album.id === current.id
+      ? {
+          ...album,
+          title,
+          artistId,
+          coverUrl,
+          releaseDate: finalReleaseDate,
+        }
+      : album
+  );
+
+  this.persistAlbums(updatedAlbums);
+  this.closeAllModals();
+}
+
+  /* =========================
+     DELETE
+  ========================== */
+  confirmDeleteAlbum(): void {
+    const current = this.selectedAlbum();
+
+    if (!current) {
+      return;
+    }
+
+    const updatedAlbums = this.albums().filter(
+      (album) => album.id !== current.id
+    );
+
+    this.persistAlbums(updatedAlbums);
+    this.closeAllModals();
+  }
+
+  /* =========================
+     CIERRE GENERAL
+  ========================== */
+  closeAllModals(): void {
+    this.isCreateModalOpen.set(false);
+    this.isEditModalOpen.set(false);
+    this.isDetailModalOpen.set(false);
+    this.isDeleteModalOpen.set(false);
+
+    this.selectedAlbum.set(null);
+
+    this.resetCreateForm();
+    this.resetEditForm();
   }
 }

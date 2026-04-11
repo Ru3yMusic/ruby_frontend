@@ -1,0 +1,625 @@
+<div class="playlist-detail-page">
+
+  <!-- ===================== -->
+  <!-- HERO / HEADER -->
+  <!-- ===================== -->
+  <section class="playlist-hero" [style.background]="gradientStyle()">
+    <div class="playlist-hero-content">
+
+      <!-- PORTADA / VINILO -->
+      <div class="playlist-cover-column">
+        <div class="playlist-cover-wrapper">
+          <img
+            class="playlist-vinyl-image"
+            src="/assets/images/vinyl.png"
+            alt="Vinilo playlist"
+          />
+
+          <button
+            class="playlist-cover-center"
+            type="button"
+            (click)="openEditCoverModal()"
+          >
+            <img
+              class="playlist-cover-image"
+              [src]="displayCoverUrl()"
+              alt="Portada playlist"
+            />
+
+            @if (canEditPlaylistIdentity()) {
+              <div class="playlist-cover-overlay">
+                <img
+                  class="playlist-cover-edit-icon"
+                  src="/assets/icons/playlist-edit-cover.png"
+                  alt="Editar portada"
+                />
+              </div>
+            }
+          </button>
+        </div>
+      </div>
+
+      <!-- INFO -->
+      <div class="playlist-info-column">
+
+        <h1 class="playlist-title">
+          {{ playlistName() }}
+        </h1>
+
+        @if (playlistDescription()) {
+          <p class="playlist-description">
+            {{ playlistDescription() }}
+          </p>
+        }
+
+        <div class="playlist-meta">
+          <img
+            class="playlist-owner-avatar"
+            [src]="displayOwnerAvatarUrl()"
+            alt="Usuario de la playlist"
+          />
+
+          <span class="playlist-owner-name">
+            {{ displayOwnerName() }}
+          </span>
+
+          <span class="playlist-meta-dot">•</span>
+
+          <span class="playlist-meta-info">
+            {{ songsCount() }} canciones, {{ totalDurationLabel() }}
+          </span>
+        </div>
+
+        <div class="playlist-controls-row">
+
+          <div class="playlist-controls-left">
+            @if (!isLikedSongsPlaylist()) {
+              <!-- 3 PUNTOS PLAYLIST NORMAL -->
+              <div class="playlist-more-wrapper">
+                <button
+                  class="playlist-more-button"
+                  type="button"
+                  (click)="toggleMoreMenu($event)"
+                >
+                  <img
+                    class="playlist-more-icon"
+                    src="/assets/icons/playlist-more.png"
+                    alt="Más opciones"
+                  />
+                </button>
+
+                @if (isMoreMenuOpen()) {
+                  <div class="playlist-more-menu" (click)="$event.stopPropagation()">
+                    @if (canAddSongsManually()) {
+                      <button
+                        class="playlist-more-menu-item"
+                        type="button"
+                        (click)="addToPlaylist()"
+                      >
+                        <img
+                          class="playlist-more-menu-icon"
+                          src="/assets/icons/playlist-menu-add.png"
+                          alt="Agregar a esta playlist"
+                        />
+                        <span>Agregar a esta playlist</span>
+                      </button>
+                    }
+
+                    @if (canEditPlaylistIdentity()) {
+                      <button
+                        class="playlist-more-menu-item"
+                        type="button"
+                        (click)="openEditCoverModal()"
+                      >
+                        <img
+                          class="playlist-more-menu-icon"
+                          src="/assets/icons/playlist-menu-edit-cover.png"
+                          alt="Editar portada"
+                        />
+                        <span>Editar portada</span>
+                      </button>
+                    }
+
+                    @if (canEditPlaylistPrivacy()) {
+                      <button
+                        class="playlist-more-menu-item"
+                        type="button"
+                        (click)="togglePlaylistPrivacy()"
+                      >
+                        <img
+                          class="playlist-more-menu-icon"
+                          src="/assets/icons/playlist-menu-privacy.png"
+                          alt="{{ privacyActionLabel() }}"
+                        />
+                        <span>{{ privacyActionLabel() }}</span>
+                      </button>
+                    }
+
+                    @if (canDeletePlaylist()) {
+                      <button
+                        class="playlist-more-menu-item playlist-more-menu-item--danger"
+                        type="button"
+                        (click)="deletePlaylist()"
+                      >
+                        <img
+                          class="playlist-more-menu-icon"
+                          src="/assets/icons/playlist-menu-delete.png"
+                          alt="Eliminar playlist"
+                        />
+                        <span>Eliminar playlist</span>
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            @if (hasSongs()) {
+              <!-- SHUFFLE -->
+              <button
+                class="playlist-shuffle-button"
+                type="button"
+                [class.playlist-shuffle-button--active]="isShuffleEnabled()"
+                (click)="toggleShuffle()"
+              >
+                <img
+                  class="playlist-shuffle-icon"
+                  src="/assets/icons/playlist-shuffle.png"
+                  alt="Aleatorio"
+                />
+              </button>
+
+              <!-- VISIBILIDAD -->
+              <span class="playlist-visibility-label">
+                {{ playlistVisibilityLabel() }}
+              </span>
+            }
+          </div>
+
+          @if (hasSongs()) {
+            <!-- PLAY ROJO -->
+            <button
+              class="playlist-main-play-button"
+              type="button"
+              (click)="playPlaylist()"
+            >
+              <img
+                class="playlist-main-play-icon"
+                [src]="isPlaylistPlaying()
+                  ? '/assets/icons/library-pause-main.png'
+                  : '/assets/icons/playlist-play-main.png'"
+                [alt]="isPlaylistPlaying() ? 'Pausar playlist' : 'Reproducir playlist'"
+              />
+            </button>
+          }
+        </div>
+
+        <!-- ===================== -->
+        <!-- ESTADO INICIAL SIN CANCIONES -->
+        <!-- ===================== -->
+        @if (!hasSongs() && canAddSongsManually()) {
+          <div class="playlist-empty-main-action">
+            <button
+              class="playlist-big-add-button"
+              type="button"
+              (click)="addToPlaylist()"
+            >
+              <img
+                class="playlist-big-add-icon"
+                src="/assets/icons/playlist-add-main.png"
+                alt="Agregar a esta playlist"
+              />
+
+              <span>Agregar a esta playlist</span>
+            </button>
+          </div>
+        }
+
+        <!-- ===================== -->
+        <!-- ESTADO CON CANCIONES -->
+        <!-- ===================== -->
+        @if (hasSongs() && !isLikedSongsPlaylist()) {
+          <div class="playlist-secondary-actions">
+            <button
+              class="playlist-secondary-button"
+              type="button"
+              (click)="addToPlaylist()"
+            >
+              Agregar
+            </button>
+
+            <button
+              class="playlist-secondary-button"
+              type="button"
+              (click)="editPlaylistOrder()"
+            >
+              Editar playlist
+            </button>
+          </div>
+        }
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== -->
+  <!-- LISTA DE CANCIONES -->
+  <!-- ===================== -->
+  @if (hasSongs()) {
+    <section class="playlist-songs-section">
+      @for (song of playlistSongs(); track song.id; let i = $index) {
+        <article class="playlist-song-row">
+
+          <button
+            class="playlist-song-index-button"
+            type="button"
+            (click)="playSong(song)"
+          >
+            <span class="playlist-song-index-number">{{ i + 1 }}</span>
+
+            <img
+              class="playlist-song-index-play-icon"
+              [src]="isSongPlaying(song.songId)
+                ? '/assets/icons/library-pause.png'
+                : '/assets/icons/playlist-song-play.png'"
+              [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
+            />
+          </button>
+
+          <!-- cover -->
+          <div class="playlist-song-cover-wrapper">
+            <img
+              class="playlist-song-cover"
+              [src]="song.coverUrl"
+              [alt]="song.title"
+            />
+          </div>
+
+          <!-- info -->
+          <div class="playlist-song-main-info">
+            <p class="playlist-song-title">{{ song.title }}</p>
+            <p class="playlist-song-artist">{{ song.artistName }}</p>
+          </div>
+
+          <!-- album -->
+          <div class="playlist-song-album">
+            {{ song.albumTitle }}
+          </div>
+
+          <!-- added -->
+          <div class="playlist-song-added">
+            {{ song.addedAgoLabel }}
+          </div>
+
+          <!-- duration -->
+          <div class="playlist-song-duration">
+            {{ song.durationLabel }}
+          </div>
+
+          @if (isLikedSongsPlaylist()) {
+            <!-- corazón relleno para Tus me gusta -->
+            <button
+              class="playlist-song-liked-button"
+              type="button"
+              (click)="toggleSongLike(song.songId)"
+            >
+              <img
+                class="playlist-song-liked-icon"
+                src="/assets/icons/song-liked-filled.png"
+                alt="Quitar de Tus me gusta"
+              />
+            </button>
+          }
+
+          <!-- more -->
+          <div class="playlist-song-more-wrapper">
+            <button
+              class="playlist-song-more-button"
+              type="button"
+              (click)="toggleSongMenu(song.id, $event)"
+            >
+              <img
+                class="playlist-song-more-icon"
+                src="/assets/icons/playlist-song-more.png"
+                alt="Más opciones"
+              />
+            </button>
+
+            @if (openSongMenuId() === song.id) {
+              <div class="playlist-song-more-menu" (click)="$event.stopPropagation()">
+
+                <button
+                  class="playlist-song-more-menu-item"
+                  type="button"
+                  (click)="togglePlaylistSubmenu(song.id, $event)"
+                >
+                  <img
+                    class="playlist-song-more-menu-icon"
+                    src="/assets/icons/playlist-song-menu-add.png"
+                    alt="Agregar a playlist"
+                  />
+                  <span>Agregar a playlist</span>
+                </button>
+
+                @if (openPlaylistSubmenuSongId() === song.id) {
+                  <div class="playlist-song-submenu">
+                    <button
+                      class="playlist-song-more-menu-item"
+                      type="button"
+                      (click)="addSongToNewPlaylist(song.songId)"
+                    >
+                      <span>+ Nueva playlist</span>
+                    </button>
+
+                    @for (pl of customPlaylists(); track pl.id) {
+                      <button
+                        class="playlist-song-more-menu-item"
+                        type="button"
+                        (click)="addSongToExistingPlaylist(pl.id, song.songId, $event)"
+                      >
+                        <span>{{ pl.name }}</span>
+                      </button>
+                    }
+                  </div>
+                }
+
+                @if (isSongLiked(song.songId)) {
+                  <button
+                    class="playlist-song-more-menu-item"
+                    type="button"
+                    (click)="removeFromLikedSongs(song.songId)"
+                  >
+                    <img
+                      class="playlist-song-more-menu-icon"
+                      src="/assets/icons/playlist-song-menu-remove-liked.png"
+                      alt="Eliminar de Tus me gusta"
+                    />
+                    <span>Eliminar de Tus me gusta</span>
+                  </button>
+                } @else {
+                  <button
+                    class="playlist-song-more-menu-item"
+                    type="button"
+                    (click)="addSongToLikedSongs(song.songId)"
+                  >
+                    <img
+                      class="playlist-song-more-menu-icon"
+                      src="/assets/icons/song-liked-outline.png"
+                      alt="Guardar en Tus me gusta"
+                    />
+                    <span>Guardar en Tus me gusta</span>
+                  </button>
+                }
+
+                <button
+                  class="playlist-song-more-menu-item"
+                  type="button"
+                  (click)="goToArtist(song, $event)"
+                >
+                  <img
+                    class="playlist-song-more-menu-icon"
+                    src="/assets/icons/playlist-song-menu-artist.png"
+                    alt="Ir al artista"
+                  />
+                  <span>Ir al artista</span>
+                </button>
+
+                @if (hasAlbum(song)) {
+                  <button
+                    class="playlist-song-more-menu-item"
+                    type="button"
+                    (click)="goToAlbum(song, $event)"
+                  >
+                    <img
+                      class="playlist-song-more-menu-icon"
+                      src="/assets/icons/playlist-song-menu-album.png"
+                      alt="Ir al álbum"
+                    />
+                    <span>Ir al álbum</span>
+                  </button>
+                }
+
+              </div>
+            }
+          </div>
+        </article>
+      }
+    </section>
+  }
+
+  <!-- ===================== -->
+  <!-- RECOMENDACIONES -->
+  <!-- ===================== -->
+  <section class="playlist-recommendations-section">
+    <h2 class="playlist-recommendations-title">
+      {{ recommendedSectionTitle() }}
+    </h2>
+
+    <p class="playlist-recommendations-subtitle">
+      {{ recommendedSectionSubtitle() }}
+    </p>
+
+    <div class="playlist-recommendations-list">
+      @for (song of visibleRecommendedSongs(); track song.id) {
+        <article class="playlist-recommendation-row">
+
+          <!-- cover -->
+          <div class="playlist-recommendation-cover-wrapper">
+            <img
+              class="playlist-recommendation-cover"
+              [src]="song.coverUrl"
+              [alt]="song.title"
+            />
+
+            <button
+              class="playlist-recommendation-play-button"
+              type="button"
+              (click)="playSong({
+                id: song.id,
+                songId: song.songId,
+                title: song.title,
+                artistName: song.artistName,
+                albumTitle: song.albumTitle,
+                coverUrl: song.coverUrl,
+                durationLabel: '3:00',
+                addedAgoLabel: 'hace 1 minuto'
+              })"
+            >
+              <img
+                class="playlist-recommendation-play-icon"
+                [src]="isSongPlaying(song.songId)
+                  ? '/assets/icons/playlist-pause-secu.png'
+                  : '/assets/icons/playlist-recommendation-play.png'"
+                [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
+              />
+            </button>
+
+          </div>
+
+          <!-- info -->
+          <div class="playlist-recommendation-main-info">
+            <p class="playlist-recommendation-title">{{ song.title }}</p>
+            <p class="playlist-recommendation-artist">{{ song.artistName }}</p>
+          </div>
+
+          <!-- album -->
+          <div class="playlist-recommendation-album">
+            {{ song.albumTitle }}
+          </div>
+
+          @if (isLikedSongsPlaylist()) {
+            <button
+              class="playlist-recommendation-like-button"
+              type="button"
+              (click)="toggleSongLike(song.songId)"
+            >
+              <img
+                class="playlist-recommendation-like-icon"
+                [src]="isSongLiked(song.songId)
+                  ? '/assets/icons/song-liked-filled.png'
+                  : '/assets/icons/song-liked-outline.png'"
+                [alt]="isSongLiked(song.songId)
+                  ? 'Quitar de Tus me gusta'
+                  : 'Agregar a Tus me gusta'"
+              />
+            </button>
+          } @else {
+            <!-- add -->
+            <button
+              class="playlist-recommendation-add-button"
+              type="button"
+              (click)="addRecommendedSong(song)"
+            >
+              <img
+                class="playlist-recommendation-add-icon"
+                src="/assets/icons/playlist-recommendation-add.png"
+                alt="Agregar canción"
+              />
+            </button>
+          }
+        </article>
+      }
+    </div>
+
+    @if (hasSongs()) {
+      <button
+        class="playlist-reload-button"
+        type="button"
+        (click)="reloadRecommendations()"
+      >
+        Volver a cargar
+      </button>
+    }
+  </section>
+
+  @if (isFeedbackVisible()) {
+    <div class="playlist-feedback-toast">
+      {{ feedbackMessage() }}
+    </div>
+  }
+
+</div>
+
+<!-- ===================== -->
+<!-- MODAL EDITAR PORTADA -->
+<!-- ===================== -->
+@if (isEditCoverModalOpen() && canEditPlaylistIdentity()) {
+  <div class="playlist-modal-backdrop" (click)="closeEditCoverModal()">
+    <div class="playlist-modal" (click)="$event.stopPropagation()">
+
+      <div class="playlist-modal-header">
+        <h2 class="playlist-modal-title">Editar portada</h2>
+
+        <button
+          class="playlist-modal-close-button"
+          type="button"
+          (click)="closeEditCoverModal()"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="playlist-modal-body">
+
+        <!-- PREVIEW PORTADA -->
+        <div class="playlist-modal-cover-column">
+          <img
+            class="playlist-modal-cover-preview"
+            [src]="displayCoverUrl()"
+            alt="Vista previa portada"
+          />
+
+          <label class="playlist-modal-upload-label" for="playlist-cover-input">
+            Elegir foto
+          </label>
+
+          <input
+            #coverInput
+            id="playlist-cover-input"
+            class="playlist-modal-cover-input"
+            type="file"
+            accept="image/*"
+            (change)="onSelectCover($event, coverInput)"
+          />
+
+          <button
+            class="playlist-modal-remove-cover-button"
+            type="button"
+            (click)="removeSelectedCover(coverInput)"
+          >
+            Eliminar
+          </button>
+        </div>
+
+        <!-- FORM -->
+        <div class="playlist-modal-form-column">
+          <input
+            class="playlist-modal-name-input"
+            type="text"
+            [value]="editPlaylistName()"
+            (input)="onPlaylistNameInput($event)"
+            placeholder="Nombre de playlist"
+          />
+
+          <textarea
+            class="playlist-modal-description-input"
+            [value]="editPlaylistDescription()"
+            (input)="onPlaylistDescriptionInput($event)"
+            placeholder="Descripción opcional"
+          ></textarea>
+
+          <div class="playlist-modal-actions">
+            <button
+              class="playlist-modal-save-button"
+              type="button"
+              (click)="savePlaylistCover()"
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+}

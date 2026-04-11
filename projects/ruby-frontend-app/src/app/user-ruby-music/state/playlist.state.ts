@@ -1,91 +1,205 @@
-import { Injectable, signal } from '@angular/core';
+import { computed, Injectable, signal } from '@angular/core';
+import { Playlist } from '../models/playlist.model';
 
-export interface PlaylistTrack {
-  id: string;
-  title: string;
-  artist: string;
-  cover: string;
-}
-
-export interface Playlist {
-  id: string;
-  name: string;
-  owner: string;
-  tracks: PlaylistTrack[];
-  coverUrl?: string;
-  description?: string;
-  isPrivate?: boolean;
-}
-
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root',
+})
 export class PlaylistState {
-  readonly playlist = signal<Playlist | null>(null);
-  readonly recommendations = signal<PlaylistTrack[]>([
-    { id: 'ode', title: 'Ode to Vivian', artist: 'Patrick Watson', cover: '#121826' },
-    { id: 'missed', title: 'Missed You (Bonus Track)', artist: 'The Weeknd', cover: '#6f1718' },
-    { id: 'suei', title: '07hoenn', artist: 'Suei', cover: '#4b2f74' },
-    { id: 'cig', title: 'Cigarettes out the window', artist: 'TV Girl', cover: '#12345e' },
-    { id: 'shorty', title: 'Shorty Q te vaya Bnn', artist: 'Resl B', cover: '#2a2f3c' },
-  ]);
-  readonly liked = signal<PlaylistTrack[]>([
-    { id: 'borderline', title: 'Borderline', artist: 'Tame Impala', cover: '#7f2418' },
-  ]);
+  private readonly STORAGE_KEY = 'ruby_playlists';
 
-  createPlaylist(name: string): Playlist {
-    const created: Playlist = { id: 'para-dormir', name, owner: 'Yoel Quiroga', tracks: [] };
-    this.playlist.set(created);
-    return created;
+  private readonly _playlists = signal<Playlist[]>(this.loadPlaylists());
+  readonly playlists = this._playlists.asReadonly();
+
+  readonly totalPlaylists = computed(() => this._playlists().length);
+
+  /* ===================== */
+  /* LOAD / PERSIST */
+  /* ===================== */
+  private loadPlaylists(): Playlist[] {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
   }
 
-  addTracks(trackIds: string[]): void {
-    const current = this.playlist();
-    if (!current) return;
+  private persistPlaylists(playlists: Playlist[]): void {
+    this._playlists.set(playlists);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(playlists));
+  }
 
-    const pool = [...this.recommendations(), ...this.liked()];
-    const byId = new Map(current.tracks.map(t => [t.id, t]));
-    trackIds.forEach(id => {
-      const found = pool.find(t => t.id === id);
-      if (found) byId.set(id, found);
+  /* ===================== */
+  /* HELPERS */
+  /* ===================== */
+  private generateId(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID();
+    }
+
+    return `playlist-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private nowIso(): string {
+    return new Date().toISOString();
+  }
+
+  /* ===================== */
+  /* GETTERS */
+  /* ===================== */
+  getPlaylistsByUser(userId: string): Playlist[] {
+    return this._playlists().filter(playlist => playlist.userId === userId);
+  }
+
+  getPublicPlaylistsByUser(userId: string): Playlist[] {
+    return this._playlists().filter(
+      playlist => playlist.userId === userId && playlist.visibility === 'PUBLIC'
+    );
+  }
+
+  getCustomPlaylistsByUser(userId: string): Playlist[] {
+    return this._playlists().filter(
+      playlist => playlist.userId === userId && playlist.type === 'CUSTOM'
+    );
+  }
+
+  getLikedSongsPlaylist(userId: string): Playlist | undefined {
+    return this._playlists().find(
+      playlist =>
+        playlist.userId === userId &&
+        playlist.type === 'SYSTEM' &&
+        playlist.systemType === 'LIKED_SONGS'
+    );
+  }
+
+  /* ===================== */
+  /* ENSURE SYSTEM PLAYLIST */
+  /* ===================== */
+  ensureLikedSongsPlaylist(userId: string): Playlist {
+    const existing = this.getLikedSongsPlaylist(userId);
+
+    if (existing) {
+      return existing;
+    }
+
+    const now = this.nowIso();
+
+    const likedSongsPlaylist: Playlist = {
+      id: this.generateId(),
+      userId,
+      name: 'Tus me gusta',
+      description: 'Playlist automática con tus canciones favoritas',
+      coverUrl: null,
+      visibility: 'PUBLIC',
+      type: 'SYSTEM',
+      systemType: 'LIKED_SONGS',
+      songIds: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const updated = [...this._playlists(), likedSongsPlaylist];
+    this.persistPlaylists(updated);
+
+    return likedSongsPlaylist;
+  }
+
+  /* ===================== */
+  /* CREATE PLAYLIST */
+  /* ===================== */
+  createPlaylist(payload: {
+    userId: string;
+    name: string;
+    description?: string | null;
+    coverUrl?: string | null;
+    visibility?: 'PUBLIC' | 'PRIVATE';
+  }): Playlist {
+    const now = this.nowIso();
+
+    const newPlaylist: Playlist = {
+      id: this.generateId(),
+      userId: payload.userId,
+      name: payload.name.trim(),
+      description: payload.description ?? null,
+      coverUrl: payload.coverUrl ?? null,
+      visibility: payload.visibility ?? 'PUBLIC',
+      type: 'CUSTOM',
+      systemType: null,
+      songIds: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const updated = [...this._playlists(), newPlaylist];
+    this.persistPlaylists(updated);
+
+    return newPlaylist;
+  }
+
+  /* ===================== */
+  /* UPDATE PLAYLIST */
+  /* ===================== */
+  updatePlaylist(
+    playlistId: string,
+    patch: Partial<Omit<Playlist, 'id' | 'userId' | 'type' | 'systemType' | 'createdAt'>>
+  ): void {
+    const updated = this._playlists().map(playlist => {
+      if (playlist.id !== playlistId) return playlist;
+
+      return {
+        ...playlist,
+        ...patch,
+        updatedAt: this.nowIso(),
+      };
     });
 
-    this.playlist.set({ ...current, tracks: Array.from(byId.values()) });
+    this.persistPlaylists(updated);
   }
 
-  removeTrack(trackId: string): PlaylistTrack | null {
-    const current = this.playlist();
-    if (!current) return null;
-    const target = current.tracks.find(t => t.id === trackId) ?? null;
-    this.playlist.set({ ...current, tracks: current.tracks.filter(t => t.id !== trackId) });
-    return target;
+  /* ===================== */
+  /* SONGS IN PLAYLIST */
+  /* ===================== */
+  addSongToPlaylist(playlistId: string, songId: string): void {
+    const updated = this._playlists().map(playlist => {
+      if (playlist.id !== playlistId) return playlist;
+      if (playlist.songIds.includes(songId)) return playlist;
+
+      return {
+        ...playlist,
+        songIds: [...playlist.songIds, songId],
+        updatedAt: this.nowIso(),
+      };
+    });
+
+    this.persistPlaylists(updated);
   }
 
-  restoreTrack(track: PlaylistTrack): void {
-    const current = this.playlist();
-    if (!current) return;
-    if (current.tracks.some(t => t.id === track.id)) return;
-    this.playlist.set({ ...current, tracks: [...current.tracks, track] });
+  removeSongFromPlaylist(playlistId: string, songId: string): void {
+    const updated = this._playlists().map(playlist => {
+      if (playlist.id !== playlistId) return playlist;
+
+      return {
+        ...playlist,
+        songIds: playlist.songIds.filter(id => id !== songId),
+        updatedAt: this.nowIso(),
+      };
+    });
+
+    this.persistPlaylists(updated);
   }
 
-  togglePrivacy(): void {
-    const current = this.playlist();
-    if (!current) return;
-    this.playlist.set({ ...current, isPrivate: !current.isPrivate });
+  /* ===================== */
+  /* LIKED SONGS HELPERS */
+  /* ===================== */
+  addSongToLikedSongs(userId: string, songId: string): void {
+    const likedSongsPlaylist = this.ensureLikedSongsPlaylist(userId);
+    this.addSongToPlaylist(likedSongsPlaylist.id, songId);
   }
 
-  updateMeta(updates: { name?: string; description?: string; coverUrl?: string }): void {
-    const current = this.playlist();
-    if (!current) return;
-    this.playlist.set({ ...current, ...updates });
-  }
+  removeSongFromLikedSongs(userId: string, songId: string): void {
+    const likedSongsPlaylist = this.getLikedSongsPlaylist(userId);
+    if (!likedSongsPlaylist) return;
 
-  reorderTracks(trackIds: string[]): void {
-    const current = this.playlist();
-    if (!current) return;
-
-    const byId = new Map(current.tracks.map(t => [t.id, t]));
-    const reordered = trackIds.map(id => byId.get(id)).filter((t): t is PlaylistTrack => !!t);
-
-    if (reordered.length !== current.tracks.length) return;
-    this.playlist.set({ ...current, tracks: reordered });
+    this.removeSongFromPlaylist(likedSongsPlaylist.id, songId);
   }
 }

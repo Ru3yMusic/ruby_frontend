@@ -1,0 +1,69 @@
+<div class="auth-container">
+  <div class="auth-left">
+    <app-auth-shell-branding></app-auth-shell-branding>
+  </div>
+
+  <div class="auth-right">
+    <div class="auth-panel">
+      <ng-container *ngIf="view === 'entry'">
+        <app-auth-entry-panel
+          (loginClick)="goToLogin()"
+          (registerClick)="goToRegister()"
+        ></app-auth-entry-panel>
+      </ng-container>
+
+      <ng-container *ngIf="view === 'login'">
+      <app-login-panel
+        (back)="goToEntry()"
+        (success)="onLoginSuccess($event)"
+
+        [isBlockedAccountModalOpen]="isBlockedAccountModalOpen()"
+        [blockedAccountReason]="blockedAccountReason()"
+        [blockedAccountSupportEmail]="blockedAccountSupportEmail"
+
+        (blockedAccountModalClose)="closeBlockedAccountModal()"
+      ></app-login-panel>
+    </ng-container>
+
+      <!-- VIEW: REGISTER EMAIL -->
+        <ng-container *ngIf="view === 'register-email'">
+          <app-register-email-step
+            (back)="goToEntry()"
+            (next)="goToRegisterPassword($event)"
+          ></app-register-email-step>
+        </ng-container>
+
+        <!-- VIEW: REGISTER PASSWORD -->
+        <ng-container *ngIf="view === 'register-password'">
+          <app-register-password-step
+            (back)="goToRegister()"
+            (next)="goToRegisterBirthdate($event)"
+          ></app-register-password-step>
+        </ng-container>
+
+                <!-- VIEW: REGISTER BIRTHDATE -->
+        <ng-container *ngIf="view === 'register-birthdate'">
+          <app-register-birthdate-step
+            (back)="goToRegisterPassword()"
+            (next)="goToRegisterGender($event)"
+          ></app-register-birthdate-step>
+        </ng-container>
+
+
+        <ng-container *ngIf="view === 'register-gender'">
+        <app-register-gender-step
+          (back)="goToRegisterPassword()"
+          (next)="goToRegisterName($event)"
+        ></app-register-gender-step>
+      </ng-container>
+
+      <ng-container *ngIf="view === 'register-name'">
+        <app-register-name-step
+          (back)="goToRegisterGender()"
+          (complete)="onRegisterComplete($event)"
+        ></app-register-name-step>
+      </ng-container>
+
+    </div>
+  </div>
+</div>

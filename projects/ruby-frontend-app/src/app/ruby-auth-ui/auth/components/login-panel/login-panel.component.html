@@ -1,0 +1,110 @@
+<div class="login-container">
+  <button type="button" class="back-button" (click)="onBackClick()">
+    Volver
+  </button>
+
+  <div class="login-header">
+    <h2 class="title">Iniciar sesión</h2>
+    <p class="subtitle">Ingresa tus datos para continuar en RubyTune</p>
+  </div>
+
+  <form class="login-form" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="field">
+      <label class="label" for="login-email">Correo electrónico</label>
+      <input
+        id="login-email"
+        class="input"
+        type="email"
+        formControlName="email"
+        placeholder="correo@ejemplo.com"
+        autocomplete="email"
+      />
+      <p class="error" *ngIf="emailError">{{ emailError }}</p>
+    </div>
+
+    <div class="field">
+      <div class="label-row">
+        <label class="label" for="login-password">Contraseña</label>
+        <button
+          type="button"
+          class="link-button"
+          (click)="onForgotPasswordClick()"
+        >
+          ¿La olvidaste?
+        </button>
+      </div>
+
+      <div class="password-wrapper">
+        <input
+          id="login-password"
+          class="input"
+          [type]="showPassword() ? 'text' : 'password'"
+          formControlName="password"
+          placeholder="Ingresa tu contraseña"
+          autocomplete="current-password"
+        />
+
+        <button
+          type="button"
+          class="toggle-password"
+          (click)="togglePasswordVisibility()"
+        >
+          {{ showPassword() ? 'Ocultar' : 'Mostrar' }}
+        </button>
+      </div>
+
+      <p class="error" *ngIf="passwordError">{{ passwordError }}</p>
+    </div>
+
+    <p class="error general-error" *ngIf="generalError()">
+      {{ generalError() }}
+    </p>
+
+    <button class="submit-button" type="submit" [disabled]="isSubmitting()">
+      {{ isSubmitting() ? 'Ingresando...' : 'Iniciar sesión' }}
+    </button>
+  </form>
+</div>
+
+<!-- =========================
+     MODAL CUENTA BLOQUEADA
+========================= -->
+@if (isBlockedAccountModalOpen) {
+  <div class="modal-overlay">
+    <div class="modal">
+
+      <!-- HEADER -->
+      <div class="modal-header">
+        <h3>Cuenta bloqueada</h3>
+        <button class="close-btn" (click)="onBlockedAccountModalClose()">✕</button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-body">
+        <p>
+          Tu cuenta ha sido bloqueada por el siguiente motivo:
+        </p>
+
+        <div class="reason-box">
+          {{ blockedAccountReason }}
+        </div>
+
+        <p class="support-text">
+          Si crees que esto es un error, contáctate con soporte:
+        </p>
+
+        <p class="support-email">
+          {{ blockedAccountSupportEmail }}
+        </p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-footer">
+        <button class="accept-btn" (click)="onBlockedAccountModalClose()">
+          Entendido
+        </button>
+      </div>
+
+    </div>
+  </div>
+}

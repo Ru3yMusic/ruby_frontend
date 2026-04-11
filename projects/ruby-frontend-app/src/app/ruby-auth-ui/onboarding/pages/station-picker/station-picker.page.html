@@ -1,38 +1,61 @@
-<rm-onboarding-template>
+<div class="station-picker-container">
 
-  <div class="picker">
-
-    <h1 class="picker__title">Elige 3 o más estaciones que te gusten</h1>
-
-    <div class="picker__search">
-      <lucide-icon [img]="Search" [size]="18" [strokeWidth]="2" class="picker__search-icon" />
-      <input
-        class="picker__search-input"
-        type="text"
-        placeholder="Buscar"
-        [(ngModel)]="searchQuery"/>
-    </div>
-
-    <div class="picker__grid">
-      @for (station of filteredStations(); track station.id) {
-        <rm-station-bubble
-          [name]="station.name"
-          [gradient]="station.gradient"
-          [selected]="isSelected(station.id)"
-          (toggled)="toggle(station.id)"/>
-      }
-    </div>
-
-    <div class="picker__footer">
-      <rm-button
-        variant="primary"
-        size="lg"
-        [disabled]="selected().size < 3"
-        (clicked)="onListo()">
-        Listo
-      </rm-button>
-    </div>
-
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <h1 class="title">Elige 3 o más estaciones que te gusten</h1>
+    <p class="subtitle">
+      Tus elecciones nos ayudarán a personalizar mejor tu experiencia
+    </p>
   </div>
 
-</rm-onboarding-template>
+  <!-- BUSCADOR -->
+  <div class="search-box">
+    <input
+      type="text"
+      class="search-input"
+      placeholder="Buscar estación"
+      [value]="searchTerm()"
+      (input)="onSearch(($any($event.target)).value)"
+    />
+  </div>
+
+  <!-- GRID DE ESTACIONES -->
+  <div class="stations-grid" *ngIf="filteredStations().length > 0; else emptyState">
+    <button
+      type="button"
+      class="station-bubble"
+      *ngFor="let station of filteredStations()"
+      [class.selected]="isSelected(station.id)"
+      [style.background]="'linear-gradient(135deg, ' + station.gradientStart + ', ' + station.gradientEnd + ')'"
+      (click)="toggleStation(station.id)"
+    >
+      <span class="station-name">{{ station.name }}</span>
+
+      <!-- CHECK DE SELECCIÓN -->
+      <span class="station-check" *ngIf="isSelected(station.id)">✓</span>
+    </button>
+  </div>
+
+  <!-- ERROR -->
+  <p class="error-message" *ngIf="showError()">
+    Debes seleccionar al menos 3 estaciones para continuar
+  </p>
+
+  <!-- BOTÓN CONTINUAR -->
+  <button
+    type="button"
+    class="continue-button"
+    (click)="continue()"
+    [disabled]="stations().length === 0"
+  >
+    Listo
+  </button>
+
+  <!-- ESTADO VACÍO -->
+  <ng-template #emptyState>
+    <div class="empty-state">
+      <p>No hay estaciones disponibles por ahora.</p>
+    </div>
+  </ng-template>
+
+</div>

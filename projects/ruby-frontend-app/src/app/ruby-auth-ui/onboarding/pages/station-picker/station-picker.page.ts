@@ -1,54 +1,120 @@
-import { Component, inject, signal, computed } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { ButtonComponent, OnboardingTemplateComponent, StationBubbleComponent } from 'lib-ruby-core-ui';
-import { LucideAngularModule, Search } from 'lucide-angular';
+import { CommonModule } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { AuthState } from '../../../auth/state/auth.state';
 
-interface Station { id: string; name: string; gradient: string; }
-
-const ALL_STATIONS: Station[] = [
-  { id: 'rock',     name: 'Rock',     gradient: 'linear-gradient(135deg, #8B4513, #D2691E)' },
-  { id: 'pop',      name: 'Pop',      gradient: 'linear-gradient(135deg, #FF8C00, #FFD700)' },
-  { id: 'plug',     name: 'Plug',     gradient: 'linear-gradient(135deg, #8B0057, #C71585)' },
-  { id: 'salsa',    name: 'Salsa',    gradient: 'linear-gradient(135deg, #4B0082, #8A2BE2)' },
-  { id: 'baladas',  name: 'Baladas',  gradient: 'linear-gradient(135deg, #8B0000, #DC143C)' },
-  { id: 'hiphop',   name: 'Hip-Hop',  gradient: 'linear-gradient(135deg, #008080, #20B2AA)' },
-  { id: 'regueton', name: 'Reguetón', gradient: 'linear-gradient(135deg, #2F0040, #6A0080)' },
-  { id: 'trap',     name: 'Trap',     gradient: 'linear-gradient(135deg, #1a1a2e, #16213e)' },
-  { id: 'bachata',  name: 'Bachata',  gradient: 'linear-gradient(135deg, #C71585, #FF69B4)' },
-];
+interface StationUI {
+  id: string;
+  name: string;
+  gradientStart: string;
+  gradientEnd: string;
+}
 
 @Component({
-  selector: 'rm-station-picker',
+  selector: 'app-station-picker-page',
   standalone: true,
-  imports: [FormsModule, OnboardingTemplateComponent, StationBubbleComponent, ButtonComponent, LucideAngularModule],
+  imports: [CommonModule],
   templateUrl: './station-picker.page.html',
   styleUrl: './station-picker.page.scss',
 })
 export class StationPickerPage {
-  private router = inject(Router);
-  readonly Search = Search;
+  private authState = inject(AuthState);
 
-  searchQuery = '';
-  selected    = signal<Set<string>>(new Set());
+  // Lista base de estaciones cargadas desde localStorage
+  stations = signal<StationUI[]>([]);
 
-  filteredStations = computed(() =>
-    ALL_STATIONS.filter(s =>
-      s.name.toLowerCase().includes(this.searchQuery.toLowerCase())
-    )
-  );
+  // Texto del buscador
+  searchTerm = signal('');
 
-  isSelected(id: string): boolean { return this.selected().has(id); }
+  // Lista filtrada para mostrar en la UI
+  filteredStations = computed(() => {
+    const term = this.searchTerm().toLowerCase().trim();
 
-  toggle(id: string): void {
-    this.selected.update(set => {
-      const next = new Set(set);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    if (!term) {
+      return this.stations();
+    }
+
+    return this.stations().filter(station =>
+      station.name.toLowerCase().includes(term)
+    );
+  });
+
+  // Selección actual de estaciones
+  selectedIds = signal<string[]>([]);
+
+  // Error visual si no selecciona mínimo 3
+  showError = signal(false);
+
+  constructor() {
+    this.loadStations();
   }
 
-  onListo(): void {
-    this.router.navigate(['/onboarding/complete']);
+  // =========================
+  // CARGAR ESTACIONES DESDE LOCALSTORAGE
+  // =========================
+  private loadStations(): void {
+    const raw = localStorage.getItem('ruby_stations');
+
+    if (!raw) {
+      console.warn('No hay estaciones en localStorage');
+      this.stations.set([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+
+      const mapped: StationUI[] = parsed.map((station: any) => ({
+        id: station.id,
+        name: station.name,
+        gradientStart: station.gradientStart,
+        gradientEnd: station.gradientEnd,
+      }));
+
+      this.stations.set(mapped);
+    } catch (error) {
+      console.error('Error leyendo estaciones', error);
+      this.stations.set([]);
+    }
   }
+
+  // =========================
+  // BUSCADOR
+  // =========================
+  onSearch(value: string): void {
+    this.searchTerm.set(value);
+  }
+
+  // =========================
+  // SELECCIÓN DE ESTACIONES
+  // =========================
+  toggleStation(id: string): void {
+    const current = this.selectedIds();
+
+    if (current.includes(id)) {
+      this.selectedIds.set(current.filter(selectedId => selectedId !== id));
+      return;
+    }
+
+    this.selectedIds.set([...current, id]);
+    this.showError.set(false);
+  }
+
+  isSelected(id: string): boolean {
+    return this.selectedIds().includes(id);
+  }
+
+  // =========================
+  // CONTINUAR
+  // =========================
+continue(): void {
+  if (this.selectedIds().length < 3) {
+    this.showError.set(true);
+    return;
+  }
+
+  this.authState.setStations(this.selectedIds());
+  console.log('Stations seleccionadas:', this.selectedIds());
+
+  window.location.href = '/onboarding/complete';
+}
 }

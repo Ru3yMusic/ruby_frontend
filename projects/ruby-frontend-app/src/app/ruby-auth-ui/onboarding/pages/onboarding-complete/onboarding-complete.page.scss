@@ -1,97 +1,107 @@
-.complete {
+.onboarding-complete-container {
+  min-height: 100vh;
+  background: #000;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  padding: 64px 28px 48px;
-  box-sizing: border-box;
-  min-height: 100%;
-
-  &__content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  &__title {
-    font-size: 34px;
-    font-weight: 800;
-    color: #fff;
-    margin: 0 0 12px;
-    letter-spacing: -0.5px;
-    line-height: 1.1;
-  }
-
-  &__subtitle {
-    font-size: 15px;
-    color: rgba(255, 255, 255, 0.6);
-    margin: 0 0 48px;
-    line-height: 1.5;
-  }
-
-  &__bubbles {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    min-height: 220px;
-  }
-
-  &__bubble {
-    position: absolute;
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-
-    &--1 {
-      background: linear-gradient(135deg, #FF8C00, #FF4500);
-      left: 50%;
-      top: 50%;
-      transform: translate(-80%, -60%);
-    }
-
-    &--2 {
-      background: linear-gradient(135deg, #8B0057, #C71585);
-      left: 50%;
-      top: 50%;
-      transform: translate(-20%, -40%);
-    }
-
-    &--3 {
-      background: linear-gradient(135deg, #4B0082, #8A2BE2);
-      left: 50%;
-      top: 50%;
-      transform: translate(-55%, 10%);
-    }
-  }
-
-  &__actions {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 40px 20px;
+  text-align: center;
 }
 
-@media (min-width: 1024px) {
-  .complete {
-    &__content {
-      max-width: 760px;
-      margin: 0 auto;
-      text-align: center;
-    }
+// =========================
+// HEADER
+// =========================
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-    &__title {
-      font-size: 52px;
-    }
+.title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #fff;
+}
 
-    &__subtitle {
-      font-size: 24px;
-      margin-bottom: 52px;
-    }
+.subtitle {
+  font-size: 15px;
+  color: #aaa;
+}
 
-    &__actions {
-      width: 360px;
-      margin: 0 auto;
-    }
-  }
+// =========================
+// CÍRCULOS (ESTILO FIGMA)
+// =========================
+.circles-container {
+  position: relative;
+  width: 260px;
+  height: 160px;
+}
+
+.circle {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  opacity: 0.9;
+  filter: blur(0.2px);
+}
+
+/* POSICIONES TIPO "TRIÁNGULO CRUZADO" */
+.circle-0 {
+  top: 40px;
+  left: 10px;
+}
+
+.circle-1 {
+  top: 0;
+  left: 85px;
+}
+
+.circle-2 {
+  top: 40px;
+  right: 10px;
+}
+
+/* Si hay más de 3 */
+.circle-3 {
+  top: 80px;
+  left: 40px;
+}
+
+.circle-4 {
+  top: 80px;
+  right: 40px;
+}
+
+// =========================
+// BOTONES
+// =========================
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.btn-primary {
+  height: 48px;
+  border-radius: 24px;
+  border: none;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #ff2e2e, #b30000);
+  cursor: pointer;
+}
+
+.btn-secondary {
+  height: 48px;
+  border-radius: 24px;
+  border: none;
+  font-weight: 500;
+  color: #ccc;
+  background: #1a1a1a;
+  cursor: pointer;
 }

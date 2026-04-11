@@ -1,0 +1,452 @@
+<div class="home">
+
+  <!-- ===================== -->
+  <!-- TABS SUPERIORES -->
+  <!-- ===================== -->
+  <div class="home-tabs">
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('TODAS')"
+      (click)="setActiveTab('TODAS')"
+    >
+      Todas
+    </button>
+
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('MUSICA')"
+      (click)="setActiveTab('MUSICA')"
+    >
+      Música
+    </button>
+
+    <button
+      class="tab"
+      type="button"
+      [class.active]="isTabActive('ESTACION')"
+      (click)="setActiveTab('ESTACION')"
+    >
+      Estación
+    </button>
+  </div>
+
+  <!-- ===================== -->
+  <!-- ÁLBUMES PARA TI -->
+  <!-- ===================== -->
+  <section class="home-section">
+    <div class="home-section__header">
+      <div>
+        <h2 class="home-title">Álbumes para Ti</h2>
+        <p class="home-subtitle">Descubre álbumes que encajan con tu estilo.</p>
+      </div>
+
+      <div class="home-carousel-controls">
+        <button
+          class="home-carousel-button"
+          type="button"
+          [disabled]="!canMoveAlbumsLeft()"
+          (click)="moveAlbumsLeft()"
+        >
+          <img
+            class="home-carousel-button__icon"
+            src="/assets/icons/home-carousel-left.png"
+            alt="Mover a la izquierda"
+          />
+        </button>
+
+        <button
+          class="home-carousel-button"
+          type="button"
+          [disabled]="!canMoveAlbumsRight()"
+          (click)="moveAlbumsRight()"
+        >
+          <img
+            class="home-carousel-button__icon"
+            src="/assets/icons/home-carousel-right.png"
+            alt="Mover a la derecha"
+          />
+        </button>
+      </div>
+    </div>
+
+    <div class="album-grid">
+      @for (album of visibleAlbumsForYou(); track album.id) {
+        <article
+          class="album-card"
+          (click)="goToAlbumDetail(album.id)"
+        >
+          <div class="album-image-wrapper">
+            <img
+              class="album-image"
+              [src]="album.coverUrl"
+              [alt]="album.title"
+            />
+
+            <button
+              class="play-button"
+              type="button"
+              (click)="playAlbum(album.id, $event)"
+            >
+              <img
+                class="play-button__icon"
+                [src]="isAlbumPlaying(album.id)
+                  ? '/assets/icons/home-pause.png'
+                  : '/assets/icons/home-play.png'"
+                [alt]="isAlbumPlaying(album.id) ? 'Pausar álbum' : 'Reproducir álbum'"
+              />
+            </button>
+
+            <div class="album-card__menu-wrapper">
+              <button
+                class="album-card__menu-button"
+                type="button"
+                (click)="toggleAlbumMenu(album.id, $event)"
+              >
+                <img
+                  class="album-card__menu-icon"
+                  src="/assets/icons/playlist-song-more.png"
+                  alt="Más opciones"
+                />
+              </button>
+
+              @if (openAlbumMenuId() === album.id) {
+                <div class="album-card__menu" (click)="$event.stopPropagation()">
+                  <button
+                    class="album-card__menu-item"
+                    type="button"
+                    (click)="toggleSaveAlbum(album.id, $event)"
+                  >
+                    <span>
+                      {{ isAlbumSaved(album.id)
+                        ? 'Quitar de tu biblioteca'
+                        : 'Agregar a tu biblioteca' }}
+                    </span>
+                  </button>
+
+                  <div class="album-card__submenu-wrapper">
+                    <button
+                      class="album-card__menu-item"
+                      type="button"
+                      (click)="toggleAlbumPlaylistSubmenu(album.id, $event)"
+                    >
+                      <span>Agregar a playlist</span>
+                    </button>
+
+                    @if (openAlbumPlaylistSubmenuId() === album.id) {
+                      <div class="album-card__submenu" (click)="$event.stopPropagation()">
+                        <button
+                          class="album-card__submenu-item"
+                          type="button"
+                          (click)="addAlbumToNewPlaylist(album.id)"
+                        >
+                          Nueva playlist
+                        </button>
+
+                        @for (playlist of customPlaylists(); track playlist.id) {
+                          <button
+                            class="album-card__submenu-item"
+                            type="button"
+                            (click)="addAlbumToExistingPlaylist(playlist.id, album.id, $event)"
+                          >
+                            {{ playlist.name }}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <button
+            class="album-name"
+            type="button"
+            (click)="goToAlbumDetail(album.id, $event)"
+          >
+            {{ album.title }}
+          </button>
+
+          <button
+            class="album-artist"
+            type="button"
+            (click)="goToArtistDetail(album.artistId, $event)"
+          >
+            {{ album.artistName }}
+          </button>
+        </article>
+      }
+    </div>
+  </section>
+
+  <!-- ===================== -->
+  <!-- ESCUCHAR AHORA -->
+  <!-- ===================== -->
+  <section class="home-section">
+    <div class="home-section__header home-section__header--left">
+      <div>
+        <h2 class="home-section-title">Escuchar ahora</h2>
+        <p class="home-section-subtitle">
+          Explora canciones basadas en tu vibra del momento.
+        </p>
+      </div>
+    </div>
+
+    <div class="listen-now-list">
+      @for (song of listenNowSongs(); track song.id) {
+        <article class="listen-now-row">
+
+          <button
+            class="listen-now-row__play-button"
+            type="button"
+            (click)="playSong(song.songId, $event)"
+          >
+            <img
+              class="listen-now-row__play-icon"
+              [src]="isSongPlaying(song.songId)
+                ? '/assets/icons/home-pause.png'
+                : '/assets/icons/home-play.png'"
+              [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
+            />
+          </button>
+
+          <div class="listen-now-row__image-wrapper">
+            <img
+              class="listen-now-row__image"
+              [src]="song.coverUrl"
+              [alt]="song.title"
+            />
+          </div>
+
+          <div class="listen-now-row__info">
+            <button
+              class="listen-now-row__title"
+              type="button"
+              (click)="goToSongDetail(song.songId, $event)"
+            >
+              {{ song.title }}
+            </button>
+
+            <button
+              class="listen-now-row__artist"
+              type="button"
+              (click)="goToArtistDetail(song.artistId, $event)"
+            >
+              {{ song.artistName }}
+            </button>
+          </div>
+
+          @if (song.isLiked) {
+            <button
+              class="listen-now-row__liked-button"
+              type="button"
+              (click)="toggleSongLike(song.songId)"
+            >
+              <img
+                class="listen-now-row__liked-icon"
+                src="/assets/icons/song-liked-filled.png"
+                alt="Quitar de Tus me gusta"
+              />
+            </button>
+          }
+
+          <div class="listen-now-row__menu-wrapper">
+            <button
+              class="listen-now-row__menu-button"
+              type="button"
+              (click)="toggleSongMenu(song.songId, $event)"
+            >
+              <img
+                class="listen-now-row__menu-icon"
+                src="/assets/icons/playlist-song-more.png"
+                alt="Más opciones"
+              />
+            </button>
+
+            @if (openSongMenuId() === song.songId) {
+              <div class="listen-now-row__menu" (click)="$event.stopPropagation()">
+
+                <div class="listen-now-row__submenu-wrapper">
+                  <button
+                    class="listen-now-row__menu-item"
+                    type="button"
+                    (click)="toggleSongPlaylistSubmenu(song.songId, $event)"
+                  >
+                    <img
+                      class="listen-now-row__menu-item-icon"
+                      src="/assets/icons/playlist-song-menu-add.png"
+                      alt="Agregar a playlist"
+                    />
+                    <span>Agregar a playlist</span>
+                  </button>
+
+                  @if (openSongPlaylistSubmenuId() === song.songId) {
+                    <div class="listen-now-row__submenu" (click)="$event.stopPropagation()">
+                      <button
+                        class="listen-now-row__submenu-item"
+                        type="button"
+                        (click)="addSongToNewPlaylist(song.songId)"
+                      >
+                        Nueva playlist
+                      </button>
+
+                      @for (playlist of customPlaylists(); track playlist.id) {
+                        <button
+                          class="listen-now-row__submenu-item"
+                          type="button"
+                          (click)="addSongToExistingPlaylist(playlist.id, song.songId, $event)"
+                        >
+                          {{ playlist.name }}
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <button
+                  class="listen-now-row__menu-item"
+                  type="button"
+                  (click)="toggleSongLike(song.songId)"
+                >
+                  <img
+                    class="listen-now-row__menu-item-icon"
+                    [src]="isSongLiked(song.songId)
+                      ? '/assets/icons/song-liked-filled.png'
+                      : '/assets/icons/song-liked-outline.png'"
+                    [alt]="isSongLiked(song.songId)
+                      ? 'Eliminar de Tus me gusta'
+                      : 'Guardar en Tus me gusta'"
+                  />
+                  <span>
+                    {{ isSongLiked(song.songId)
+                      ? 'Eliminar de Tus me gusta'
+                      : 'Guardar en Tus me gusta' }}
+                  </span>
+                </button>
+
+                <button
+                  class="listen-now-row__menu-item"
+                  type="button"
+                  (click)="goToArtistDetail(song.artistId, $event)"
+                >
+                  <img
+                    class="listen-now-row__menu-item-icon"
+                    src="/assets/icons/playlist-song-menu-artist.png"
+                    alt="Ir al artista"
+                  />
+                  <span>Ir al artista</span>
+                </button>
+
+                @if (hasAlbum(song)) {
+                  <button
+                    class="listen-now-row__menu-item"
+                    type="button"
+                    (click)="goToAlbumFromSong(song, $event)"
+                  >
+                    <img
+                      class="listen-now-row__menu-item-icon"
+                      src="/assets/icons/playlist-song-menu-artist.png"
+                      alt="Ir al álbum"
+                    />
+                    <span>Ir al álbum</span>
+                  </button>
+                }
+
+              </div>
+            }
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+
+  <!-- ===================== -->
+  <!-- ARTISTAS RECOMENDADOS -->
+  <!-- ===================== -->
+  <section class="home-section home-section--last">
+    <div class="home-section__header">
+      <div>
+        <h2 class="home-section-title">Artistas recomendados</h2>
+        <p class="home-section-subtitle">
+          Sigue nuevos talentos según tus gustos actuales.
+        </p>
+      </div>
+
+      <div class="home-carousel-controls">
+        <button
+          class="home-carousel-button"
+          type="button"
+          [disabled]="!canMoveArtistsLeft()"
+          (click)="moveArtistsLeft()"
+        >
+          <img
+            class="home-carousel-button__icon"
+            src="/assets/icons/home-carousel-left.png"
+            alt="Mover a la izquierda"
+          />
+        </button>
+
+        <button
+          class="home-carousel-button"
+          type="button"
+          [disabled]="!canMoveArtistsRight()"
+          (click)="moveArtistsRight()"
+        >
+          <img
+            class="home-carousel-button__icon"
+            src="/assets/icons/home-carousel-right.png"
+            alt="Mover a la derecha"
+          />
+        </button>
+      </div>
+    </div>
+
+    <div class="recommended-artists-row">
+      @for (artist of visibleRecommendedArtists(); track artist.id) {
+        <article class="recommended-artist-card">
+          <div class="recommended-artist-card__image-wrapper">
+            <img
+              class="recommended-artist-card__image"
+              [src]="artist.photoUrl"
+              [alt]="artist.name"
+            />
+
+            <button
+              class="recommended-artist-card__play-button"
+              type="button"
+              (click)="playArtist(artist.id, $event)"
+            >
+              <img
+                class="recommended-artist-card__play-icon"
+                [src]="isArtistPlaying(artist.id)
+                  ? '/assets/icons/home-pause.png'
+                  : '/assets/icons/home-play.png'"
+                [alt]="isArtistPlaying(artist.id) ? 'Pausar artista' : 'Reproducir artista'"
+              />
+            </button>
+          </div>
+
+          <button
+            class="recommended-artist-card__name"
+            type="button"
+            (click)="goToArtistDetail(artist.id, $event)"
+          >
+            {{ artist.name }}
+          </button>
+
+          <button
+            class="recommended-artist-card__follow-button"
+            type="button"
+            [class.recommended-artist-card__follow-button--active]="isArtistFollowed(artist.id)"
+            (click)="followArtistFromRecommended(artist.id)"
+          >
+            {{ isArtistFollowed(artist.id) ? 'Siguiendo' : 'Seguir' }}
+          </button>
+        </article>
+      }
+    </div>
+  </section>
+
+</div>

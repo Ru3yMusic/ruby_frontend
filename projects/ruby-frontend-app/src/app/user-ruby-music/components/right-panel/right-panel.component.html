@@ -1,0 +1,230 @@
+<div class="right-panel">
+
+  <!-- ===================== -->
+  <!-- SECCIÓN 1: CANCIÓN ACTUAL -->
+  <!-- ===================== -->
+  <section class="right-panel__section right-panel__section--current-song">
+    <h2 class="right-panel__current-song-heading">
+      {{ displaySongTitle() }}
+    </h2>
+
+    <div class="right-panel__current-song-card">
+      <div class="right-panel__current-song-cover-wrapper">
+        <img
+          class="right-panel__current-song-cover"
+          [src]="displaySongCover()"
+          [alt]="displaySongTitle()"
+        />
+      </div>
+
+      <div class="right-panel__current-song-info">
+        <button
+          class="right-panel__current-song-title"
+          type="button"
+          (click)="goToSongDetail(currentSong()?.id || '', $event)"
+        >
+          {{ displaySongTitle() }}
+        </button>
+
+        <div class="right-panel__current-song-meta">
+          <button
+            class="right-panel__current-song-artist"
+            type="button"
+            (click)="goToCurrentArtist($event)"
+          >
+            {{ displayArtistName() }}
+          </button>
+
+          <button
+            class="right-panel__current-song-like-button"
+            type="button"
+            (click)="toggleCurrentSongLike()"
+          >
+            <img
+              class="right-panel__current-song-like-icon"
+              [src]="isCurrentSongLiked()
+                ? '/assets/icons/song-liked-filled.png'
+                : '/assets/icons/song-liked-outline.png'"
+              [alt]="isCurrentSongLiked()
+                ? 'Quitar de Tus me gusta'
+                : 'Guardar en Tus me gusta'"
+            />
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== -->
+  <!-- SECCIÓN 2: MÚSICAS RELACIONADAS -->
+  <!-- ===================== -->
+  <section class="right-panel__section right-panel__section--related">
+    <div class="right-panel__section-header">
+      <h2 class="right-panel__section-title">Músicas relacionadas</h2>
+
+      <div class="right-panel__carousel-controls">
+        <button
+          class="right-panel__carousel-button"
+          type="button"
+          [disabled]="!canMoveRelatedLeft()"
+          (click)="moveRelatedLeft()"
+        >
+          <img
+            class="right-panel__carousel-button-icon"
+            src="/assets/icons/home-carousel-left.png"
+            alt="Mover a la izquierda"
+          />
+        </button>
+
+        <button
+          class="right-panel__carousel-button"
+          type="button"
+          [disabled]="!canMoveRelatedRight()"
+          (click)="moveRelatedRight()"
+        >
+          <img
+            class="right-panel__carousel-button-icon"
+            src="/assets/icons/home-carousel-right.png"
+            alt="Mover a la derecha"
+          />
+        </button>
+      </div>
+    </div>
+
+    <div class="right-panel__related-list">
+      @for (song of visibleRelatedSongs(); track song.id) {
+        <article class="right-panel__related-card">
+
+          <div class="right-panel__related-card-image-wrapper">
+            <img
+              class="right-panel__related-card-image"
+              [src]="song.coverUrl"
+              [alt]="song.title"
+            />
+
+            <button
+              class="right-panel__related-card-play-button"
+              type="button"
+              (click)="playRelatedSong(song.songId, $event)"
+            >
+              <img
+                class="right-panel__related-card-play-icon"
+                [src]="isSongPlaying(song.songId)
+                  ? '/assets/icons/home-pause.png'
+                  : '/assets/icons/home-play.png'"
+                [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
+              />
+            </button>
+          </div>
+
+          <div class="right-panel__related-card-info">
+            <button
+              class="right-panel__related-card-title"
+              type="button"
+              (click)="goToSongDetail(song.songId, $event)"
+            >
+              {{ song.title }}
+            </button>
+
+            <button
+              class="right-panel__related-card-artist"
+              type="button"
+              (click)="goToRelatedArtist(song.artistId, $event)"
+            >
+              {{ song.artistName }}
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+
+  <!-- ===================== -->
+  <!-- SECCIÓN 3: ACERCA DEL ARTISTA -->
+  <!-- ===================== -->
+  <section class="right-panel__section right-panel__section--artist-about">
+    <div class="right-panel__section-header right-panel__section-header--left">
+      <h2 class="right-panel__section-title">Acerca del artista</h2>
+    </div>
+
+    <article
+      class="right-panel__artist-about-card"
+      role="button"
+      tabindex="0"
+      (click)="openArtistBioModal()"
+    >
+      <div class="right-panel__artist-about-image-wrapper">
+        <img
+          class="right-panel__artist-about-image"
+          [src]="displayArtistPhoto()"
+          [alt]="displayArtistName()"
+        />
+
+        <div class="right-panel__artist-about-image-overlay"></div>
+      </div>
+
+      <div class="right-panel__artist-about-content">
+        <div class="right-panel__artist-about-header-row">
+          <div class="right-panel__artist-about-header-text">
+            <button
+              class="right-panel__artist-about-name"
+              type="button"
+              (click)="goToCurrentArtist($event)"
+            >
+              {{ displayArtistName() }}
+            </button>
+
+            <p class="right-panel__artist-about-listeners">
+              {{ displayArtistMonthlyListeners() }}
+            </p>
+          </div>
+
+          <button
+            class="right-panel__artist-about-follow-button"
+            type="button"
+            [class.right-panel__artist-about-follow-button--active]="isCurrentArtistFollowed()"
+            (click)="$event.stopPropagation(); toggleCurrentArtistFollow()"
+          >
+            {{ isCurrentArtistFollowed() ? 'Siguiendo' : 'Seguir' }}
+          </button>
+        </div>
+
+        <p class="right-panel__artist-about-bio-preview">
+          {{ displayArtistBioPreview() }}
+        </p>
+      </div>
+    </article>
+  </section>
+
+  <!-- ===================== -->
+  <!-- MODAL BIO COMPLETA -->
+  <!-- ===================== -->
+  @if (isArtistBioModalOpen()) {
+    <div
+      class="right-panel__modal-backdrop"
+      (click)="closeArtistBioModal()"
+    >
+      <div
+        class="right-panel__modal"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="right-panel__modal-image-wrapper">
+          <img
+            class="right-panel__modal-image"
+            [src]="displayArtistPhoto()"
+            [alt]="displayArtistName()"
+          />
+        </div>
+
+        <h3 class="right-panel__modal-title">
+          {{ displayArtistName() }}
+        </h3>
+
+        <p class="right-panel__modal-bio">
+          {{ currentArtist()?.bio || 'Este artista todavía no tiene una biografía disponible.' }}
+        </p>
+      </div>
+    </div>
+  }
+
+</div>

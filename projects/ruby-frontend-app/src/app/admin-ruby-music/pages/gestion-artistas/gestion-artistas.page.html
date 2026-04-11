@@ -1,338 +1,444 @@
-<rm-admin-sidebar [isOpen]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
-
-<!-- Filter backdrop -->
-@if (filterOpen()) {
-  <div class="global-overlay" (click)="filterOpen.set(false)"></div>
-}
+<!-- =========================
+   SIDEBAR
+========================= -->
+<rm-admin-sidebar
+  [isOpen]="sidebarOpen()"
+  (closed)="sidebarOpen.set(false)"
+/>
 
 <div class="page" [class.page--dimmed]="anyModalOpen()">
 
-  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <!-- =========================
+     HEADER
+  ========================= -->
   <header class="page-header">
     <div class="page-header__left">
-      <button type="button" class="icon-btn" (click)="sidebarOpen.set(true)" aria-label="Abrir menú">
+      <button
+        type="button"
+        class="icon-btn"
+        (click)="sidebarOpen.set(true)"
+        aria-label="Abrir menú"
+      >
         <lucide-icon [img]="Menu" [size]="22" [strokeWidth]="2" />
       </button>
+
       <div class="brand">
-        <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
-        <p class="brand__role">Admin Layout</p>
+        <div class="brand__logo-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="brand__text">
+          <h2 class="brand__title">
+            <span class="brand__ruby">Ruby</span><span class="brand__tune">Tune</span>
+          </h2>
+          <p class="brand__role">Administrador</p>
+        </div>
       </div>
     </div>
-    <div class="page-header__avatar">
+
+    <div class="page-header__right">
       <img
+        class="page-header__avatar"
         src="https://ui-avatars.com/api/?name=Admin&background=d70013&color=fff&bold=true&size=96"
-        alt="Admin"
+        alt="Administrador"
       />
     </div>
   </header>
 
-  <!-- ── Content ─────────────────────────────────────────────────────────── -->
-  <div class="content">
+  <!-- =========================
+     CONTENIDO PRINCIPAL
+  ========================= -->
+  <main class="page-content">
 
-    <!-- Title row -->
-    <div class="content__title-row">
-      <h1 class="content__title">Artistas</h1>
-      <button type="button" class="fab" (click)="openCreateModal()" aria-label="Nuevo artista">
-        <lucide-icon [img]="Plus" [size]="20" [strokeWidth]="2.5" />
-      </button>
-    </div>
+    <!-- =========================
+       TITULO Y ACCION PRINCIPAL
+    ========================= -->
+    <section class="section-head section-head--with-action">
+      <div class="section-head__title-wrap">
+        <h1 class="section-head__title">Artistas</h1>
+      </div>
 
-    <!-- Search -->
-    <div class="search-wrap">
-      <lucide-icon [img]="Search" [size]="15" [strokeWidth]="2" class="search-icon" />
-      <input
-        type="text"
-        class="search-input"
-        placeholder="Buscar por nombre..."
-        [value]="searchQuery()"
-        (input)="searchQuery.set($any($event.target).value)"
-      />
-    </div>
-
-    <!-- Filter -->
-    <div class="filter-wrap">
       <button
         type="button"
-        class="filter-btn"
-        [class.filter-btn--active]="filterMode() === 'TOP'"
-        (click)="filterOpen.update(v => !v)"
+        class="add-btn"
+        (click)="openCreateModal()"
+        aria-label="Nuevo artista"
       >
-        {{ filterLabel() }}
-        <lucide-icon [img]="ChevronDown" [size]="14" [strokeWidth]="2.5"
-          [class.rotated]="filterOpen()" />
+        <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.2" />
       </button>
+    </section>
 
-      @if (filterOpen()) {
-        <ul class="filter-dropdown" (click)="$event.stopPropagation()">
-          <li class="filter-option" [class.filter-option--sel]="filterMode()==='ALL'"
-              (click)="setFilter('ALL')">
-            Todos
-            @if (filterMode()==='ALL') {
-              <lucide-icon [img]="Check" [size]="14" [strokeWidth]="2.5" />
-            }
-          </li>
-          <li class="filter-option" [class.filter-option--sel]="filterMode()==='TOP'"
-              (click)="setFilter('TOP')">
-            <lucide-icon [img]="Crown" [size]="14" [strokeWidth]="2" class="crown-opt" />
-            Destacados
-            @if (filterMode()==='TOP') {
-              <lucide-icon [img]="Check" [size]="14" [strokeWidth]="2.5" />
-            }
-          </li>
-        </ul>
-      }
-    </div>
-
-    <!-- Artist list -->
-    <ul class="artist-list">
-      @for (artist of filteredArtists(); track artist.id) {
-        <li class="artist-card">
-
-          <!-- Top row: photo + info -->
-          <div class="artist-card__row">
-
-            <!-- Photo with crown badge -->
-            <div class="artist-photo-wrap">
-              <div class="artist-photo-bg">
-                <img
-                  class="artist-photo"
-                  [src]="artist.photoUrl"
-                  [alt]="artist.name"
-                  (error)="onImgError($event)"
-                />
-                <lucide-icon
-                  class="artist-photo-fallback"
-                  [img]="UserRound" [size]="28" [strokeWidth]="1.5"
-                />
-              </div>
-              @if (artist.isTop) {
-                <div class="artist-crown" title="Artista Destacado">
-                  <lucide-icon [img]="Crown" [size]="11" [strokeWidth]="2.5" />
-                </div>
-              }
-            </div>
-
-            <!-- Info -->
-            <div class="artist-info">
-              <div class="artist-name-row">
-                <p class="artist-name">{{ artist.name }}</p>
-                @if (artist.isTop) {
-                  <lucide-icon [img]="Crown" [size]="13" [strokeWidth]="2"
-                    class="artist-name-crown" title="Artista Destacado" />
-                }
-              </div>
-              <p class="artist-stat">{{ formatNum(artist.followers) }} seguidores</p>
-              <p class="artist-stat">{{ formatNum(artist.monthlyListeners) }} oyentes/mes</p>
-            </div>
-
-          </div>
-
-          <!-- Action buttons -->
-          <div class="artist-card__actions">
-            <button type="button" class="art-btn art-btn--view" (click)="openViewModal(artist)">
-              <lucide-icon [img]="Eye" [size]="13" [strokeWidth]="2" />
-              Ver
-            </button>
-            <button type="button" class="art-btn art-btn--edit" (click)="openEditModal(artist)">
-              <lucide-icon [img]="Pencil" [size]="13" [strokeWidth]="2" />
-              Editar
-            </button>
-            <button type="button" class="art-btn art-btn--delete" (click)="openDeleteModal(artist)">
-              <lucide-icon [img]="Trash2" [size]="13" [strokeWidth]="2" />
-              Eliminar
-            </button>
-          </div>
-
-        </li>
-      }
-
-      @if (filteredArtists().length === 0) {
-        <li class="empty-state">
-          <lucide-icon [img]="UserRound" [size]="38" [strokeWidth]="1.5" />
-          <p>No se encontraron artistas</p>
-        </li>
-      }
-    </ul>
-
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- MODAL: Ver detalle del artista                                          -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-@if (viewingArtist(); as artist) {
-  <div class="modal-backdrop" (click)="closeViewModal()"></div>
-  <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
-
-    <button type="button" class="modal__close" (click)="closeViewModal()" aria-label="Cerrar">
-      <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
-    </button>
-
-    <!-- Photo -->
-    <div class="view-photo-wrap">
-      <div class="view-photo-bg">
-        <img class="view-photo" [src]="artist.photoUrl" [alt]="artist.name" (error)="onImgError($event)" />
-        <lucide-icon class="view-photo-fallback" [img]="UserRound" [size]="40" [strokeWidth]="1.5" />
-      </div>
-    </div>
-
-    <h2 class="view-name">{{ artist.name }}</h2>
-
-    @if (artist.isTop) {
-      <div class="view-top-badge">
-        <lucide-icon [img]="Crown" [size]="14" [strokeWidth]="2.5" />
-        Artista Destacado
-      </div>
-    }
-
-    <div class="view-fields">
-      <div class="view-field">
-        <span class="view-label">Seguidores</span>
-        <span class="view-value">{{ formatNumFull(artist.followers) }}</span>
-      </div>
-      <div class="view-field">
-        <span class="view-label">Oyentes mensuales</span>
-        <span class="view-value">{{ formatNumFull(artist.monthlyListeners) }}</span>
-      </div>
-      <div class="view-field">
-        <span class="view-label">Biografía</span>
-        <span class="view-value view-value--bio">{{ artist.bio || '—' }}</span>
-      </div>
-      <div class="view-field">
-        <span class="view-label">Fecha de registro</span>
-        <span class="view-value">{{ artist.registeredAt }}</span>
-      </div>
-    </div>
-
-    <button type="button" class="btn btn--outline btn--full" (click)="closeViewModal()">
-      Cerrar
-    </button>
-
-  </div>
-}
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- MODAL: Crear / Editar artista                                           -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-@if (modalMode()) {
-  <div class="modal-backdrop" (click)="closeModal()"></div>
-  <div class="modal modal--form" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
-
-    <!-- Header -->
-    <div class="modal__header">
-      <div class="modal__title-row">
-        <lucide-icon [img]="modalMode() === 'create' ? Plus : Pencil" [size]="16" [strokeWidth]="2.5" />
-        <h2 class="modal__title">{{ modalMode() === 'create' ? 'Nuevo Artista' : 'Editar artista' }}</h2>
-      </div>
-      <button type="button" class="modal__close modal__close--rel" (click)="closeModal()" aria-label="Cerrar">
-        <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
-      </button>
-    </div>
-
-    <!-- Body -->
-    <div class="modal__body">
-
-      <!-- Nombre -->
-      <div class="form-field">
-        <label class="form-label">Nombre <span class="required">*</span></label>
+    <!-- =========================
+       FILTROS
+    ========================= -->
+    <section class="toolbar toolbar--stack">
+      <div class="search-box">
+        <lucide-icon [img]="Search" [size]="18" />
         <input
           type="text"
-          class="form-input"
-          placeholder="Patrick Watson"
-          [value]="formName()"
-          (input)="formName.set($any($event.target).value)"
+          placeholder="Buscar por nombre..."
+          [value]="searchQuery()"
+          (input)="searchQuery.set($any($event.target).value)"
         />
       </div>
 
-      <!-- URL Foto -->
-      <div class="form-field">
-        <label class="form-label">URL Foto <span class="required">*</span></label>
-        <input
-          type="url"
-          class="form-input"
-          placeholder="https://..."
-          [value]="formPhotoUrl()"
-          (input)="formPhotoUrl.set($any($event.target).value)"
-        />
+      <div class="filters filters--single">
+        <select (change)="topFilter.set($any($event.target).value)">
+          <option value="">Todos</option>
+          <option value="TOP">Solo destacados 👑 </option>
+        </select>
       </div>
+    </section>
 
-      <!-- Biografía -->
-      <div class="form-field">
-        <label class="form-label">Biografía</label>
-        <textarea
-          class="form-input form-input--textarea"
-          placeholder="Describe al artista..."
-          rows="4"
-          [value]="formBio()"
-          (input)="formBio.set($any($event.target).value)"
-        ></textarea>
-      </div>
+    <!-- =========================
+       LISTA DE ARTISTAS
+    ========================= -->
+    <section class="artists-list">
 
-      <!-- Marcar como Top -->
-      <button
-        type="button"
-        class="top-toggle"
-        [class.top-toggle--active]="formIsTop()"
-        (click)="formIsTop.update(v => !v)"
-      >
-        <div class="top-toggle__box" [class.top-toggle__box--checked]="formIsTop()">
-          @if (formIsTop()) {
-            <lucide-icon [img]="Check" [size]="12" [strokeWidth]="3" />
-          }
+      @for (artist of filteredArtists(); track artist.id) {
+        <article class="artist-card">
+
+          <!-- INFORMACION SUPERIOR -->
+          <div class="artist-card__top">
+
+            <!-- FOTO -->
+            <img
+              class="artist-card__avatar"
+              [src]="artist.photoUrl"
+              [alt]="artist.name"
+            />
+
+            <!-- TEXTO -->
+            <div class="artist-card__info">
+              <div class="artist-card__name-row">
+                <h3>{{ artist.name }}</h3>
+
+                @if (artist.isTop) {
+                  <span class="artist-card__top-badge">👑</span>
+                }
+              </div>
+
+              <p class="artist-card__meta">{{ artist.followersCount }}</p>
+              <p class="artist-card__meta artist-card__meta--secondary">
+                {{ artist.monthlyListeners }}
+              </p>
+            </div>
+
+          </div>
+
+          <!-- DIVISOR -->
+          <div class="artist-card__divider"></div>
+
+          <!-- ACCIONES -->
+          <div class="artist-card__actions">
+
+            <button type="button" class="action-btn action-btn--view" (click)="openDetailModal(artist)">
+              <lucide-icon [img]="Eye" [size]="17" />
+              <span>Ver</span>
+            </button>
+
+            <button type="button" class="action-btn action-btn--edit" (click)="openEditModal(artist)">
+              <lucide-icon [img]="Pencil" [size]="17" />
+              <span>Editar</span>
+            </button>
+
+            <button type="button" class="action-btn action-btn--delete" (click)="openDeleteModal(artist)">
+              <lucide-icon [img]="Trash2" [size]="17" />
+              <span>Eliminar</span>
+            </button>
+
+          </div>
+
+        </article>
+      }
+
+    </section>
+
+  </main>
+</div>
+
+<!-- =========================
+   MODAL CREAR ARTISTA
+========================= -->
+@if (isCreateModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--form">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title">
+          <lucide-icon [img]="Plus" [size]="22" [strokeWidth]="2.2" />
+          <h2>Nuevo Artista</h2>
         </div>
-        <lucide-icon
-          [img]="Star"
-          [size]="15"
-          [strokeWidth]="2"
-          [class.top-toggle__star--active]="formIsTop()"
-        />
-        Marcar como Top
-      </button>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-form">
+
+        <!-- NOMBRE -->
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input
+            type="text"
+            [value]="createArtistName()"
+            (input)="createArtistName.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- URL FOTO -->
+        <div class="form-group">
+          <label>URL Foto *</label>
+          <input
+            type="text"
+            [value]="createArtistPhotoUrl()"
+            (input)="createArtistPhotoUrl.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- BIOGRAFIA -->
+        <div class="form-group">
+          <label>Biografía</label>
+          <textarea
+            rows="5"
+            [value]="createArtistBio()"
+            (input)="createArtistBio.set($any($event.target).value)"
+          ></textarea>
+        </div>
+
+        <!-- DESTACADO -->
+        <div class="form-check">
+          <input
+            id="create-top-artist"
+            type="checkbox"
+            [checked]="createArtistIsTop()"
+            (change)="createArtistIsTop.set($any($event.target).checked)"
+          />
+          <label for="create-top-artist">Marcar como Top</label>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions">
+        <button type="button" (click)="closeAllModals()">Cancelar</button>
+        <button type="button" class="confirm" (click)="createArtist()">Crear</button>
+      </div>
 
     </div>
-
-    <!-- Footer -->
-    <div class="modal__footer">
-      <button type="button" class="btn btn--outline" (click)="closeModal()">Cancelar</button>
-      <button
-        type="button"
-        class="btn btn--primary"
-        [disabled]="!formValid()"
-        (click)="submitModal()"
-      >
-        {{ modalMode() === 'create' ? 'Crear' : 'Guardar' }}
-      </button>
-    </div>
-
   </div>
 }
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- MODAL: Confirmar eliminación                                            -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-@if (deletingArtist(); as artist) {
-  <div class="modal-backdrop" (click)="closeDeleteModal()"></div>
-  <div class="modal modal--confirm" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+<!-- =========================
+   MODAL EDITAR ARTISTA
+========================= -->
+@if (isEditModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--form">
 
-    <button type="button" class="modal__close" (click)="closeDeleteModal()" aria-label="Cerrar">
-      <lucide-icon [img]="X" [size]="18" [strokeWidth]="2" />
-    </button>
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title">
+          <lucide-icon [img]="Pencil" [size]="20" [strokeWidth]="2.2" />
+          <h2>Editar Artista</h2>
+        </div>
 
-    <div class="confirm__icon">
-      <lucide-icon [img]="TriangleAlert" [size]="26" [strokeWidth]="2" />
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-form">
+
+        <!-- NOMBRE -->
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input
+            type="text"
+            [value]="editArtistName()"
+            (input)="editArtistName.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- URL FOTO -->
+        <div class="form-group">
+          <label>URL Foto *</label>
+          <input
+            type="text"
+            [value]="editArtistPhotoUrl()"
+            (input)="editArtistPhotoUrl.set($any($event.target).value)"
+          />
+        </div>
+
+        <!-- BIOGRAFIA -->
+        <div class="form-group">
+          <label>Biografía</label>
+          <textarea
+            rows="5"
+            [value]="editArtistBio()"
+            (input)="editArtistBio.set($any($event.target).value)"
+          ></textarea>
+        </div>
+
+        <!-- DESTACADO -->
+        <div class="form-check">
+          <input
+            id="edit-top-artist"
+            type="checkbox"
+            [checked]="editArtistIsTop()"
+            (change)="editArtistIsTop.set($any($event.target).checked)"
+          />
+          <label for="edit-top-artist">Marcar como Top</label>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions">
+        <button type="button" (click)="closeAllModals()">Cancelar</button>
+        <button type="button" class="confirm" (click)="saveArtistEdit()">Guardar</button>
+      </div>
+
     </div>
+  </div>
+}
 
-    <h2 class="modal__title modal__title--center">Confirmar eliminación</h2>
+<!-- =========================
+   MODAL DETALLE
+========================= -->
+@if (isDetailModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--detail">
 
-    <p class="confirm__text">
-      ¿Estás seguro de eliminar al artista <strong>{{ artist.name }}</strong>?
-      Esta acción <strong>NO se podrá deshacer.</strong>
-    </p>
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title modal-head__title--simple">
+          <h2>{{ selectedArtist()?.name }}</h2>
+        </div>
 
-    <div class="modal__footer modal__footer--confirm">
-      <button type="button" class="btn btn--outline" (click)="closeDeleteModal()">Cancelar</button>
-      <button type="button" class="btn btn--danger" (click)="confirmDelete()">Eliminar</button>
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="artist-detail">
+
+        <!-- FOTO -->
+        <img
+          class="artist-detail__avatar"
+          [src]="selectedArtist()?.photoUrl"
+          [alt]="selectedArtist()?.name"
+        />
+
+        <!-- BADGE DESTACADO -->
+        @if (selectedArtist()?.isTop) {
+          <div class="artist-detail__top-badge">
+            Artista Destacado 👑
+          </div>
+        }
+
+        <!-- SEGUIDORES -->
+        <div class="artist-detail__field">
+          <span>Seguidores</span>
+          <strong>{{ selectedArtist()?.followersCount }}</strong>
+        </div>
+
+        <!-- OYENTES -->
+        <div class="artist-detail__field">
+          <span>Oyentes mensuales</span>
+          <strong>{{ selectedArtist()?.monthlyListeners }}</strong>
+        </div>
+
+        <!-- BIOGRAFIA -->
+        <div class="artist-detail__field">
+          <span>Biografía</span>
+          <p>{{ selectedArtist()?.bio }}</p>
+        </div>
+
+        <!-- FECHA -->
+        <div class="artist-detail__field">
+          <span>Fecha de registro</span>
+          <strong>{{ selectedArtist()?.createdAt }}</strong>
+        </div>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions modal-actions--single">
+        <button type="button" (click)="closeAllModals()">Cerrar</button>
+      </div>
+
     </div>
+  </div>
+}
 
+<!-- =========================
+   MODAL ELIMINAR
+========================= -->
+@if (isDeleteModalOpen()) {
+  <div class="modal">
+    <div class="modal-content modal-content--delete">
+
+      <!-- HEADER -->
+      <div class="modal-head">
+        <div class="modal-head__title modal-head__title--simple">
+          <h2>Confirmar eliminación</h2>
+        </div>
+
+        <button
+          type="button"
+          class="modal-head__close"
+          (click)="closeAllModals()"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- BODY -->
+      <div class="delete-body">
+        <p>
+          ¿Estás seguro de eliminar al artista
+          <strong>{{ selectedArtist()?.name }}</strong>?
+        </p>
+
+        <p class="delete-body__warning">
+          Esta acción NO se podrá deshacer.
+        </p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="modal-actions">
+        <button type="button" (click)="closeAllModals()">Cancelar</button>
+        <button type="button" class="danger" (click)="confirmDeleteArtist()">
+          Eliminar
+        </button>
+      </div>
+
+    </div>
   </div>
 }

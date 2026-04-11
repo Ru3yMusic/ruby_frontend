@@ -1,0 +1,215 @@
+<div class="profile-page">
+
+  <!-- ===================== -->
+  <!-- HERO / CABECERA PERFIL -->
+  <!-- ===================== -->
+  <section class="profile-hero" [style.background]="gradientStyle()">
+    <div class="profile-hero-content">
+
+      <!-- FOTO -->
+      <div
+        class="profile-avatar-wrapper"
+        (mouseenter)="onAvatarMouseEnter()"
+        (mouseleave)="onAvatarMouseLeave()"
+      >
+        <button
+          class="profile-avatar-button"
+          type="button"
+          (click)="openEditModal()"
+        >
+          <img
+            class="profile-avatar-image"
+            [src]="displayAvatarUrl()"
+            alt="Foto de perfil"
+          />
+
+          @if (isAvatarHovered()) {
+            <div class="profile-avatar-overlay">
+              <img
+                class="profile-avatar-edit-icon"
+                src="/assets/icons/profile-edit-pencil.png"
+                alt="Editar perfil"
+              />
+            </div>
+          }
+        </button>
+      </div>
+
+      <!-- INFO -->
+      <div class="profile-info">
+        <p class="profile-label">Perfil</p>
+
+        <h1 class="profile-name">
+          {{ displayName() }}
+        </h1>
+
+        <p class="profile-meta">
+          {{ publicPlaylistCount() }} playlist{{ publicPlaylistCount() === 1 ? '' : 's' }} pública{{ publicPlaylistCount() === 1 ? '' : 's' }}
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== -->
+  <!-- ACCIONES -->
+  <!-- ===================== -->
+  <section class="profile-actions">
+    <button class="profile-action-icon" type="button">
+      <img
+        src="/assets/icons/profile-settings.png"
+        alt="Configuración"
+      />
+    </button>
+
+    <button class="profile-action-icon" type="button">
+      <img
+        src="/assets/icons/profile-more.png"
+        alt="Más opciones"
+      />
+    </button>
+  </section>
+
+  <!-- ===================== -->
+  <!-- PLAYLISTS PÚBLICAS -->
+  <!-- ===================== -->
+  <section class="profile-section">
+    <h2 class="profile-section-title">Playlists públicas</h2>
+
+    @if (publicPlaylists().length > 0) {
+      <div class="profile-playlists-grid">
+        @for (playlist of publicPlaylists(); track playlist.id) {
+          <article class="playlist-card">
+            <div class="playlist-card-cover-wrapper">
+              <img
+                class="playlist-card-cover"
+                [src]="playlist.coverUrl || '/assets/icons/playlist-cover-placeholder.png'"
+                [alt]="playlist.title"
+              />
+            </div>
+
+            <h3 class="playlist-card-title">{{ playlist.title }}</h3>
+            <p class="playlist-card-subtitle">De {{ playlist.ownerName }}</p>
+          </article>
+        }
+      </div>
+    } @else {
+      <p class="profile-empty-text">
+        Aún no tienes playlists públicas.
+      </p>
+    }
+  </section>
+
+  <!-- ===================== -->
+  <!-- SIGUIENDO -->
+  <!-- ===================== -->
+  <section class="profile-section">
+    <h2 class="profile-section-title">Siguiendo</h2>
+
+    @if (mockFollowedArtists().length > 0) {
+      <div class="following-grid">
+        @for (artist of mockFollowedArtists(); track artist.id) {
+          <article class="following-card">
+            <div class="following-card-image-wrapper">
+              <img
+                class="following-card-image"
+                [src]="artist.photoUrl"
+                [alt]="artist.name"
+              />
+            </div>
+
+            <h3 class="following-card-title">{{ artist.name }}</h3>
+            <p class="following-card-subtitle">{{ artist.typeLabel }}</p>
+          </article>
+        }
+      </div>
+    } @else {
+      <p class="profile-empty-text">
+        Aún no sigues artistas.
+      </p>
+    }
+  </section>
+
+</div>
+
+<!-- ===================== -->
+<!-- MODAL EDITAR PERFIL -->
+<!-- ===================== -->
+@if (isEditModalOpen()) {
+  <div class="profile-modal-backdrop" (click)="closeEditModal()">
+    <div class="profile-modal" (click)="$event.stopPropagation()">
+
+      <div class="profile-modal-header">
+        <h2 class="profile-modal-title">Detalles del perfil</h2>
+
+        <button
+          class="profile-modal-close"
+          type="button"
+          (click)="closeEditModal()"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="profile-modal-body">
+
+        <!-- FOTO -->
+        <div class="profile-modal-avatar-column">
+          <div class="profile-modal-avatar-preview">
+            <img
+              class="profile-modal-avatar-image"
+              [src]="displayAvatarUrl()"
+              alt="Vista previa de la foto"
+            />
+          </div>
+
+          <label class="profile-upload-label" for="profile-photo-input">
+            Elegir foto
+          </label>
+
+            <input
+            #profilePhotoInput
+            id="profile-photo-input"
+            class="profile-photo-input"
+            type="file"
+            accept="image/*"
+            (change)="onSelectPhoto($event, profilePhotoInput)"
+            />
+            <button
+            class="profile-remove-photo-button"
+            type="button"
+            (click)="removeSelectedPhoto(profilePhotoInput)"
+            >
+            Eliminar foto
+            </button>
+        </div>
+
+        <!-- FORM -->
+        <div class="profile-modal-form-column">
+          <input
+            class="profile-name-input"
+            type="text"
+            [value]="editName()"
+            (input)="onNameInput($event)"
+            placeholder="Nombre del perfil"
+          />
+
+          <div class="profile-modal-actions">
+            <button
+              class="profile-save-button"
+              type="button"
+              (click)="saveProfile()"
+            >
+              Guardar
+            </button>
+          </div>
+
+          <p class="profile-modal-note">
+            Al continuar, aceptas actualizar la foto y el nombre visibles de tu perfil dentro de RubyTune.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+}
