@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
+import { PlaylistState } from '../../state/playlist.state';
 
 type HeaderSearchResultType = 'SONG' | 'ALBUM' | 'ARTIST';
 
@@ -9,6 +10,7 @@ interface ArtistItem {
   id: string;
   name: string;
   photoUrl?: string | null;
+  monthlyListeners?: string;
 }
 
 interface AlbumItem {
@@ -26,11 +28,20 @@ interface SongItem {
   coverUrl?: string | null;
 }
 
+interface LibraryItem {
+  id: string;
+  userId: string;
+  itemType: 'ARTIST' | 'ALBUM';
+  itemId: string;
+  addedAt: string;
+}
+
 interface HeaderSearchResult {
   id: string;
   type: HeaderSearchResultType;
   title: string;
   imageUrl: string | null;
+  subtitle: string;
 }
 
 @Component({
@@ -42,12 +53,14 @@ interface HeaderSearchResult {
 })
 export class TopHeaderComponent {
   private readonly authState = inject(AuthState);
+  private readonly playlistState = inject(PlaylistState);
   private readonly router = inject(Router);
   private readonly elementRef = inject(ElementRef);
 
   private readonly ARTISTS_KEY = 'ruby_artists';
   private readonly ALBUMS_KEY = 'ruby_albums';
   private readonly SONGS_KEY = 'ruby_songs';
+  private readonly USER_LIBRARY_KEY = 'ruby_user_library';
 
   readonly currentUser = this.authState.currentUser;
 
@@ -116,22 +129,32 @@ export class TopHeaderComponent {
     const songResults: HeaderSearchResult[] = songs
       .filter(song => (song.title ?? '').toLowerCase().includes(term))
       .slice(0, 4)
-      .map(song => ({
-        id: song.id,
-        type: 'SONG',
-        title: song.title?.trim() || 'Canción sin nombre',
-        imageUrl: song.coverUrl ?? null,
-      }));
+      .map(song => {
+        const artist = artists.find(item => item.id === song.artistId);
+
+        return {
+          id: song.id,
+          type: 'SONG',
+          title: song.title?.trim() || 'Canción sin nombre',
+          imageUrl: song.coverUrl ?? null,
+          subtitle: `Canción · ${artist?.name ?? 'Artista desconocido'}`,
+        };
+      });
 
     const albumResults: HeaderSearchResult[] = albums
       .filter(album => (album.title ?? '').toLowerCase().includes(term))
       .slice(0, 4)
-      .map(album => ({
-        id: album.id,
-        type: 'ALBUM',
-        title: album.title?.trim() || 'Álbum sin nombre',
-        imageUrl: album.coverUrl ?? null,
-      }));
+      .map(album => {
+        const artist = artists.find(item => item.id === album.artistId);
+
+        return {
+          id: album.id,
+          type: 'ALBUM',
+          title: album.title?.trim() || 'Álbum sin nombre',
+          imageUrl: album.coverUrl ?? null,
+          subtitle: `Álbum · ${artist?.name ?? 'Artista desconocido'}`,
+        };
+      });
 
     const artistResults: HeaderSearchResult[] = artists
       .filter(artist => (artist.name ?? '').toLowerCase().includes(term))
@@ -141,6 +164,7 @@ export class TopHeaderComponent {
         type: 'ARTIST',
         title: artist.name?.trim() || 'Artista desconocido',
         imageUrl: artist.photoUrl ?? null,
+        subtitle: 'Artista',
       }));
 
     return [...songResults, ...albumResults, ...artistResults].slice(0, 10);
@@ -176,11 +200,123 @@ export class TopHeaderComponent {
     }
 
     if (result.type === 'SONG') {
-      // Ruta futura preparada cuando exista /user/song/:id
-      // this.closeAllOverlays();
-      // this.router.navigate(['/user/song', result.id]);
+      this.closeAllOverlays();
+      this.router.navigate(['/user/song', result.id]);
+    }
+  }
+
+  isSongLiked(songId: string): boolean {
+    const user = this.currentUser();
+    if (!user?.id) return false;
+
+    const likedPlaylist = this.playlistState.getLikedSongsPlaylist(user.id)
+      ?? this.playlistState.ensureLikedSongsPlaylist(user.id);
+
+    return likedPlaylist.songIds.includes(songId);
+  }
+
+  toggleSongLike(result: HeaderSearchResult, event: MouseEvent): void {
+    event.stopPropagation();
+
+    const user = this.currentUser();
+    if (!user?.id || result.type !== 'SONG') return;
+
+    if (this.isSongLiked(result.id)) {
+      this.playlistState.removeSongFromLikedSongs(user.id, result.id);
       return;
     }
+
+    this.playlistState.addSongToLikedSongs(user.id, result.id);
+  }
+
+  isAlbumSaved(albumId: string): boolean {
+    const user = this.currentUser();
+    if (!user?.id) return false;
+
+    return this.loadUserLibrary().some(
+      item =>
+        item.userId === user.id &&
+        item.itemType === 'ALBUM' &&
+        item.itemId === albumId
+    );
+  }
+
+  toggleSaveAlbum(result: HeaderSearchResult, event: MouseEvent): void {
+    event.stopPropagation();
+
+    const user = this.currentUser();
+    if (!user?.id || result.type !== 'ALBUM') return;
+
+    const currentLibrary = this.loadUserLibrary();
+
+    if (this.isAlbumSaved(result.id)) {
+      const updated = currentLibrary.filter(
+        item =>
+          !(
+            item.userId === user.id &&
+            item.itemType === 'ALBUM' &&
+            item.itemId === result.id
+          )
+      );
+
+      this.persistUserLibrary(updated);
+      return;
+    }
+
+    const newItem: LibraryItem = {
+      id: this.generateId(),
+      userId: user.id,
+      itemType: 'ALBUM',
+      itemId: result.id,
+      addedAt: new Date().toISOString(),
+    };
+
+    this.persistUserLibrary([...currentLibrary, newItem]);
+  }
+
+  isArtistFollowed(artistId: string): boolean {
+    const user = this.currentUser();
+    if (!user?.id) return false;
+
+    return this.loadUserLibrary().some(
+      item =>
+        item.userId === user.id &&
+        item.itemType === 'ARTIST' &&
+        item.itemId === artistId
+    );
+  }
+
+  toggleFollowArtist(result: HeaderSearchResult, event: MouseEvent): void {
+    event.stopPropagation();
+
+    const user = this.currentUser();
+    if (!user?.id || result.type !== 'ARTIST') return;
+
+    const currentLibrary = this.loadUserLibrary();
+
+    if (this.isArtistFollowed(result.id)) {
+      const updated = currentLibrary.filter(
+        item =>
+          !(
+            item.userId === user.id &&
+            item.itemType === 'ARTIST' &&
+            item.itemId === result.id
+          )
+      );
+
+      this.persistUserLibrary(updated);
+      return;
+    }
+
+    const newItem: LibraryItem = {
+      id: this.generateId(),
+      userId: user.id,
+      itemType: 'ARTIST',
+      itemId: result.id,
+      addedAt: new Date().toISOString(),
+    };
+
+    this.persistUserLibrary([...currentLibrary, newItem]);
   }
 
   trackBySearchResult(_: number, result: HeaderSearchResult): string {
@@ -198,6 +334,22 @@ export class TopHeaderComponent {
     } catch {
       return [];
     }
+  }
+
+  private loadUserLibrary(): LibraryItem[] {
+    return this.loadStorage<LibraryItem>(this.USER_LIBRARY_KEY);
+  }
+
+  private persistUserLibrary(items: LibraryItem[]): void {
+    localStorage.setItem(this.USER_LIBRARY_KEY, JSON.stringify(items));
+  }
+
+  private generateId(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID();
+    }
+
+    return `library-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
   private closeAllOverlays(): void {

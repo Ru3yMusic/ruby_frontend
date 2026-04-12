@@ -84,17 +84,55 @@
 
                     <div class="search-result-content">
                       <p class="search-result-title">{{ result.title }}</p>
+                      <p class="search-result-type">{{ result.subtitle }}</p>
+                    </div>
 
+                    <div class="search-result-action">
                       @if (isSongResult(result)) {
-                        <p class="search-result-type">Canción</p>
+                        <button
+                          class="search-action-icon-button"
+                          type="button"
+                          (click)="toggleSongLike(result, $event)"
+                        >
+                          <img
+                            class="search-action-icon"
+                            [src]="isSongLiked(result.id)
+                              ? '/assets/icons/song-liked-filled.png'
+                              : '/assets/icons/song-liked-outline.png'"
+                            [alt]="isSongLiked(result.id)
+                              ? 'Quitar de Tus me gusta'
+                              : 'Guardar en Tus me gusta'"
+                          />
+                        </button>
                       }
 
                       @if (isAlbumResult(result)) {
-                        <p class="search-result-type">Álbum</p>
+                        <button
+                          class="search-action-icon-button"
+                          type="button"
+                          (click)="toggleSaveAlbum(result, $event)"
+                        >
+                          <img
+                            class="search-action-icon"
+                            [src]="isAlbumSaved(result.id)
+                              ? '/assets/icons/top-header-saved-filled.png'
+                              : '/assets/icons/top-header-save-outline.png'"
+                            [alt]="isAlbumSaved(result.id)
+                              ? 'Quitar de biblioteca'
+                              : 'Guardar álbum'"
+                          />
+                        </button>
                       }
 
                       @if (isArtistResult(result)) {
-                        <p class="search-result-type">Artista</p>
+                        <button
+                          class="search-follow-button"
+                          type="button"
+                          [class.search-follow-button--active]="isArtistFollowed(result.id)"
+                          (click)="toggleFollowArtist(result, $event)"
+                        >
+                          {{ isArtistFollowed(result.id) ? 'Siguiendo' : 'Seguir' }}
+                        </button>
                       }
                     </div>
                   </button>
