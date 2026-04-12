@@ -6,6 +6,8 @@ import { Playlist } from '../../models/playlist.model';
 import { PlaylistState } from '../../state/playlist.state';
 import { PlayerState } from '../../state/player.state';
 
+type AddSongsTab = 'SUGGESTIONS' | 'LIKED';
+
 interface PlaylistSongRow {
   id: string;
   songId: string;
@@ -23,6 +25,14 @@ interface RecommendedSongRow {
   title: string;
   artistName: string;
   albumTitle: string;
+  coverUrl: string;
+}
+
+interface AddSongsRow {
+  id: string;
+  songId: string;
+  title: string;
+  artistName: string;
   coverUrl: string;
 }
 
@@ -82,6 +92,7 @@ export class PlaylistDetailComponent {
 
   readonly isMoreMenuOpen = signal(false);
   readonly isEditCoverModalOpen = signal(false);
+  readonly isAddSongsModalOpen = signal(false);
   readonly isShuffleEnabled = signal(false);
 
   readonly editPlaylistName = signal('');
@@ -96,18 +107,16 @@ export class PlaylistDetailComponent {
   readonly openSongMenuId = signal<string | null>(null);
   readonly openPlaylistSubmenuSongId = signal<string | null>(null);
 
+  readonly activeAddSongsTab = signal<AddSongsTab>('SUGGESTIONS');
+  readonly addSongsSearchQuery = signal('');
+  readonly pendingSelectedSongIds = signal<string[]>([]);
+
   private readonly songsCatalog = signal<StoredSong[]>(this.loadStorageArray<StoredSong>(this.SONGS_STORAGE_KEY));
   private readonly artistsCatalog = signal<StoredArtist[]>(this.loadStorageArray<StoredArtist>(this.ARTISTS_STORAGE_KEY));
   private readonly albumsCatalog = signal<StoredAlbum[]>(this.loadStorageArray<StoredAlbum>(this.ALBUMS_STORAGE_KEY));
 
-  /* ===================== */
-  /* FALLBACK TEMPORAL */
-  /* ===================== */
   readonly initialRecommendedSongs = signal<RecommendedSongRow[]>([]);
 
-  /* ===================== */
-  /* PLAYLIST ACTUAL */
-  /* ===================== */
   readonly currentPlaylist = computed<Playlist | null>(() => {
     const id = this.playlistId();
     if (!id) return null;
@@ -319,6 +328,55 @@ export class PlaylistDetailComponent {
     return this.playlistState.getCustomPlaylistsByUser(user.id);
   });
 
+  readonly likedSongsRows = computed<AddSongsRow[]>(() => {
+    const user = this.currentUser();
+    if (!user?.id) return [];
+
+    const likedPlaylist = this.playlistState.getLikedSongsPlaylist(user.id)
+      ?? this.playlistState.ensureLikedSongsPlaylist(user.id);
+
+    return this.mapSongIdsToRows(likedPlaylist.songIds);
+  });
+
+  readonly suggestionRows = computed<AddSongsRow[]>(() => {
+    const playlist = this.currentPlaylist();
+    const songs = this.songsCatalog();
+    const artists = this.artistsCatalog();
+
+    if (!playlist) return [];
+
+    return songs
+      .filter(song => !playlist.songIds.includes(song.id))
+      .slice(0, 10)
+      .map(song => {
+        const artist = artists.find(item => item.id === song.artistId);
+
+        return {
+          id: `suggestion-${song.id}`,
+          songId: song.id,
+          title: song.title,
+          artistName: artist?.name ?? 'Artista desconocido',
+          coverUrl: song.coverUrl || this.defaultPlaylistCover,
+        };
+      });
+  });
+
+  readonly filteredAddSongsRows = computed<AddSongsRow[]>(() => {
+    const term = this.addSongsSearchQuery().trim().toLowerCase();
+    const source = this.activeAddSongsTab() === 'LIKED'
+      ? this.likedSongsRows()
+      : this.suggestionRows();
+
+    if (!term) {
+      return source.slice(0, 10);
+    }
+
+    return source.filter(item =>
+      item.title.toLowerCase().includes(term)
+      || item.artistName.toLowerCase().includes(term)
+    );
+  });
+
   readonly gradientStyle = computed(() => {
     const color = this.headerAccentColor();
     return `linear-gradient(180deg, ${color} 0%, ${color} 38%, #171717 70%, #0d0d0d 100%)`;
@@ -411,6 +469,81 @@ export class PlaylistDetailComponent {
   }
 
   /* ===================== */
+  /* MODAL AGREGAR CANCIONES */
+  /* ===================== */
+  openAddSongsModal(event?: MouseEvent): void {
+    event?.stopPropagation();
+
+    if (!this.canAddSongsManually()) {
+      this.closeMoreMenu();
+      return;
+    }
+
+    const playlist = this.currentPlaylist();
+    if (!playlist) return;
+
+    this.pendingSelectedSongIds.set([...playlist.songIds]);
+    this.activeAddSongsTab.set('SUGGESTIONS');
+    this.addSongsSearchQuery.set('');
+    this.isAddSongsModalOpen.set(true);
+    this.closeMoreMenu();
+    this.closeSongMenu();
+  }
+
+  closeAddSongsModal(): void {
+    this.isAddSongsModalOpen.set(false);
+    this.addSongsSearchQuery.set('');
+    this.activeAddSongsTab.set('SUGGESTIONS');
+    this.pendingSelectedSongIds.set([]);
+  }
+
+  setAddSongsTab(tab: AddSongsTab): void {
+    this.activeAddSongsTab.set(tab);
+    this.addSongsSearchQuery.set('');
+  }
+
+  onAddSongsSearchInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.addSongsSearchQuery.set(input.value);
+  }
+
+  isPendingSongSelected(songId: string): boolean {
+    return this.pendingSelectedSongIds().includes(songId);
+  }
+
+  togglePendingSongSelection(songId: string): void {
+    const current = this.pendingSelectedSongIds();
+
+    if (current.includes(songId)) {
+      this.pendingSelectedSongIds.set(current.filter(id => id !== songId));
+      return;
+    }
+
+    this.pendingSelectedSongIds.set([...current, songId]);
+  }
+
+  saveAddSongsSelection(): void {
+    const playlist = this.currentPlaylist();
+    if (!playlist) return;
+
+    const nextSongIds = [...this.pendingSelectedSongIds()];
+    const firstSelectedSong = this.songsCatalog().find(song => song.id === nextSongIds[0]);
+
+    this.playlistState.updatePlaylist(playlist.id, {
+      songIds: nextSongIds,
+      coverUrl: playlist.coverUrl || firstSelectedSong?.coverUrl || playlist.coverUrl || null,
+    });
+
+    if (!playlist.coverUrl && firstSelectedSong?.coverUrl) {
+      this.tempCoverUrl.set(firstSelectedSong.coverUrl);
+      this.updateAccentFromImage(firstSelectedSong.coverUrl);
+    }
+
+    this.closeAddSongsModal();
+    this.showFeedback('Playlist actualizada');
+  }
+
+  /* ===================== */
   /* FORM EDICIÓN */
   /* ===================== */
   onPlaylistNameInput(event: Event): void {
@@ -480,24 +613,12 @@ export class PlaylistDetailComponent {
   /* ===================== */
   /* ACCIONES PLAYLIST */
   /* ===================== */
-  addToPlaylist(): void {
-    if (!this.canAddSongsManually()) {
-      this.isMoreMenuOpen.set(false);
-      return;
-    }
-
-    this.isMoreMenuOpen.set(false);
-    console.log('Abrir modal para agregar canciones a la playlist');
+  addToPlaylist(event?: MouseEvent): void {
+    this.openAddSongsModal(event);
   }
 
   editPlaylistOrder(): void {
-    if (this.isLikedSongsPlaylist()) {
-      this.isMoreMenuOpen.set(false);
-      return;
-    }
-
-    this.isMoreMenuOpen.set(false);
-    console.log('Editar orden de playlist - pendiente');
+    this.closeMoreMenu();
   }
 
   togglePlaylistPrivacy(): void {
@@ -525,8 +646,25 @@ export class PlaylistDetailComponent {
       return;
     }
 
+    const playlist = this.currentPlaylist();
+    if (!playlist) return;
+
+    const nextPlaylists = this.playlistState.playlists().filter(item => item.id !== playlist.id);
+
+    const maybeState = this.playlistState as unknown as {
+      persistPlaylists?: (items: Playlist[]) => void;
+      _playlists?: { set: (items: Playlist[]) => void };
+    };
+
+    if (typeof maybeState.persistPlaylists === 'function') {
+      maybeState.persistPlaylists(nextPlaylists);
+    } else {
+      localStorage.setItem('ruby_playlists', JSON.stringify(nextPlaylists));
+      maybeState._playlists?.set?.(nextPlaylists);
+    }
+
     this.isMoreMenuOpen.set(false);
-    console.log('Eliminar playlist - pendiente');
+    this.router.navigate(['/user/library']);
   }
 
   playPlaylist(): void {
@@ -791,8 +929,30 @@ export class PlaylistDetailComponent {
   }
 
   /* ===================== */
-  /* HELPERS STORAGE / MAPEO */
+  /* HELPERS */
   /* ===================== */
+  private mapSongIdsToRows(songIds: string[]): AddSongsRow[] {
+    const songs = this.songsCatalog();
+    const artists = this.artistsCatalog();
+
+    return songIds
+      .map((songId, index) => {
+        const song = songs.find(item => item.id === songId);
+        if (!song) return null;
+
+        const artist = artists.find(item => item.id === song.artistId);
+
+        return {
+          id: `add-${song.id}-${index}`,
+          songId: song.id,
+          title: song.title,
+          artistName: artist?.name ?? 'Artista desconocido',
+          coverUrl: song.coverUrl || this.defaultPlaylistCover,
+        };
+      })
+      .filter((row): row is AddSongsRow => !!row);
+  }
+
   private loadStorageArray<T>(storageKey: string): T[] {
     try {
       const raw = localStorage.getItem(storageKey);

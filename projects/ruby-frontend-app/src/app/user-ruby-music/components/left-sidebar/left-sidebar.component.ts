@@ -46,6 +46,7 @@ export class LeftSidebarComponent {
       icon: 'assets/icons/sidebar-library.png',
       alt: 'Icono de biblioteca',
     },
+
   ];
 
 }

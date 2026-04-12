@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { AuthState, CurrentUser } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { Playlist } from '../../models/playlist.model';
 import { PlaylistState } from '../../state/playlist.state';
+import { PlayerState } from '../../state/player.state';
 
 interface ProfilePlaylistCard {
   id: string;
@@ -19,6 +21,7 @@ interface FollowedArtistCard {
   name: string;
   photoUrl: string;
   typeLabel: string;
+  monthlyListeners: string;
 }
 
 interface AuthUserStorageItem {
@@ -51,6 +54,40 @@ interface AdminUserStorageItem {
   blockedAt: string | null;
 }
 
+interface LibraryItem {
+  id: string;
+  userId: string;
+  itemType: 'ARTIST' | 'ALBUM';
+  itemId: string;
+  addedAt: string;
+}
+
+interface StoredArtist {
+  id: string;
+  name: string;
+  photoUrl: string;
+  bio: string;
+  isTop: boolean;
+  followersCount: string;
+  monthlyListeners: string;
+  createdAt: string;
+}
+
+interface StoredSong {
+  id: string;
+  title: string;
+  artistId: string;
+  albumId: string | null;
+  genreId: string;
+  coverUrl: string;
+  audioUrl: string;
+  durationSeconds: number;
+  lyrics: string | null;
+  playCount: number;
+  likesCount: number;
+  createdAt: string;
+}
+
 @Component({
   selector: 'app-profile',
   standalone: true,
@@ -61,9 +98,14 @@ interface AdminUserStorageItem {
 export class ProfileComponent {
   private readonly authState = inject(AuthState);
   private readonly playlistState = inject(PlaylistState);
+  private readonly playerState = inject(PlayerState);
+  private readonly router = inject(Router);
 
   private readonly AUTH_USERS_KEY = 'ruby_auth_users';
   private readonly ADMIN_USERS_KEY = 'ruby_users';
+  private readonly USER_LIBRARY_KEY = 'ruby_user_library';
+  private readonly ARTISTS_KEY = 'ruby_artists';
+  private readonly SONGS_KEY = 'ruby_songs';
 
   private readonly defaultTopColor = '#5b5b5b';
   private readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
@@ -77,14 +119,9 @@ export class ProfileComponent {
   readonly tempAvatarUrl = signal<string | null>(null);
   readonly headerAccentColor = signal(this.defaultTopColor);
 
-  readonly mockFollowedArtists = signal<FollowedArtistCard[]>([
-    {
-      id: 'artist-demo-1',
-      name: 'd4vd',
-      photoUrl: 'https://i.scdn.co/image/ab6761610000e5eb2e17f3d3f9b8e78d5d9e7d47',
-      typeLabel: 'Artista',
-    },
-  ]);
+  private readonly userLibrary = signal<LibraryItem[]>(this.loadStorageArray<LibraryItem>(this.USER_LIBRARY_KEY));
+  private readonly artistsCatalog = signal<StoredArtist[]>(this.loadStorageArray<StoredArtist>(this.ARTISTS_KEY));
+  private readonly songsCatalog = signal<StoredSong[]>(this.loadStorageArray<StoredSong>(this.SONGS_KEY));
 
   readonly displayName = computed(() => {
     const user = this.currentUser();
@@ -99,11 +136,11 @@ export class ProfileComponent {
     const user = this.currentUser();
     if (!user) return [];
 
-  const playlists = this.playlistState
-  .getPublicPlaylistsByUser(user.id)
-  .filter(
-    playlist => !(playlist.type === 'SYSTEM' && playlist.systemType === 'LIKED_SONGS')
-  );
+    const playlists = this.playlistState
+      .getPublicPlaylistsByUser(user.id)
+      .filter(
+        playlist => !(playlist.type === 'SYSTEM' && playlist.systemType === 'LIKED_SONGS')
+      );
 
     return playlists.map((playlist: Playlist) => ({
       id: playlist.id,
@@ -114,6 +151,26 @@ export class ProfileComponent {
       songsCount: playlist.songIds.length,
       isLikedSongs: playlist.type === 'SYSTEM' && playlist.systemType === 'LIKED_SONGS',
     }));
+  });
+
+  readonly followedArtists = computed<FollowedArtistCard[]>(() => {
+    const user = this.currentUser();
+    if (!user?.id) return [];
+
+    const followedArtistIds = this.userLibrary()
+      .filter(item => item.userId === user.id && item.itemType === 'ARTIST')
+      .map(item => item.itemId);
+
+    return followedArtistIds
+      .map(artistId => this.artistsCatalog().find(artist => artist.id === artistId) ?? null)
+      .filter((artist): artist is StoredArtist => !!artist)
+      .map(artist => ({
+        id: artist.id,
+        name: artist.name,
+        photoUrl: artist.photoUrl || this.defaultAvatar,
+        typeLabel: 'Artista',
+        monthlyListeners: this.formatNumber(Number(artist.monthlyListeners) || 0),
+      }));
   });
 
   readonly publicPlaylistCount = computed(() => this.publicPlaylists().length);
@@ -219,6 +276,62 @@ export class ProfileComponent {
   }
 
   /* ===================== */
+  /* NAVEGACIÓN */
+  /* ===================== */
+  goToPlaylistDetail(playlistId: string): void {
+    if (!playlistId) return;
+    this.router.navigate(['/user/playlist', playlistId]);
+  }
+
+  goToArtistDetail(artistId: string, event?: MouseEvent): void {
+    event?.stopPropagation();
+    if (!artistId) return;
+
+    this.router.navigate(['/user/artist', artistId]);
+  }
+
+  /* ===================== */
+  /* PLAYBACK */
+  /* ===================== */
+  playArtist(artistId: string, event?: MouseEvent): void {
+    event?.stopPropagation();
+    if (!artistId) return;
+
+    const firstSong = this.songsCatalog()
+      .filter(song => song.artistId === artistId)
+      .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0))[0];
+
+    if (!firstSong) return;
+
+    const currentSong = this.playerState.currentSong();
+
+    if (
+      currentSong &&
+      currentSong.artistId === artistId &&
+      this.playerState.isPlaying()
+    ) {
+      this.playerState.pause();
+      return;
+    }
+
+    if (
+      currentSong &&
+      currentSong.artistId === artistId &&
+      !this.playerState.isPlaying()
+    ) {
+      this.playerState.resume();
+      return;
+    }
+
+    this.playerState.playSong(firstSong);
+  }
+
+  isArtistPlaying(artistId: string): boolean {
+    const currentSong = this.playerState.currentSong();
+    return !!currentSong && currentSong.artistId === artistId && this.playerState.isPlaying();
+  }
+
+  /* ===================== */
   /* GUARDAR PERFIL */
   /* ===================== */
   saveProfile(): void {
@@ -291,6 +404,22 @@ export class ProfileComponent {
     } catch {
       // noop
     }
+  }
+
+  private loadStorageArray<T>(storageKey: string): T[] {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return [];
+
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private formatNumber(value: number): string {
+    return new Intl.NumberFormat('en-US').format(value);
   }
 
   /* ===================== */

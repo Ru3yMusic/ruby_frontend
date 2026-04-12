@@ -79,7 +79,10 @@
     @if (publicPlaylists().length > 0) {
       <div class="profile-playlists-grid">
         @for (playlist of publicPlaylists(); track playlist.id) {
-          <article class="playlist-card">
+          <article
+            class="playlist-card"
+            (click)="goToPlaylistDetail(playlist.id)"
+          >
             <div class="playlist-card-cover-wrapper">
               <img
                 class="playlist-card-cover"
@@ -106,16 +109,37 @@
   <section class="profile-section">
     <h2 class="profile-section-title">Siguiendo</h2>
 
-    @if (mockFollowedArtists().length > 0) {
+    @if (followedArtists().length > 0) {
       <div class="following-grid">
-        @for (artist of mockFollowedArtists(); track artist.id) {
-          <article class="following-card">
+        @for (artist of followedArtists(); track artist.id) {
+          <article
+            class="following-card"
+            (click)="goToArtistDetail(artist.id)"
+          >
             <div class="following-card-image-wrapper">
               <img
                 class="following-card-image"
                 [src]="artist.photoUrl"
                 [alt]="artist.name"
               />
+
+              <div class="following-card-image-fade"></div>
+
+              <button
+                class="following-card-play-button"
+                type="button"
+                (click)="playArtist(artist.id, $event)"
+              >
+                <img
+                  class="following-card-play-icon"
+                  [src]="isArtistPlaying(artist.id)
+                    ? '/assets/icons/library-pause-main.png'
+                    : '/assets/icons/playlist-play-main.png'"
+                  [alt]="isArtistPlaying(artist.id)
+                    ? 'Pausar artista'
+                    : 'Reproducir artista'"
+                />
+              </button>
             </div>
 
             <h3 class="following-card-title">{{ artist.name }}</h3>
@@ -167,21 +191,22 @@
             Elegir foto
           </label>
 
-            <input
+          <input
             #profilePhotoInput
             id="profile-photo-input"
             class="profile-photo-input"
             type="file"
             accept="image/*"
             (change)="onSelectPhoto($event, profilePhotoInput)"
-            />
-            <button
+          />
+
+          <button
             class="profile-remove-photo-button"
             type="button"
             (click)="removeSelectedPhoto(profilePhotoInput)"
-            >
+          >
             Eliminar foto
-            </button>
+          </button>
         </div>
 
         <!-- FORM -->

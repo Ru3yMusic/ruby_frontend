@@ -74,7 +74,6 @@
 
           <div class="playlist-controls-left">
             @if (!isLikedSongsPlaylist()) {
-              <!-- 3 PUNTOS PLAYLIST NORMAL -->
               <div class="playlist-more-wrapper">
                 <button
                   class="playlist-more-button"
@@ -94,7 +93,7 @@
                       <button
                         class="playlist-more-menu-item"
                         type="button"
-                        (click)="addToPlaylist()"
+                        (click)="openAddSongsModal($event)"
                       >
                         <img
                           class="playlist-more-menu-icon"
@@ -104,6 +103,7 @@
                         <span>Agregar a esta playlist</span>
                       </button>
                     }
+
 
                     @if (canEditPlaylistIdentity()) {
                       <button
@@ -119,6 +119,8 @@
                         <span>Editar portada</span>
                       </button>
                     }
+
+
 
                     @if (canEditPlaylistPrivacy()) {
                       <button
@@ -155,7 +157,6 @@
             }
 
             @if (hasSongs()) {
-              <!-- SHUFFLE -->
               <button
                 class="playlist-shuffle-button"
                 type="button"
@@ -169,7 +170,6 @@
                 />
               </button>
 
-              <!-- VISIBILIDAD -->
               <span class="playlist-visibility-label">
                 {{ playlistVisibilityLabel() }}
               </span>
@@ -177,7 +177,6 @@
           </div>
 
           @if (hasSongs()) {
-            <!-- PLAY ROJO -->
             <button
               class="playlist-main-play-button"
               type="button"
@@ -194,15 +193,13 @@
           }
         </div>
 
-        <!-- ===================== -->
-        <!-- ESTADO INICIAL SIN CANCIONES -->
-        <!-- ===================== -->
+        <!-- SIN CANCIONES -->
         @if (!hasSongs() && canAddSongsManually()) {
           <div class="playlist-empty-main-action">
             <button
               class="playlist-big-add-button"
               type="button"
-              (click)="addToPlaylist()"
+              (click)="openAddSongsModal($event)"
             >
               <img
                 class="playlist-big-add-icon"
@@ -215,25 +212,15 @@
           </div>
         }
 
-        <!-- ===================== -->
-        <!-- ESTADO CON CANCIONES -->
-        <!-- ===================== -->
+        <!-- CON CANCIONES -->
         @if (hasSongs() && !isLikedSongsPlaylist()) {
           <div class="playlist-secondary-actions">
             <button
               class="playlist-secondary-button"
               type="button"
-              (click)="addToPlaylist()"
+              (click)="openAddSongsModal($event)"
             >
               Agregar
-            </button>
-
-            <button
-              class="playlist-secondary-button"
-              type="button"
-              (click)="editPlaylistOrder()"
-            >
-              Editar playlist
             </button>
           </div>
         }
@@ -266,7 +253,6 @@
             />
           </button>
 
-          <!-- cover -->
           <div class="playlist-song-cover-wrapper">
             <img
               class="playlist-song-cover"
@@ -275,29 +261,24 @@
             />
           </div>
 
-          <!-- info -->
           <div class="playlist-song-main-info">
             <p class="playlist-song-title">{{ song.title }}</p>
             <p class="playlist-song-artist">{{ song.artistName }}</p>
           </div>
 
-          <!-- album -->
           <div class="playlist-song-album">
             {{ song.albumTitle }}
           </div>
 
-          <!-- added -->
           <div class="playlist-song-added">
             {{ song.addedAgoLabel }}
           </div>
 
-          <!-- duration -->
           <div class="playlist-song-duration">
             {{ song.durationLabel }}
           </div>
 
           @if (isLikedSongsPlaylist()) {
-            <!-- corazón relleno para Tus me gusta -->
             <button
               class="playlist-song-liked-button"
               type="button"
@@ -311,7 +292,6 @@
             </button>
           }
 
-          <!-- more -->
           <div class="playlist-song-more-wrapper">
             <button
               class="playlist-song-more-button"
@@ -443,7 +423,6 @@
       @for (song of visibleRecommendedSongs(); track song.id) {
         <article class="playlist-recommendation-row">
 
-          <!-- cover -->
           <div class="playlist-recommendation-cover-wrapper">
             <img
               class="playlist-recommendation-cover"
@@ -473,16 +452,13 @@
                 [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
               />
             </button>
-
           </div>
 
-          <!-- info -->
           <div class="playlist-recommendation-main-info">
             <p class="playlist-recommendation-title">{{ song.title }}</p>
             <p class="playlist-recommendation-artist">{{ song.artistName }}</p>
           </div>
 
-          <!-- album -->
           <div class="playlist-recommendation-album">
             {{ song.albumTitle }}
           </div>
@@ -504,7 +480,6 @@
               />
             </button>
           } @else {
-            <!-- add -->
             <button
               class="playlist-recommendation-add-button"
               type="button"
@@ -561,7 +536,6 @@
 
       <div class="playlist-modal-body">
 
-        <!-- PREVIEW PORTADA -->
         <div class="playlist-modal-cover-column">
           <img
             class="playlist-modal-cover-preview"
@@ -591,7 +565,6 @@
           </button>
         </div>
 
-        <!-- FORM -->
         <div class="playlist-modal-form-column">
           <input
             class="playlist-modal-name-input"
@@ -620,6 +593,119 @@
         </div>
 
       </div>
+    </div>
+  </div>
+}
+
+<!-- ===================== -->
+<!-- MODAL AGREGAR A PLAYLIST -->
+<!-- ===================== -->
+@if (isAddSongsModalOpen()) {
+  <div class="playlist-add-songs-backdrop" (click)="closeAddSongsModal()">
+    <div class="playlist-add-songs-modal" (click)="$event.stopPropagation()">
+
+      <div class="playlist-add-songs-header">
+        <button
+          class="playlist-add-songs-back-button"
+          type="button"
+          (click)="closeAddSongsModal()"
+        >
+          ‹
+        </button>
+
+        <h2 class="playlist-add-songs-title">Agregar a playlist</h2>
+      </div>
+
+      <div class="playlist-add-songs-search">
+        <img
+          class="playlist-add-songs-search-icon"
+          src="/assets/icons/header-search.png"
+          alt="Buscar"
+        />
+
+        <input
+          class="playlist-add-songs-search-input"
+          type="text"
+          placeholder="Buscar"
+          [value]="addSongsSearchQuery()"
+          (input)="onAddSongsSearchInput($event)"
+        />
+      </div>
+
+      <div class="playlist-add-songs-tabs">
+        <button
+          class="playlist-add-songs-tab"
+          type="button"
+          [class.playlist-add-songs-tab--active]="activeAddSongsTab() === 'SUGGESTIONS'"
+          (click)="setAddSongsTab('SUGGESTIONS')"
+        >
+          Sugerencias
+        </button>
+
+        <button
+          class="playlist-add-songs-tab"
+          type="button"
+          [class.playlist-add-songs-tab--active]="activeAddSongsTab() === 'LIKED'"
+          (click)="setAddSongsTab('LIKED')"
+        >
+          Tus me gusta
+        </button>
+      </div>
+
+      <div class="playlist-add-songs-list">
+        @for (song of filteredAddSongsRows(); track song.id) {
+          <button
+            class="playlist-add-songs-item"
+            type="button"
+            (click)="togglePendingSongSelection(song.songId)"
+          >
+            <div class="playlist-add-songs-item-left">
+              <div class="playlist-add-songs-item-cover-wrapper">
+                <img
+                  class="playlist-add-songs-item-cover"
+                  [src]="song.coverUrl"
+                  [alt]="song.title"
+                />
+              </div>
+
+              <div class="playlist-add-songs-item-content">
+                <p class="playlist-add-songs-item-title">{{ song.title }}</p>
+                <p class="playlist-add-songs-item-subtitle">Canción • {{ song.artistName }}</p>
+              </div>
+            </div>
+
+            <div class="playlist-add-songs-item-action">
+              <img
+                class="playlist-add-songs-item-check"
+                [src]="isPendingSongSelected(song.songId)
+                  ? '/assets/icons/top-header-saved-filled.png'
+                  : '/assets/icons/top-header-save-outline.png'"
+                [alt]="isPendingSongSelected(song.songId)
+                  ? 'Seleccionada'
+                  : 'No seleccionada'"
+              />
+            </div>
+          </button>
+        }
+
+        @if (filteredAddSongsRows().length === 0) {
+          <div class="playlist-add-songs-empty">
+            <p class="playlist-add-songs-empty-title">No se encontraron canciones</p>
+            <p class="playlist-add-songs-empty-subtitle">Prueba con otro nombre</p>
+          </div>
+        }
+      </div>
+
+      <div class="playlist-add-songs-footer">
+        <button
+          class="playlist-add-songs-save-button"
+          type="button"
+          (click)="saveAddSongsSelection()"
+        >
+          Actualizar
+        </button>
+      </div>
+
     </div>
   </div>
 }
