@@ -7,6 +7,8 @@ export * from './lib/ruby-music-core-ui/atoms/otp-input-group/otp-input-group.co
 export * from './lib/ruby-music-core-ui/atoms/progress-dots/progress-dots.component';
 export * from './lib/ruby-music-core-ui/molecules/auth-layout/auth-layout.component';
 export * from './lib/ruby-music-core-ui/molecules/date-wheel-picker/date-wheel-picker.component';
+export * from './lib/ruby-music-core-ui/molecules/playlist-card/playlist-card.component';
+export * from './lib/ruby-music-core-ui/molecules/song-card/song-card.component';
 export * from './lib/ruby-music-core-ui/molecules/station-bubble/station-bubble.component';
 export * from './lib/ruby-music-core-ui/organisms/landing-hero/landing-hero.component';
 export * from './lib/ruby-music-core-ui/organisms/login-form/login-form.component';

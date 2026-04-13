@@ -1,0 +1,84 @@
+{
+  "$schema": "./node_modules/@openapitools/openapi-generator-cli/config.schema.json",
+  "spaces": 2,
+  "generator-cli": {
+    "version": "7.12.0",
+    "generators": {
+      "auth-service": {
+        "generatorName": "typescript-angular",
+        "inputSpec": "projects/lib-ruby-sdks/openapi-specs/api-auth-service.yml",
+        "output": "projects/lib-ruby-sdks/src/lib/auth-service",
+        "additionalProperties": {
+          "npmName": "auth-service-sdk",
+          "supportsES6": true,
+          "withInterfaces": true,
+          "providedInRoot": false,
+          "serviceSuffix": "Api",
+          "modelSuffix": "",
+          "fileNaming": "kebab-case",
+          "enumPropertyNaming": "UPPERCASE"
+        }
+      },
+      "catalog-service": {
+        "generatorName": "typescript-angular",
+        "inputSpec": "projects/lib-ruby-sdks/openapi-specs/api-catalog-service.yml",
+        "output": "projects/lib-ruby-sdks/src/lib/catalog-service",
+        "additionalProperties": {
+          "npmName": "catalog-service-sdk",
+          "supportsES6": true,
+          "withInterfaces": true,
+          "providedInRoot": false,
+          "serviceSuffix": "Api",
+          "modelSuffix": "",
+          "fileNaming": "kebab-case",
+          "enumPropertyNaming": "UPPERCASE"
+        }
+      },
+      "interaction-service": {
+        "generatorName": "typescript-angular",
+        "inputSpec": "projects/lib-ruby-sdks/openapi-specs/api-interaction-service.yml",
+        "output": "projects/lib-ruby-sdks/src/lib/interaction-service",
+        "additionalProperties": {
+          "npmName": "interaction-service-sdk",
+          "supportsES6": true,
+          "withInterfaces": true,
+          "providedInRoot": false,
+          "serviceSuffix": "Api",
+          "modelSuffix": "",
+          "fileNaming": "kebab-case",
+          "enumPropertyNaming": "UPPERCASE"
+        }
+      },
+      "playlist-service": {
+        "generatorName": "typescript-angular",
+        "inputSpec": "projects/lib-ruby-sdks/openapi-specs/api-playlist-service.yml",
+        "output": "projects/lib-ruby-sdks/src/lib/playlist-service",
+        "additionalProperties": {
+          "npmName": "playlist-service-sdk",
+          "supportsES6": true,
+          "withInterfaces": true,
+          "providedInRoot": false,
+          "serviceSuffix": "Api",
+          "modelSuffix": "",
+          "fileNaming": "kebab-case",
+          "enumPropertyNaming": "UPPERCASE"
+        }
+      },
+      "social-service": {
+        "generatorName": "typescript-angular",
+        "inputSpec": "projects/lib-ruby-sdks/openapi-specs/api-social-service.yaml",
+        "output": "projects/lib-ruby-sdks/src/lib/social-service",
+        "additionalProperties": {
+          "npmName": "social-service-sdk",
+          "supportsES6": true,
+          "withInterfaces": true,
+          "providedInRoot": false,
+          "serviceSuffix": "Api",
+          "modelSuffix": "",
+          "fileNaming": "kebab-case",
+          "enumPropertyNaming": "UPPERCASE"
+        }
+      }
+    }
+  }
+}

@@ -2,7 +2,9 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthState, CurrentUser } from '../../../ruby-auth-ui/auth/state/auth.state';
-import { Playlist } from '../../models/playlist.model';
+import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
+import { InteractionState } from '../../state/interaction.state';
+import { LibraryState } from '../../state/library.state';
 import { PlaylistState } from '../../state/playlist.state';
 import { PlayerState } from '../../state/player.state';
 
@@ -24,70 +26,6 @@ interface FollowedArtistCard {
   monthlyListeners: string;
 }
 
-interface AuthUserStorageItem {
-  id: string;
-  email: string;
-  password: string;
-  authProvider: 'EMAIL';
-  name: string;
-  birthDate: string;
-  gender: string;
-  avatarUrl: string | null;
-  role: 'ADMIN' | 'USER';
-  status: 'ACTIVE' | 'BLOCKED' | 'INACTIVE';
-  blockReason: string | null;
-  blockedAt: string | null;
-  onboardingCompleted: boolean;
-  selectedStationIds: string[];
-  createdAt: string;
-}
-
-interface AdminUserStorageItem {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl: string;
-  status: 'ACTIVO' | 'INACTIVO' | 'BLOQUEADO';
-  createdAt: string;
-  reportCount: number;
-  blockReason: string | null;
-  blockedAt: string | null;
-}
-
-interface LibraryItem {
-  id: string;
-  userId: string;
-  itemType: 'ARTIST' | 'ALBUM';
-  itemId: string;
-  addedAt: string;
-}
-
-interface StoredArtist {
-  id: string;
-  name: string;
-  photoUrl: string;
-  bio: string;
-  isTop: boolean;
-  followersCount: string;
-  monthlyListeners: string;
-  createdAt: string;
-}
-
-interface StoredSong {
-  id: string;
-  title: string;
-  artistId: string;
-  albumId: string | null;
-  genreId: string;
-  coverUrl: string;
-  audioUrl: string;
-  durationSeconds: number;
-  lyrics: string | null;
-  playCount: number;
-  likesCount: number;
-  createdAt: string;
-}
-
 @Component({
   selector: 'app-profile',
   standalone: true,
@@ -100,12 +38,8 @@ export class ProfileComponent {
   private readonly playlistState = inject(PlaylistState);
   private readonly playerState = inject(PlayerState);
   private readonly router = inject(Router);
-
-  private readonly AUTH_USERS_KEY = 'ruby_auth_users';
-  private readonly ADMIN_USERS_KEY = 'ruby_users';
-  private readonly USER_LIBRARY_KEY = 'ruby_user_library';
-  private readonly ARTISTS_KEY = 'ruby_artists';
-  private readonly SONGS_KEY = 'ruby_songs';
+  private readonly libraryState = inject(LibraryState);
+  private readonly interactionState = inject(InteractionState);
 
   private readonly defaultTopColor = '#5b5b5b';
   private readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
@@ -118,10 +52,6 @@ export class ProfileComponent {
   readonly editName = signal('');
   readonly tempAvatarUrl = signal<string | null>(null);
   readonly headerAccentColor = signal(this.defaultTopColor);
-
-  private readonly userLibrary = signal<LibraryItem[]>(this.loadStorageArray<LibraryItem>(this.USER_LIBRARY_KEY));
-  private readonly artistsCatalog = signal<StoredArtist[]>(this.loadStorageArray<StoredArtist>(this.ARTISTS_KEY));
-  private readonly songsCatalog = signal<StoredSong[]>(this.loadStorageArray<StoredSong>(this.SONGS_KEY));
 
   readonly displayName = computed(() => {
     const user = this.currentUser();
@@ -139,32 +69,27 @@ export class ProfileComponent {
     const playlists = this.playlistState
       .getPublicPlaylistsByUser(user.id)
       .filter(
-        playlist => !(playlist.type === 'SYSTEM' && playlist.systemType === 'LIKED_SONGS')
+        playlist => !(playlist.isSystem === true)
       );
 
-    return playlists.map((playlist: Playlist) => ({
-      id: playlist.id,
-      title: playlist.name,
-      coverUrl: playlist.coverUrl,
+    return playlists.map((playlist: PlaylistResponse) => ({
+      id: playlist.id!,
+      title: playlist.name!,
+      coverUrl: playlist.coverUrl ?? null,
       ownerName: user.name,
-      isPublic: playlist.visibility === 'PUBLIC',
-      songsCount: playlist.songIds.length,
-      isLikedSongs: playlist.type === 'SYSTEM' && playlist.systemType === 'LIKED_SONGS',
+      isPublic: playlist.isPublic === true,
+      songsCount: playlist.songCount ?? 0,
+      isLikedSongs: playlist.isSystem === true,
     }));
   });
 
   readonly followedArtists = computed<FollowedArtistCard[]>(() => {
-    const user = this.currentUser();
-    if (!user?.id) return [];
-
-    const followedArtistIds = this.userLibrary()
-      .filter(item => item.userId === user.id && item.itemType === 'ARTIST')
-      .map(item => item.itemId);
+    const followedArtistIds = this.interactionState.libraryArtistIds();
 
     return followedArtistIds
-      .map(artistId => this.artistsCatalog().find(artist => artist.id === artistId) ?? null)
-      .filter((artist): artist is StoredArtist => !!artist)
-      .map(artist => ({
+      .map(artistId => (this.libraryState.artists() as any[]).find((artist: any) => artist.id === artistId) ?? null)
+      .filter((artist): artist is any => !!artist)
+      .map((artist: any) => ({
         id: artist.id,
         name: artist.name,
         photoUrl: artist.photoUrl || this.defaultAvatar,
@@ -194,7 +119,7 @@ export class ProfileComponent {
     this.tempAvatarUrl.set(user?.avatarUrl ?? null);
 
     if (user?.id) {
-      this.playlistState.ensureLikedSongsPlaylist(user.id);
+      this.playlistState.loadPlaylists();
     }
 
     if (user?.avatarUrl) {
@@ -297,9 +222,9 @@ export class ProfileComponent {
     event?.stopPropagation();
     if (!artistId) return;
 
-    const firstSong = this.songsCatalog()
-      .filter(song => song.artistId === artistId)
-      .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0))[0];
+    const firstSong = (this.libraryState.songs() as any[])
+      .filter((song: any) => song.artistId === artistId)
+      .sort((a: any, b: any) => (b.playCount ?? 0) - (a.playCount ?? 0))[0];
 
     if (!firstSong) return;
 
@@ -307,7 +232,7 @@ export class ProfileComponent {
 
     if (
       currentSong &&
-      currentSong.artistId === artistId &&
+      (currentSong as any).artistId === artistId &&
       this.playerState.isPlaying()
     ) {
       this.playerState.pause();
@@ -316,19 +241,19 @@ export class ProfileComponent {
 
     if (
       currentSong &&
-      currentSong.artistId === artistId &&
+      (currentSong as any).artistId === artistId &&
       !this.playerState.isPlaying()
     ) {
       this.playerState.resume();
       return;
     }
 
-    this.playerState.playSong(firstSong);
+    this.playerState.playSong(firstSong as any);
   }
 
   isArtistPlaying(artistId: string): boolean {
     const currentSong = this.playerState.currentSong();
-    return !!currentSong && currentSong.artistId === artistId && this.playerState.isPlaying();
+    return !!currentSong && (currentSong as any).artistId === artistId && this.playerState.isPlaying();
   }
 
   /* ===================== */
@@ -348,8 +273,6 @@ export class ProfileComponent {
       avatarUrl: nextAvatarUrl,
     };
 
-    this.persistAuthUser(updatedCurrentUser);
-    this.persistAdminUser(updatedCurrentUser);
     this.authState.setCurrentUser(updatedCurrentUser);
 
     if (nextAvatarUrl) {
@@ -362,62 +285,8 @@ export class ProfileComponent {
   }
 
   /* ===================== */
-  /* STORAGE SYNC */
+  /* HELPERS */
   /* ===================== */
-  private persistAuthUser(user: CurrentUser): void {
-    try {
-      const raw = localStorage.getItem(this.AUTH_USERS_KEY);
-      const items: AuthUserStorageItem[] = raw ? JSON.parse(raw) : [];
-
-      const updated = items.map(item =>
-        item.id === user.id
-          ? {
-              ...item,
-              name: user.name,
-              avatarUrl: user.avatarUrl,
-            }
-          : item
-      );
-
-      localStorage.setItem(this.AUTH_USERS_KEY, JSON.stringify(updated));
-    } catch {
-      // noop
-    }
-  }
-
-  private persistAdminUser(user: CurrentUser): void {
-    try {
-      const raw = localStorage.getItem(this.ADMIN_USERS_KEY);
-      const items: AdminUserStorageItem[] = raw ? JSON.parse(raw) : [];
-
-      const updated = items.map(item =>
-        item.id === user.id
-          ? {
-              ...item,
-              name: user.name,
-              avatarUrl: user.avatarUrl ?? '',
-            }
-          : item
-      );
-
-      localStorage.setItem(this.ADMIN_USERS_KEY, JSON.stringify(updated));
-    } catch {
-      // noop
-    }
-  }
-
-  private loadStorageArray<T>(storageKey: string): T[] {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return [];
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
-    }
-  }
-
   private formatNumber(value: number): string {
     return new Intl.NumberFormat('en-US').format(value);
   }

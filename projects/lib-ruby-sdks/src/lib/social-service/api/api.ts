@@ -1,0 +1,10 @@
+export * from './artist-follows.service';
+import { ArtistFollowsApi } from './artist-follows.service';
+export * from './artist-follows.serviceInterface';
+export * from './friendships.service';
+import { FriendshipsApi } from './friendships.service';
+export * from './friendships.serviceInterface';
+export * from './reports.service';
+import { ReportsApi } from './reports.service';
+export * from './reports.serviceInterface';
+export const APIS = [ArtistFollowsApi, FriendshipsApi, ReportsApi];

@@ -67,7 +67,7 @@ readonly friends = computed<FriendListItem[]>(() => {
     const friend = this.selectedFriend();
     if (!friend) return;
 
-    this.friendsState.removeFriendship(friend.id);
+    this.friendsState.removeFriend(friend.id);
     this.closeRemoveFriendModal();
     this.showToast('Amigo eliminado de tu lista');
   }

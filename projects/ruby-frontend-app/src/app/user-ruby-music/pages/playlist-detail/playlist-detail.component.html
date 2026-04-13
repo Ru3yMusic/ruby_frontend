@@ -335,7 +335,7 @@
                       <button
                         class="playlist-song-more-menu-item"
                         type="button"
-                        (click)="addSongToExistingPlaylist(pl.id, song.songId, $event)"
+                        (click)="addSongToExistingPlaylist(pl.id!, song.songId, $event)"
                       >
                         <span>{{ pl.name }}</span>
                       </button>

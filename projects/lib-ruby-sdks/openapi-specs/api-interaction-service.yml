@@ -1,0 +1,495 @@
+openapi: 3.0.3
+info:
+  title: Interaction Service API
+  description: |
+    Manages all user interactions with the catalog: genre/artist preferences (onboarding),
+    song likes, hidden songs per album, personal library, and play history.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8083
+    description: Local development
+  - url: http://localhost:8080/api/v1/interactions
+    description: Via API Gateway
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Preferences
+    description: Onboarding and genre/artist/station preferences
+  - name: Song Interactions
+    description: Likes and hidden songs
+  - name: Library
+    description: Saved albums and artists
+  - name: Play History
+  - name: Internal
+    description: Service-to-service endpoints (require SERVICE-role JWT)
+
+paths:
+
+  # ── Preferences ──────────────────────────────────────────────────────────────
+
+  /api/v1/interactions/preferences/genres:
+    get:
+      tags: [Preferences]
+      operationId: getGenrePreferences
+      summary: Get selected genre IDs for the authenticated user
+      responses:
+        '200':
+          description: List of genre UUIDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+    post:
+      tags: [Preferences]
+      operationId: saveGenrePreferences
+      summary: Save genre preferences (replaces existing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UuidListRequest'
+      responses:
+        '204':
+          description: Preferences saved
+
+  /api/v1/interactions/preferences/artists:
+    get:
+      tags: [Preferences]
+      operationId: getArtistPreferences
+      summary: Get selected artist IDs for the authenticated user
+      responses:
+        '200':
+          description: List of artist UUIDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+    post:
+      tags: [Preferences]
+      operationId: saveArtistPreferences
+      summary: Save artist preferences (replaces existing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UuidListRequest'
+      responses:
+        '204':
+          description: Preferences saved
+
+  /api/v1/interactions/preferences/stations:
+    get:
+      tags: [Preferences]
+      operationId: getStationPreferences
+      summary: Get selected station IDs for the authenticated user
+      responses:
+        '200':
+          description: List of station UUIDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+    post:
+      tags: [Preferences]
+      operationId: saveStationPreferences
+      summary: Save station preferences (replaces existing — used in onboarding picker)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UuidListRequest'
+      responses:
+        '204':
+          description: Preferences saved
+
+  # ── Song Likes ───────────────────────────────────────────────────────────────
+
+  /api/v1/interactions/songs/{songId}/like:
+    post:
+      tags: [Song Interactions]
+      operationId: likeSong
+      summary: Like a song
+      parameters:
+        - $ref: '#/components/parameters/SongIdParam'
+      responses:
+        '204':
+          description: Song liked (idempotent)
+    delete:
+      tags: [Song Interactions]
+      operationId: unlikeSong
+      summary: Unlike a song
+      parameters:
+        - $ref: '#/components/parameters/SongIdParam'
+      responses:
+        '204':
+          description: Like removed
+
+  /api/v1/interactions/songs/{songId}/like/status:
+    get:
+      tags: [Song Interactions]
+      operationId: getLikeStatus
+      summary: Check if the authenticated user has liked a song
+      parameters:
+        - $ref: '#/components/parameters/SongIdParam'
+      responses:
+        '200':
+          description: Like status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LikeStatusResponse'
+
+  /api/v1/interactions/songs/liked:
+    get:
+      tags: [Song Interactions]
+      operationId: getLikedSongs
+      summary: Get liked song IDs (paginated)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of liked song UUIDs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UuidPage'
+
+  # ── Hidden Songs ─────────────────────────────────────────────────────────────
+
+  /api/v1/interactions/albums/{albumId}/songs/{songId}/hide:
+    post:
+      tags: [Song Interactions]
+      operationId: hideSong
+      summary: Hide a song within a specific album
+      parameters:
+        - $ref: '#/components/parameters/AlbumIdParam'
+        - $ref: '#/components/parameters/SongIdParam'
+      responses:
+        '204':
+          description: Song hidden (idempotent)
+    delete:
+      tags: [Song Interactions]
+      operationId: unhideSong
+      summary: Unhide a song (Undo)
+      parameters:
+        - $ref: '#/components/parameters/AlbumIdParam'
+        - $ref: '#/components/parameters/SongIdParam'
+      responses:
+        '204':
+          description: Song visible again
+
+  /api/v1/interactions/albums/{albumId}/hidden-songs:
+    get:
+      tags: [Song Interactions]
+      operationId: getHiddenSongs
+      summary: Get hidden song IDs for an album
+      parameters:
+        - $ref: '#/components/parameters/AlbumIdParam'
+      responses:
+        '200':
+          description: List of hidden song UUIDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+
+  # ── Library ──────────────────────────────────────────────────────────────────
+
+  /api/v1/interactions/library:
+    get:
+      tags: [Library]
+      operationId: getLibrary
+      summary: Get library items by type (ALBUM or ARTIST)
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/LibraryItemType'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of item UUIDs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UuidPage'
+    post:
+      tags: [Library]
+      operationId: addToLibrary
+      summary: Add an item to the library
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LibraryRequest'
+      responses:
+        '204':
+          description: Item added (idempotent)
+
+  /api/v1/interactions/library/{type}/{itemId}:
+    delete:
+      tags: [Library]
+      operationId: removeFromLibrary
+      summary: Remove an item from the library
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/LibraryItemType'
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Item removed
+
+  # ── Play History ─────────────────────────────────────────────────────────────
+
+  /api/v1/interactions/play-history:
+    get:
+      tags: [Play History]
+      operationId: getPlayHistory
+      summary: Get play history for the authenticated user (paginated)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of play history entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayHistoryPage'
+    post:
+      tags: [Play History]
+      operationId: recordPlay
+      summary: Record a song play
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordPlayRequest'
+      responses:
+        '204':
+          description: Play recorded
+
+  # ── Internal (service-to-service) ────────────────────────────────────────────
+
+  /api/internal/v1/users/{userId}/likes:
+    get:
+      tags: [Internal]
+      operationId: getUserLikes
+      summary: Get liked song IDs for a user (service-to-service)
+      security:
+        - ServiceJwt: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated list of liked song UUIDs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLikesInternalResponse'
+
+# ── Components ────────────────────────────────────────────────────────────────
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ServiceJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: SERVICE-role JWT required (issued by auth-service)
+
+  parameters:
+    UserIdParam:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SongIdParam:
+      name: songId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AlbumIdParam:
+      name: albumId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 0
+    SizeParam:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 20
+
+  schemas:
+
+    UuidListRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+
+    LikeStatusResponse:
+      type: object
+      properties:
+        liked:
+          type: boolean
+
+    UuidPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: string
+            format: uuid
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    LibraryItemType:
+      type: string
+      enum: [ALBUM, ARTIST]
+
+    LibraryRequest:
+      type: object
+      required: [type, itemId]
+      properties:
+        type:
+          $ref: '#/components/schemas/LibraryItemType'
+        itemId:
+          type: string
+          format: uuid
+
+    RecordPlayRequest:
+      type: object
+      required: [songId, durationPlayedSeconds]
+      properties:
+        songId:
+          type: string
+          format: uuid
+        durationPlayedSeconds:
+          type: integer
+          minimum: 0
+
+    PlayHistoryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        songId:
+          type: string
+          format: uuid
+        playedAt:
+          type: string
+          format: date-time
+        durationPlayed:
+          type: integer
+
+    PlayHistoryPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayHistoryResponse'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    UserLikesInternalResponse:
+      type: object
+      properties:
+        songIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string

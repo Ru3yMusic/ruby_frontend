@@ -148,7 +148,7 @@
                           <button
                             class="album-card__submenu-item"
                             type="button"
-                            (click)="addAlbumToExistingPlaylist(playlist.id, album.id, $event)"
+                            (click)="addAlbumToExistingPlaylist(playlist.id!, album.id!, $event)"
                           >
                             {{ playlist.name }}
                           </button>
@@ -296,7 +296,7 @@
                         <button
                           class="listen-now-row__submenu-item"
                           type="button"
-                          (click)="addSongToExistingPlaylist(playlist.id, song.songId, $event)"
+                          (click)="addSongToExistingPlaylist(playlist.id!, song.songId, $event)"
                         >
                           {{ playlist.name }}
                         </button>

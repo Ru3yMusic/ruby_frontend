@@ -1,0 +1,335 @@
+openapi: 3.0.3
+info:
+  title: Playlist Service API
+  description: |
+    Manages user playlists: creation, editing, song management (add/remove/reorder)
+    and the system "Tus me gusta" playlist.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8084
+    description: Local development
+  - url: http://localhost:8080/api/v1/playlists
+    description: Via API Gateway
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Playlists
+  - name: Playlist Songs
+
+paths:
+
+  /api/v1/playlists:
+    post:
+      tags: [Playlists]
+      operationId: createPlaylist
+      summary: Create a new playlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlaylistRequest'
+      responses:
+        '201':
+          description: Playlist created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistResponse'
+
+  /api/v1/playlists/my:
+    get:
+      tags: [Playlists]
+      operationId: getMyPlaylists
+      summary: List all playlists owned by the authenticated user
+      responses:
+        '200':
+          description: List of playlists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlaylistResponse'
+
+  /api/v1/playlists/{id}:
+    get:
+      tags: [Playlists]
+      operationId: getPlaylistById
+      summary: Get playlist by ID
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Playlist found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistResponse'
+        '404':
+          description: Not found
+    put:
+      tags: [Playlists]
+      operationId: updatePlaylist
+      summary: Update playlist metadata
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlaylistRequest'
+      responses:
+        '200':
+          description: Playlist updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistResponse'
+    delete:
+      tags: [Playlists]
+      operationId: deletePlaylist
+      summary: Soft-delete a playlist
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Playlist deleted (soft)
+
+  /api/v1/playlists/{id}/songs:
+    get:
+      tags: [Playlist Songs]
+      operationId: getPlaylistSongs
+      summary: Get songs in a playlist ordered by position
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: List of playlist songs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlaylistSongResponse'
+    post:
+      tags: [Playlist Songs]
+      operationId: addSongToPlaylist
+      summary: Add a song to a playlist
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddSongRequest'
+      responses:
+        '201':
+          description: Song added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistSongResponse'
+        '409':
+          description: Song already in playlist
+
+  /api/v1/playlists/{id}/songs/{songId}:
+    delete:
+      tags: [Playlist Songs]
+      operationId: removeSongFromPlaylist
+      summary: Remove a song from a playlist
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: songId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Song removed
+
+  /api/v1/playlists/{id}/songs/reorder:
+    put:
+      tags: [Playlist Songs]
+      operationId: reorderSongs
+      summary: Reorder all songs in a playlist (drag & drop)
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderSongsRequest'
+      responses:
+        '204':
+          description: Songs reordered
+
+  # ── Internal service-to-service endpoints (ROLE_SERVICE required) ────────────
+
+  /api/internal/v1/playlists/system/songs:
+    post:
+      tags: [Internal]
+      operationId: addSongToSystemPlaylistInternal
+      summary: Add a song to the user's "Tus me gusta" system playlist
+      description: |
+        Called by interaction-service when a user likes a song.
+        Creates the system playlist if it does not exist yet (idempotent).
+        Requires a SERVICE JWT (ROLE_SERVICE).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemSongRequest'
+      responses:
+        '200':
+          description: Song added to system playlist (or already present)
+        '401':
+          description: Missing or invalid JWT
+        '403':
+          description: Insufficient role (USER token used on SERVICE endpoint)
+
+# ── Components ────────────────────────────────────────────────────────────────
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+
+    CreatePlaylistRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        isPublic:
+          type: boolean
+          default: true
+
+    UpdatePlaylistRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        coverUrl:
+          type: string
+        isPublic:
+          type: boolean
+
+    AddSongRequest:
+      type: object
+      required: [songId]
+      properties:
+        songId:
+          type: string
+          format: uuid
+
+    ReorderSongsRequest:
+      type: object
+      required: [orderedSongIds]
+      properties:
+        orderedSongIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    PlaylistResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        coverUrl:
+          type: string
+        isPublic:
+          type: boolean
+        isSystem:
+          type: boolean
+        songCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PlaylistSongResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        songId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        addedAt:
+          type: string
+          format: date-time
+
+    SystemSongRequest:
+      type: object
+      required: [userId, songId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: ID of the user whose system playlist will be updated
+        songId:
+          type: string
+          format: uuid
+          description: ID of the song to add
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string

@@ -2,55 +2,12 @@ import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
-import { Playlist } from '../../models/playlist.model';
 import { PlayerState } from '../../state/player.state';
 import { PlaylistState } from '../../state/playlist.state';
-
-interface LibraryItem {
-  id: string;
-  userId: string;
-  itemType: 'ARTIST' | 'ALBUM';
-  itemId: string;
-  addedAt: string;
-}
-
-interface StoredArtist {
-  id: string;
-  name: string;
-  photoUrl: string;
-  bio: string;
-  isTop: boolean;
-  followersCount: string;
-  monthlyListeners: string;
-  createdAt: string;
-}
-
-interface StoredAlbum {
-  id: string;
-  title: string;
-  artistId: string;
-  coverUrl: string;
-  releaseDate: string;
-  songsCount: number;
-  totalStreams: string;
-  createdAt: string;
-}
-
-interface StoredSong {
-  id: string;
-  title: string;
-  artistId: string;
-  albumId: string | null;
-  genreId: string;
-  coverUrl: string;
-  audioUrl: string;
-  durationSeconds: number;
-  lyrics: string | null;
-  playCount: number;
-  likesCount: number;
-  createdAt: string;
-}
+import { LibraryState } from '../../state/library.state';
+import { InteractionState } from '../../state/interaction.state';
 
 interface PopularSongRow {
   id: string;
@@ -94,12 +51,9 @@ export class ArtistDetailComponent {
   private readonly authState = inject(AuthState);
   private readonly playlistState = inject(PlaylistState);
   private readonly playerState = inject(PlayerState);
+  private readonly libraryState = inject(LibraryState);
+  private readonly interactionState = inject(InteractionState);
   private readonly destroyRef = inject(DestroyRef);
-
-  private readonly ARTISTS_KEY = 'ruby_artists';
-  private readonly ALBUMS_KEY = 'ruby_albums';
-  private readonly SONGS_KEY = 'ruby_songs';
-  private readonly USER_LIBRARY_KEY = 'ruby_user_library';
 
   private readonly defaultTopColor = '#242424';
   private readonly defaultArtistPhoto = '/assets/icons/avatar-placeholder.png';
@@ -109,7 +63,6 @@ export class ArtistDetailComponent {
   readonly artistId = signal(this.route.snapshot.paramMap.get('id') ?? '');
 
   readonly showAllPopularSongs = signal(false);
-
   readonly isArtistMenuOpen = signal(false);
 
   readonly openSongMenuId = signal<string | null>(null);
@@ -122,16 +75,10 @@ export class ArtistDetailComponent {
 
   readonly headerAccentColor = signal(this.defaultTopColor);
 
-  private readonly artistsCatalog = signal<StoredArtist[]>(this.loadStorageArray<StoredArtist>(this.ARTISTS_KEY));
-  private readonly albumsCatalog = signal<StoredAlbum[]>(this.loadStorageArray<StoredAlbum>(this.ALBUMS_KEY));
-  private readonly songsCatalog = signal<StoredSong[]>(this.loadStorageArray<StoredSong>(this.SONGS_KEY));
-  private readonly userLibrary = signal<LibraryItem[]>(this.loadStorageArray<LibraryItem>(this.USER_LIBRARY_KEY));
-
-  readonly currentArtist = computed<StoredArtist | null>(() => {
+  readonly currentArtist = computed<any>(() => {
     const id = this.artistId();
     if (!id) return null;
-
-    return this.artistsCatalog().find(artist => artist.id === id) ?? null;
+    return (this.libraryState.artists() as any[]).find(artist => artist.id === id) ?? null;
   });
 
   readonly displayArtistName = computed(() => {
@@ -145,7 +92,6 @@ export class ArtistDetailComponent {
   readonly monthlyListenersLabel = computed(() => {
     const raw = this.currentArtist()?.monthlyListeners ?? '0';
     const value = Number(raw) || 0;
-
     return `${this.formatNumber(value)} oyentes mensuales`;
   });
 
@@ -154,16 +100,15 @@ export class ArtistDetailComponent {
     return `linear-gradient(180deg, ${color} 0%, ${color} 28%, #141414 62%, #090909 100%)`;
   });
 
-  readonly allArtistSongs = computed<StoredSong[]>(() => {
+  readonly allArtistSongs = computed<any[]>(() => {
     const artist = this.currentArtist();
     if (!artist) return [];
 
-    return this.songsCatalog()
+    return (this.libraryState.songs() as any[])
       .filter(song => song.artistId === artist.id)
       .sort((a, b) => {
         const diff = (b.playCount ?? 0) - (a.playCount ?? 0);
         if (diff !== 0) return diff;
-
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       })
       .slice(0, 10);
@@ -173,13 +118,9 @@ export class ArtistDetailComponent {
     const user = this.currentUser();
     const songs = this.allArtistSongs();
 
-    const likedPlaylist = user?.id
-      ? this.playlistState.getLikedSongsPlaylist(user.id) ?? this.playlistState.ensureLikedSongsPlaylist(user.id)
-      : undefined;
-
     return songs.map((song, index) => {
       const album = song.albumId
-        ? this.albumsCatalog().find(item => item.id === song.albumId)
+        ? (this.libraryState.albums() as any[]).find(item => item.id === song.albumId)
         : null;
 
       return {
@@ -195,7 +136,7 @@ export class ArtistDetailComponent {
         playCount: song.playCount ?? 0,
         playCountLabel: this.formatNumber(song.playCount ?? 0),
         durationLabel: this.formatDuration(song.durationSeconds),
-        isLiked: likedPlaylist?.songIds.includes(song.id) ?? false,
+        isLiked: this.interactionState.isSongLiked(song.id ?? ''),
       };
     });
   });
@@ -206,14 +147,13 @@ export class ArtistDetailComponent {
   });
 
   readonly canTogglePopularSongs = computed(() => this.popularSongs().length > 5);
-
   readonly hasArtistSongs = computed(() => this.popularSongs().length > 0);
 
   readonly artistAlbums = computed<ArtistAlbumCard[]>(() => {
     const artist = this.currentArtist();
     if (!artist) return [];
 
-    return this.albumsCatalog()
+    return (this.libraryState.albums() as any[])
       .filter(album => album.artistId === artist.id)
       .sort((a, b) => new Date(b.releaseDate || b.createdAt).getTime() - new Date(a.releaseDate || a.createdAt).getTime())
       .slice(0, 6)
@@ -231,7 +171,7 @@ export class ArtistDetailComponent {
     const currentArtist = this.currentArtist();
     if (!currentArtist) return [];
 
-    return this.artistsCatalog()
+    return (this.libraryState.artists() as any[])
       .filter(artist => artist.id !== currentArtist.id)
       .slice(0, 6)
       .map(artist => ({
@@ -243,25 +183,16 @@ export class ArtistDetailComponent {
 
   readonly hasRelatedArtists = computed(() => this.relatedArtists().length > 0);
 
-  readonly customPlaylists = computed<Playlist[]>(() => {
+  readonly customPlaylists = computed<PlaylistResponse[]>(() => {
     const user = this.currentUser();
     if (!user?.id) return [];
-
     return this.playlistState.getCustomPlaylistsByUser(user.id);
   });
 
   readonly isArtistFollowed = computed(() => {
-    const user = this.currentUser();
     const artist = this.currentArtist();
-
-    if (!user?.id || !artist?.id) return false;
-
-    return this.userLibrary().some(
-      item =>
-        item.userId === user.id &&
-        item.itemType === 'ARTIST' &&
-        item.itemId === artist.id
-    );
+    if (!artist?.id) return false;
+    return this.interactionState.isArtistInLibrary(artist.id);
   });
 
   constructor() {
@@ -304,80 +235,34 @@ export class ArtistDetailComponent {
   /* FOLLOW / LIBRARY */
   /* ===================== */
   toggleFollowArtist(): void {
-    const user = this.currentUser();
     const artist = this.currentArtist();
-
-    if (!user?.id || !artist?.id) return;
+    if (!artist?.id) return;
 
     if (this.isArtistFollowed()) {
-      const updated = this.userLibrary().filter(
-        item =>
-          !(
-            item.userId === user.id &&
-            item.itemType === 'ARTIST' &&
-            item.itemId === artist.id
-          )
-      );
-
-      this.persistUserLibrary(updated);
+      this.interactionState.removeArtistFromLibrary(artist.id);
       this.isArtistMenuOpen.set(false);
       return;
     }
 
-    const newItem: LibraryItem = {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      itemType: 'ARTIST',
-      itemId: artist.id,
-      addedAt: new Date().toISOString(),
-    };
-
-    this.persistUserLibrary([...this.userLibrary(), newItem]);
+    this.interactionState.addArtistToLibrary(artist.id);
     this.isArtistMenuOpen.set(false);
   }
 
   isRelatedArtistFollowed(artistId: string): boolean {
-    const user = this.currentUser();
-    if (!user?.id || !artistId) return false;
-
-    return this.userLibrary().some(
-      item =>
-        item.userId === user.id &&
-        item.itemType === 'ARTIST' &&
-        item.itemId === artistId
-    );
+    return this.interactionState.isArtistInLibrary(artistId);
   }
 
   toggleFollowRelatedArtist(artistId: string, event?: MouseEvent): void {
     event?.stopPropagation();
-
-    const user = this.currentUser();
-    if (!user?.id || !artistId) return;
+    if (!artistId) return;
 
     if (this.isRelatedArtistFollowed(artistId)) {
-      const updated = this.userLibrary().filter(
-        item =>
-          !(
-            item.userId === user.id &&
-            item.itemType === 'ARTIST' &&
-            item.itemId === artistId
-          )
-      );
-
-      this.persistUserLibrary(updated);
+      this.interactionState.removeArtistFromLibrary(artistId);
       this.closeRelatedArtistMenu();
       return;
     }
 
-    const newItem: LibraryItem = {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      itemType: 'ARTIST',
-      itemId: artistId,
-      addedAt: new Date().toISOString(),
-    };
-
-    this.persistUserLibrary([...this.userLibrary(), newItem]);
+    this.interactionState.addArtistToLibrary(artistId);
     this.closeRelatedArtistMenu();
   }
 
@@ -412,7 +297,7 @@ export class ArtistDetailComponent {
   }
 
   playSong(songRow: PopularSongRow): void {
-    const storedSong = this.songsCatalog().find(song => song.id === songRow.songId);
+    const storedSong = (this.libraryState.songs() as any[]).find(song => song.id === songRow.songId);
     if (!storedSong) return;
 
     if (this.isSongPlaying(songRow.songId)) {
@@ -420,13 +305,13 @@ export class ArtistDetailComponent {
       return;
     }
 
-    this.playerState.playSong(storedSong);
+    this.playerState.playSong(storedSong as any);
   }
 
   playAlbum(albumId: string, event?: MouseEvent): void {
     event?.stopPropagation();
 
-    const firstSong = this.songsCatalog().find(song => song.albumId === albumId);
+    const firstSong = (this.libraryState.songs() as any[]).find(song => song.albumId === albumId);
     if (!firstSong) return;
 
     if (this.isAlbumPlaying(albumId)) {
@@ -434,13 +319,13 @@ export class ArtistDetailComponent {
       return;
     }
 
-    this.playerState.playSong(firstSong);
+    this.playerState.playSong(firstSong as any);
   }
 
   playRelatedArtist(artistId: string, event?: MouseEvent): void {
     event?.stopPropagation();
 
-    const firstSong = this.songsCatalog()
+    const firstSong = (this.libraryState.songs() as any[])
       .filter(song => song.artistId === artistId)
       .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0))[0];
 
@@ -451,27 +336,27 @@ export class ArtistDetailComponent {
       return;
     }
 
-    this.playerState.playSong(firstSong);
+    this.playerState.playSong(firstSong as any);
   }
 
   isArtistPlaying(): boolean {
     const currentSong = this.playerState.currentSong();
-    return !!currentSong && currentSong.artistId === this.artistId() && this.playerState.isPlaying();
+    return !!currentSong && (currentSong as any).artistId === this.artistId() && this.playerState.isPlaying();
   }
 
   isSongPlaying(songId: string): boolean {
     const currentSong = this.playerState.currentSong();
-    return !!currentSong && currentSong.id === songId && this.playerState.isPlaying();
+    return !!currentSong && (currentSong as any).id === songId && this.playerState.isPlaying();
   }
 
   isAlbumPlaying(albumId: string): boolean {
     const currentSong = this.playerState.currentSong();
-    return !!currentSong && currentSong.albumId === albumId && this.playerState.isPlaying();
+    return !!currentSong && (currentSong as any).albumId === albumId && this.playerState.isPlaying();
   }
 
   isRelatedArtistPlaying(artistId: string): boolean {
     const currentSong = this.playerState.currentSong();
-    return !!currentSong && currentSong.artistId === artistId && this.playerState.isPlaying();
+    return !!currentSong && (currentSong as any).artistId === artistId && this.playerState.isPlaying();
   }
 
   /* ===================== */
@@ -520,26 +405,15 @@ export class ArtistDetailComponent {
   /* LIKED SONGS */
   /* ===================== */
   isSongLiked(songId: string): boolean {
-    const user = this.currentUser();
-    if (!user?.id) return false;
-
-    const likedPlaylist = this.playlistState.getLikedSongsPlaylist(user.id)
-      ?? this.playlistState.ensureLikedSongsPlaylist(user.id);
-
-    return likedPlaylist.songIds.includes(songId);
+    return this.interactionState.isSongLiked(songId);
   }
 
   toggleSongLike(songId: string): void {
-    const user = this.currentUser();
-    if (!user?.id) return;
-
-    if (this.isSongLiked(songId)) {
-      this.playlistState.removeSongFromLikedSongs(user.id, songId);
-      this.closeSongMenu();
-      return;
+    if (this.interactionState.isSongLiked(songId)) {
+      this.interactionState.unlikeSong(songId);
+    } else {
+      this.interactionState.likeSong(songId);
     }
-
-    this.playlistState.addSongToLikedSongs(user.id, songId);
     this.closeSongMenu();
   }
 
@@ -552,24 +426,17 @@ export class ArtistDetailComponent {
 
     const nextNumber = this.playlistState.getCustomPlaylistsByUser(user.id).length + 1;
 
-    const created = this.playlistState.createPlaylist({
-      userId: user.id,
-      name: `Mi playlist n.° ${nextNumber}`,
-      description: null,
-      coverUrl: null,
-      visibility: 'PUBLIC',
-    });
-
-    this.playlistState.addSongToPlaylist(created.id, songId);
-
-    const storedSong = this.songsCatalog().find(song => song.id === songId);
-    if (storedSong?.coverUrl) {
-      this.playlistState.updatePlaylist(created.id, {
-        coverUrl: storedSong.coverUrl,
-      });
-    }
-
-    this.closeSongMenu();
+    this.playlistState.createPlaylist(
+      { name: `Mi playlist n.° ${nextNumber}`, description: null, isPublic: true },
+      (created) => {
+        this.playlistState.addSongToPlaylist(created.id!, songId);
+        const storedSong = (this.libraryState.songs() as any[]).find(s => s.id === songId);
+        if (storedSong?.coverUrl) {
+          this.playlistState.updatePlaylist(created.id!, { coverUrl: storedSong.coverUrl });
+        }
+        this.closeSongMenu();
+      }
+    );
   }
 
   addSongToExistingPlaylist(playlistId: string, songId: string, event?: MouseEvent): void {
@@ -580,12 +447,10 @@ export class ArtistDetailComponent {
     this.playlistState.addSongToPlaylist(playlistId, songId);
 
     const playlist = this.playlistState.playlists().find(item => item.id === playlistId);
-    const storedSong = this.songsCatalog().find(song => song.id === songId);
+    const storedSong = (this.libraryState.songs() as any[]).find(song => song.id === songId);
 
     if (playlist && !playlist.coverUrl && storedSong?.coverUrl) {
-      this.playlistState.updatePlaylist(playlistId, {
-        coverUrl: storedSong.coverUrl,
-      });
+      this.playlistState.updatePlaylist(playlistId, { coverUrl: storedSong.coverUrl });
     }
 
     this.closeSongMenu();
@@ -643,47 +508,20 @@ export class ArtistDetailComponent {
   }
 
   isArtistAlbumSaved(albumId: string): boolean {
-    const user = this.currentUser();
-    if (!user?.id || !albumId) return false;
-
-    return this.userLibrary().some(
-      item =>
-        item.userId === user.id &&
-        item.itemType === 'ALBUM' &&
-        item.itemId === albumId
-    );
+    return this.interactionState.isAlbumInLibrary(albumId);
   }
 
   toggleSaveArtistAlbum(albumId: string, event?: MouseEvent): void {
     event?.stopPropagation();
-
-    const user = this.currentUser();
-    if (!user?.id || !albumId) return;
+    if (!albumId) return;
 
     if (this.isArtistAlbumSaved(albumId)) {
-      const updated = this.userLibrary().filter(
-        item =>
-          !(
-            item.userId === user.id &&
-            item.itemType === 'ALBUM' &&
-            item.itemId === albumId
-          )
-      );
-
-      this.persistUserLibrary(updated);
+      this.interactionState.removeAlbumFromLibrary(albumId);
       this.closeAlbumMenu();
       return;
     }
 
-    const newItem: LibraryItem = {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      itemType: 'ALBUM',
-      itemId: albumId,
-      addedAt: new Date().toISOString(),
-    };
-
-    this.persistUserLibrary([...this.userLibrary(), newItem]);
+    this.interactionState.addAlbumToLibrary(albumId);
     this.closeAlbumMenu();
   }
 
@@ -693,28 +531,18 @@ export class ArtistDetailComponent {
 
     const nextNumber = this.playlistState.getCustomPlaylistsByUser(user.id).length + 1;
 
-    const created = this.playlistState.createPlaylist({
-      userId: user.id,
-      name: `Mi playlist n.° ${nextNumber}`,
-      description: null,
-      coverUrl: null,
-      visibility: 'PUBLIC',
-    });
-
-    const albumSongs = this.songsCatalog().filter(song => song.albumId === albumId);
-
-    albumSongs.forEach(song => {
-      this.playlistState.addSongToPlaylist(created.id, song.id);
-    });
-
-    const firstSong = albumSongs[0];
-    if (firstSong?.coverUrl) {
-      this.playlistState.updatePlaylist(created.id, {
-        coverUrl: firstSong.coverUrl,
-      });
-    }
-
-    this.closeAlbumMenu();
+    this.playlistState.createPlaylist(
+      { name: `Mi playlist n.° ${nextNumber}`, description: null, isPublic: true },
+      (created) => {
+        const albumSongs = (this.libraryState.songs() as any[]).filter(s => s.albumId === albumId);
+        albumSongs.forEach(s => this.playlistState.addSongToPlaylist(created.id!, s.id));
+        const firstSong = albumSongs[0];
+        if (firstSong?.coverUrl) {
+          this.playlistState.updatePlaylist(created.id!, { coverUrl: firstSong.coverUrl });
+        }
+        this.closeAlbumMenu();
+      }
+    );
   }
 
   addArtistAlbumToExistingPlaylist(playlistId: string, albumId: string, event?: MouseEvent): void {
@@ -722,7 +550,7 @@ export class ArtistDetailComponent {
 
     if (!playlistId || !albumId) return;
 
-    const albumSongs = this.songsCatalog().filter(song => song.albumId === albumId);
+    const albumSongs = (this.libraryState.songs() as any[]).filter(song => song.albumId === albumId);
 
     albumSongs.forEach(song => {
       this.playlistState.addSongToPlaylist(playlistId, song.id);
@@ -732,9 +560,7 @@ export class ArtistDetailComponent {
     const firstSong = albumSongs[0];
 
     if (playlist && !playlist.coverUrl && firstSong?.coverUrl) {
-      this.playlistState.updatePlaylist(playlistId, {
-        coverUrl: firstSong.coverUrl,
-      });
+      this.playlistState.updatePlaylist(playlistId, { coverUrl: firstSong.coverUrl });
     }
 
     this.closeAlbumMenu();
@@ -788,28 +614,10 @@ export class ArtistDetailComponent {
     this.closeRelatedArtistMenu();
   }
 
-  private loadStorageArray<T>(storageKey: string): T[] {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return [];
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private persistUserLibrary(items: LibraryItem[]): void {
-    localStorage.setItem(this.USER_LIBRARY_KEY, JSON.stringify(items));
-    this.userLibrary.set(items);
-  }
-
   private formatDuration(totalSeconds: number): string {
     const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, totalSeconds) : 0;
     const minutes = Math.floor(safeSeconds / 60);
     const seconds = safeSeconds % 60;
-
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
@@ -819,7 +627,6 @@ export class ArtistDetailComponent {
 
   private extractYear(value: string | null | undefined): string {
     if (!value) return '';
-
     const match = value.match(/\d{4}/);
     return match?.[0] ?? '';
   }

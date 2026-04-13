@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { AuthState } from '../../../auth/state/auth.state';
+import { LibraryState } from '../../../../user-ruby-music/state/library.state';
 
 interface StationUI {
   id: string;
@@ -17,65 +18,20 @@ interface StationUI {
   styleUrl: './station-picker.page.scss',
 })
 export class StationPickerPage {
-  private authState = inject(AuthState);
+  private readonly authState = inject(AuthState);
+  private readonly libraryState = inject(LibraryState);
 
-  // Lista base de estaciones cargadas desde localStorage
-  stations = signal<StationUI[]>([]);
-
-  // Texto del buscador
   searchTerm = signal('');
-
-  // Lista filtrada para mostrar en la UI
-  filteredStations = computed(() => {
-    const term = this.searchTerm().toLowerCase().trim();
-
-    if (!term) {
-      return this.stations();
-    }
-
-    return this.stations().filter(station =>
-      station.name.toLowerCase().includes(term)
-    );
-  });
-
-  // Selección actual de estaciones
   selectedIds = signal<string[]>([]);
-
-  // Error visual si no selecciona mínimo 3
   showError = signal(false);
 
-  constructor() {
-    this.loadStations();
-  }
+  filteredStations = computed<StationUI[]>(() => {
+    const term = this.searchTerm().toLowerCase().trim();
+    const stations = this.libraryState.stations().map(s => this.toStationUI(s));
 
-  // =========================
-  // CARGAR ESTACIONES DESDE LOCALSTORAGE
-  // =========================
-  private loadStations(): void {
-    const raw = localStorage.getItem('ruby_stations');
-
-    if (!raw) {
-      console.warn('No hay estaciones en localStorage');
-      this.stations.set([]);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-
-      const mapped: StationUI[] = parsed.map((station: any) => ({
-        id: station.id,
-        name: station.name,
-        gradientStart: station.gradientStart,
-        gradientEnd: station.gradientEnd,
-      }));
-
-      this.stations.set(mapped);
-    } catch (error) {
-      console.error('Error leyendo estaciones', error);
-      this.stations.set([]);
-    }
-  }
+    if (!term) return stations;
+    return stations.filter(station => station.name.toLowerCase().includes(term));
+  });
 
   // =========================
   // BUSCADOR
@@ -106,15 +62,25 @@ export class StationPickerPage {
   // =========================
   // CONTINUAR
   // =========================
-continue(): void {
-  if (this.selectedIds().length < 3) {
-    this.showError.set(true);
-    return;
+  continue(): void {
+    if (this.selectedIds().length < 3) {
+      this.showError.set(true);
+      return;
+    }
+
+    this.authState.setStations(this.selectedIds());
+    window.location.href = '/onboarding/complete';
   }
 
-  this.authState.setStations(this.selectedIds());
-  console.log('Stations seleccionadas:', this.selectedIds());
-
-  window.location.href = '/onboarding/complete';
-}
+  // =========================
+  // HELPERS
+  // =========================
+  private toStationUI(station: any): StationUI {
+    return {
+      id: station.id,
+      name: station.name,
+      gradientStart: station.gradientStart ?? '#1a1a2e',
+      gradientEnd: station.gradientEnd ?? '#16213e',
+    };
+  }
 }

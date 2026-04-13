@@ -146,7 +146,7 @@
                   <button
                     class="song-actions__submenu-item"
                     type="button"
-                    (click)="addCurrentSongToExistingPlaylist(playlist.id, $event)"
+                    (click)="addCurrentSongToExistingPlaylist(playlist.id!, $event)"
                   >
                     {{ playlist.name }}
                   </button>

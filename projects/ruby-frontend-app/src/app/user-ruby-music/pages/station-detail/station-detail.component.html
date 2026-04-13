@@ -40,7 +40,7 @@
 
       <div class="station-detail-title-group">
         <h1 class="station-detail-title">
-          {{ currentStation()?.name || 'Estación' }}
+          {{ currentStation()?.['name'] || 'Estación' }}
         </h1>
       </div>
 
@@ -84,16 +84,16 @@
           <img
             class="station-current-cover"
             [src]="getBackdropImage()"
-            [alt]="currentSong()?.title || 'Canción actual'"
+            [alt]="currentSong()?.['title'] || 'Canción actual'"
           />
         </div>
 
         <div class="station-current-song-info">
           <h2 class="station-current-song-title">
-            {{ currentSong()?.title || 'Sin canción disponible' }}
+            {{ currentSong()?.['title'] || 'Sin canción disponible' }}
           </h2>
           <p class="station-current-song-artist">
-            {{ currentArtist()?.name || 'Artista desconocido' }}
+            {{ currentArtist()?.['name'] || 'Artista desconocido' }}
           </p>
         </div>
 
@@ -115,7 +115,7 @@
     <div class="station-detail-bottom">
       <div class="station-comments-column">
         <div class="station-comments-list">
-          @for (comment of visibleComments(); track comment.id; let i = $index) {
+          @for (comment of visibleComments(); track comment.commentId; let i = $index) {
             <div
               class="station-comment-item"
               [class.station-comment-item--fade-1]="i === 0"
@@ -125,18 +125,18 @@
               <img
                 class="station-comment-avatar"
                 [src]="getCommentAvatar(comment)"
-                [alt]="comment.userName"
+                [alt]="comment.username"
               />
 
               <div class="station-comment-bubble">
                 <div class="station-comment-meta">
                   <span class="station-comment-user">
-                    @{{ comment.userName }}
+                    @{{ comment.username }}
                   </span>
                 </div>
 
                 <p class="station-comment-message">
-                  {{ comment.message }}
+                  {{ comment.content }}
                 </p>
               </div>
 
@@ -144,7 +144,7 @@
                 <button
                   class="station-comment-more"
                   type="button"
-                  (click)="toggleCommentMenu(comment.id, $event)"
+                  (click)="toggleCommentMenu(comment.commentId, $event)"
                 >
                   <img
                     class="station-icon station-icon--comment-more"
@@ -153,7 +153,7 @@
                   />
                 </button>
 
-                @if (isCommentMenuOpen(comment.id)) {
+                @if (isCommentMenuOpen(comment.commentId)) {
                   <div class="station-comment-menu">
                     <button
                       class="station-comment-menu-item"
@@ -218,7 +218,7 @@
             <img
               class="station-current-artist-avatar"
               [src]="getCurrentArtistPhoto()"
-              [alt]="currentArtist()?.name || 'Artista actual'"
+              [alt]="currentArtist()?.['name'] || 'Artista actual'"
             />
           </button>
         </div>

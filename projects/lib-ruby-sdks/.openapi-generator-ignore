@@ -1,0 +1,4 @@
+# Don't overwrite the public API
+src/public-api.ts
+# Don't overwrite custom configurations
+**/provide-api.ts

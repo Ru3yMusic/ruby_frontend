@@ -1,185 +1,204 @@
-import { Injectable, computed, signal } from '@angular/core';
-
-export interface FriendshipItem {
-  id: string;
-  userAId: string;
-  userBId: string;
-  createdAt: string;
-}
-
-export interface AuthUserItem {
-  id: string;
-  email: string;
-  password: string;
-  authProvider: 'EMAIL';
-  name: string;
-  birthDate: string;
-  gender: string;
-  avatarUrl: string | null;
-  role: 'ADMIN' | 'USER';
-  status: 'ACTIVE' | 'BLOCKED' | 'INACTIVE';
-  blockReason: string | null;
-  blockedAt: string | null;
-  onboardingCompleted: boolean;
-  selectedStationIds: string[];
-  createdAt: string;
-}
-
-export interface FriendPresenceItem {
-  userId: string;
-  isOnline: boolean;
-  lastSeenAt: string;
-}
+import { Injectable, computed, inject, signal } from '@angular/core';
+import {
+  FriendshipsApi,
+  FriendshipResponse,
+  FriendshipStatus,
+} from 'lib-ruby-sdks/social-service';
 
 export interface FriendListItem {
   id: string;
-  friendUserId: string;
+  friendId: string;
   friendName: string;
   friendAvatarUrl: string | null;
   isOnline: boolean;
-  lastSeenAt: string | null;
-  friendshipCreatedAt: string;
 }
 
 @Injectable({
   providedIn: 'root',
 })
 export class FriendsState {
-  private readonly FRIENDSHIPS_KEY = 'ruby_friendships';
-  private readonly AUTH_USERS_KEY = 'ruby_auth_users';
-  private readonly USER_PRESENCE_KEY = 'ruby_user_presence';
+  private readonly friendshipsApi = inject(FriendshipsApi);
 
-  private readonly _friendships = signal<FriendshipItem[]>(
-    this.loadStorageArray<FriendshipItem>(this.FRIENDSHIPS_KEY)
-  );
-  readonly friendships = this._friendships.asReadonly();
+  /* ===================== */
+  /* SIGNALS */
+  /* ===================== */
 
-  private readonly _authUsers = signal<AuthUserItem[]>(
-    this.loadStorageArray<AuthUserItem>(this.AUTH_USERS_KEY)
-  );
-  readonly authUsers = this._authUsers.asReadonly();
+  private readonly _friends = signal<FriendshipResponse[]>([]);
+  readonly friends = this._friends.asReadonly();
 
-  private readonly _userPresence = signal<FriendPresenceItem[]>(
-    this.loadStorageArray<FriendPresenceItem>(this.USER_PRESENCE_KEY)
-  );
-  readonly userPresence = this._userPresence.asReadonly();
+  private readonly _pendingRequests = signal<FriendshipResponse[]>([]);
+  readonly pendingRequests = this._pendingRequests.asReadonly();
 
-  readonly totalFriendships = computed(() => this._friendships().length);
+  private readonly _loading = signal(false);
+  readonly loading = this._loading.asReadonly();
+
+  private readonly _error = signal<string | null>(null);
+  readonly error = this._error.asReadonly();
+
+  /* ===================== */
+  /* COMPUTED */
+  /* ===================== */
+
+  readonly totalFriendships = computed(() => this._friends().length);
+  readonly hasPendingRequests = computed(() => this._pendingRequests().length > 0);
+  readonly pendingRequestsCount = computed(() => this._pendingRequests().length);
+
+  /* ===================== */
+  /* LOADERS */
+  /* ===================== */
+
+  loadFriends(): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.friendshipsApi.listFriends().subscribe({
+      next: (friends) => {
+        this._friends.set(friends);
+        this._loading.set(false);
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error loading friends');
+        this._loading.set(false);
+      },
+    });
+  }
+
+  loadPendingRequests(): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.friendshipsApi.getPendingRequests().subscribe({
+      next: (requests) => {
+        this._pendingRequests.set(requests);
+        this._loading.set(false);
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error loading pending requests');
+        this._loading.set(false);
+      },
+    });
+  }
+
+  refreshAll(): void {
+    this.loadFriends();
+    this.loadPendingRequests();
+  }
 
   /* ===================== */
   /* GETTERS */
   /* ===================== */
-  getFriendsByUser(userId: string): FriendListItem[] {
-    const users = this._authUsers();
-    const presence = this._userPresence();
 
-    return this._friendships()
-      .filter(
-        friendship =>
-          friendship.userAId === userId || friendship.userBId === userId
-      )
-      .map(friendship => {
-        const friendUserId =
-          friendship.userAId === userId ? friendship.userBId : friendship.userAId;
+  getFriendshipById(friendshipId: string): FriendshipResponse | undefined {
+    return this._friends().find(f => f.id === friendshipId);
+  }
 
-        const friendUser = users.find(user => user.id === friendUserId);
-        const friendPresence = presence.find(item => item.userId === friendUserId);
+  isFriendWith(currentUserId: string, otherUserId: string): boolean {
+    return this._friends().some(
+      f =>
+        f.status === FriendshipStatus.ACCEPTED &&
+        ((f.requesterId === currentUserId && f.addresseeId === otherUserId) ||
+          (f.requesterId === otherUserId && f.addresseeId === currentUserId))
+    );
+  }
 
+  getFriendsByUser(currentUserId: string): FriendListItem[] {
+    return this._friends()
+      .filter(f => f.status === FriendshipStatus.ACCEPTED)
+      .map(f => {
+        const friendUserId = f.requesterId === currentUserId
+          ? (f.addresseeId ?? '')
+          : (f.requesterId ?? '');
         return {
-          id: friendship.id,
-          friendUserId,
-          friendName: friendUser?.name ?? 'Usuario desconocido',
-          friendAvatarUrl: friendUser?.avatarUrl ?? null,
-          isOnline: friendPresence?.isOnline ?? false,
-          lastSeenAt: friendPresence?.lastSeenAt ?? null,
-          friendshipCreatedAt: friendship.createdAt,
-        } satisfies FriendListItem;
-      })
-      .sort((a, b) => {
-        if (a.isOnline && !b.isOnline) return -1;
-        if (!a.isOnline && b.isOnline) return 1;
-
-        return a.friendName.localeCompare(b.friendName, 'es', {
-          sensitivity: 'base',
-        });
+          id: f.id ?? '',
+          friendId: friendUserId,
+          friendName: friendUserId,
+          friendAvatarUrl: null,
+          isOnline: false,
+        };
       });
   }
 
-  areUsersFriends(userAId: string, userBId: string): boolean {
-    return this._friendships().some(
-      friendship =>
-        (friendship.userAId === userAId && friendship.userBId === userBId) ||
-        (friendship.userAId === userBId && friendship.userBId === userAId)
-    );
+  getFriendIdList(currentUserId: string): string[] {
+    return this._friends()
+      .filter(f => f.status === FriendshipStatus.ACCEPTED)
+      .map(f =>
+        f.requesterId === currentUserId ? (f.addresseeId ?? '') : (f.requesterId ?? '')
+      )
+      .filter(id => id.length > 0);
   }
 
   /* ===================== */
-  /* DELETE */
+  /* FRIEND REQUEST ACTIONS */
   /* ===================== */
-  removeFriendship(friendshipId: string): void {
-    const updated = this._friendships().filter(
-      friendship => friendship.id !== friendshipId
-    );
 
-    this.persistFriendships(updated);
+  sendFriendRequest(addresseeId: string, onSuccess?: (response: FriendshipResponse) => void): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.friendshipsApi.sendFriendRequest({ addresseeId }).subscribe({
+      next: (response) => {
+        this._loading.set(false);
+        onSuccess?.(response);
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error sending friend request');
+        this._loading.set(false);
+      },
+    });
   }
 
-  removeFriendshipBetweenUsers(userAId: string, userBId: string): void {
-    const updated = this._friendships().filter(
-      friendship =>
-        !(
-          (friendship.userAId === userAId && friendship.userBId === userBId) ||
-          (friendship.userAId === userBId && friendship.userBId === userAId)
-        )
-    );
+  acceptFriendRequest(friendshipId: string, onSuccess?: () => void): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.friendshipsApi.acceptFriendRequest(friendshipId).subscribe({
+      next: (accepted) => {
+        // Move from pending to friends
+        this._pendingRequests.update(list => list.filter(r => r.id !== friendshipId));
+        this._friends.update(list => [...list, accepted]);
+        this._loading.set(false);
+        onSuccess?.();
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error accepting friend request');
+        this._loading.set(false);
+      },
+    });
+  }
 
-    this.persistFriendships(updated);
+  rejectFriendRequest(friendshipId: string, onSuccess?: () => void): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.friendshipsApi.rejectFriendRequest(friendshipId).subscribe({
+      next: () => {
+        this._pendingRequests.update(list => list.filter(r => r.id !== friendshipId));
+        this._loading.set(false);
+        onSuccess?.();
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error rejecting friend request');
+        this._loading.set(false);
+      },
+    });
+  }
+
+  removeFriend(friendshipId: string, onSuccess?: () => void): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.friendshipsApi.removeFriend(friendshipId).subscribe({
+      next: () => {
+        this._friends.update(list => list.filter(f => f.id !== friendshipId));
+        this._loading.set(false);
+        onSuccess?.();
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error removing friend');
+        this._loading.set(false);
+      },
+    });
   }
 
   /* ===================== */
-  /* PRESENCE */
+  /* UTILS */
   /* ===================== */
-  refreshPresence(): void {
-    this._userPresence.set(
-      this.loadStorageArray<FriendPresenceItem>(this.USER_PRESENCE_KEY)
-    );
-  }
 
-  refreshUsers(): void {
-    this._authUsers.set(
-      this.loadStorageArray<AuthUserItem>(this.AUTH_USERS_KEY)
-    );
-  }
-
-  refreshFriendships(): void {
-    this._friendships.set(
-      this.loadStorageArray<FriendshipItem>(this.FRIENDSHIPS_KEY)
-    );
-  }
-
-  refreshAll(): void {
-    this.refreshFriendships();
-    this.refreshUsers();
-    this.refreshPresence();
-  }
-
-  /* ===================== */
-  /* HELPERS */
-  /* ===================== */
-  private persistFriendships(items: FriendshipItem[]): void {
-    this._friendships.set(items);
-    localStorage.setItem(this.FRIENDSHIPS_KEY, JSON.stringify(items));
-  }
-
-  private loadStorageArray<T>(storageKey: string): T[] {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return [];
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
-    }
+  clearError(): void {
+    this._error.set(null);
   }
 }

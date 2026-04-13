@@ -22,7 +22,7 @@
   <div class="chat-station-list">
     @if (filteredActiveFriends().length === 0) {
       <div class="chat-station-empty">
-        <p>No hay amigos escuchando una estación ahora mismo.</p>
+        <p>No hay amigos conectados ahora mismo.</p>
       </div>
     } @else {
       @for (item of filteredActiveFriends(); track trackByFriendStation($index, item)) {
@@ -31,23 +31,34 @@
             <img
               class="chat-station-avatar"
               [src]="getFriendAvatar(item)"
-              [alt]="item.friendName"
+              [alt]="item.friendName ?? 'Amigo'"
             />
 
             <p class="chat-station-text">
-              <strong>@{{ item.friendName }}</strong>
-              está escuchando la estación
-              <strong>{{ item.stationName }}</strong>
+              @if (item.friendName) {
+                <strong>@{{ item.friendName }}</strong>
+              } @else {
+                <strong>Amigo</strong>
+              }
+
+              @if (item.stationId && item.stationName) {
+                está escuchando la estación
+                <strong>{{ item.stationName }}</strong>
+              } @else {
+                está en tu lista de amigos
+              }
             </p>
           </div>
 
-          <button
-            class="chat-station-listen-button"
-            type="button"
-            (click)="goToFriendStation(item)"
-          >
-            Escuchar
-          </button>
+          @if (item.stationId) {
+            <button
+              class="chat-station-listen-button"
+              type="button"
+              (click)="goToFriendStation(item)"
+            >
+              Escuchar
+            </button>
+          }
         </div>
       }
     }

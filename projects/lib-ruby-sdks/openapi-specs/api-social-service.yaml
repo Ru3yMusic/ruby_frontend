@@ -1,0 +1,519 @@
+openapi: 3.0.3
+info:
+  title: Social Service API
+  description: |
+    Manages friendships between users, artist follows and content reports.
+    Kafka events are published for friendship changes to trigger real-time notifications.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8085
+    description: Local development
+  - url: http://localhost:8080/api/v1/social
+    description: Via API Gateway
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Friendships
+  - name: Artist Follows
+  - name: Reports
+
+paths:
+
+  # ── Friendships ──────────────────────────────────────────────────────────────
+
+  /api/v1/social/friends/request:
+    post:
+      tags: [Friendships]
+      operationId: sendFriendRequest
+      summary: Send a friend request (Conectar)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestBody'
+      responses:
+        '201':
+          description: Request sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendshipResponse'
+        '409':
+          description: Request already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/social/friends:
+    get:
+      tags: [Friendships]
+      operationId: listFriends
+      summary: List accepted friends for the authenticated user
+      responses:
+        '200':
+          description: List of friendships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FriendshipResponse'
+
+  /api/v1/social/friends/requests/pending:
+    get:
+      tags: [Friendships]
+      operationId: getPendingRequests
+      summary: List pending incoming friend requests
+      responses:
+        '200':
+          description: List of pending friendships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FriendshipResponse'
+
+  /api/v1/social/friends/{friendshipId}/accept:
+    post:
+      tags: [Friendships]
+      operationId: acceptFriendRequest
+      summary: Accept a friend request
+      parameters:
+        - $ref: '#/components/parameters/FriendshipIdParam'
+      responses:
+        '200':
+          description: Friendship accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendshipResponse'
+        '400':
+          description: Request is not pending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/social/friends/{friendshipId}/reject:
+    post:
+      tags: [Friendships]
+      operationId: rejectFriendRequest
+      summary: Reject a friend request
+      parameters:
+        - $ref: '#/components/parameters/FriendshipIdParam'
+      responses:
+        '204':
+          description: Request rejected
+
+  /api/v1/social/friends/{friendshipId}:
+    delete:
+      tags: [Friendships]
+      operationId: removeFriend
+      summary: Remove a friend (soft delete — supports Undo)
+      parameters:
+        - $ref: '#/components/parameters/FriendshipIdParam'
+      responses:
+        '204':
+          description: Friend removed
+
+  # ── Artist Follows ───────────────────────────────────────────────────────────
+
+  /api/v1/social/artists/{artistId}/follow:
+    post:
+      tags: [Artist Follows]
+      operationId: followArtist
+      summary: Follow an artist
+      parameters:
+        - $ref: '#/components/parameters/ArtistIdParam'
+      responses:
+        '204':
+          description: Artist followed (idempotent)
+    delete:
+      tags: [Artist Follows]
+      operationId: unfollowArtist
+      summary: Unfollow an artist
+      parameters:
+        - $ref: '#/components/parameters/ArtistIdParam'
+      responses:
+        '204':
+          description: Artist unfollowed
+
+  /api/v1/social/artists/{artistId}/follow/status:
+    get:
+      tags: [Artist Follows]
+      operationId: getFollowStatus
+      summary: Check if the authenticated user follows an artist
+      parameters:
+        - $ref: '#/components/parameters/ArtistIdParam'
+      responses:
+        '200':
+          description: Follow status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowStatusResponse'
+
+  /api/v1/social/artists/following:
+    get:
+      tags: [Artist Follows]
+      operationId: getFollowedArtists
+      summary: Get artist IDs followed by the authenticated user
+      responses:
+        '200':
+          description: List of artist UUIDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+
+  # ── Reports ──────────────────────────────────────────────────────────────────
+
+  /api/v1/social/reports/grouped:
+    get:
+      tags: [Reports]
+      operationId: listGroupedReports
+      summary: List reports grouped by target (admin Reportes panel cards)
+      parameters:
+        - name: targetType
+          in: query
+          required: false
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ReportTargetType'
+          description: Filter by target type (USER, SONG, COMMENT). Omit for all.
+        - name: status
+          in: query
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ReportStatus'
+            default: PENDING
+      responses:
+        '200':
+          description: List of report summaries grouped by target
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReportTargetSummary'
+
+  /api/v1/social/reports/target/{targetId}:
+    get:
+      tags: [Reports]
+      operationId: getReportsByTarget
+      summary: Full report history for a specific target (admin detail modal)
+      parameters:
+        - name: targetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: All reports for this target, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReportResponse'
+
+  /api/v1/social/reports/target/{targetId}/dismiss:
+    patch:
+      tags: [Reports]
+      operationId: dismissReportsByTarget
+      summary: Dismiss all pending reports for a target (admin Descartar action)
+      parameters:
+        - name: targetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: All pending reports for this target dismissed
+
+  /api/v1/social/reports/stats:
+    get:
+      tags: [Reports]
+      operationId: getReportStats
+      summary: Aggregate report counts for the admin dashboard "Reportes de Gravedad" chart
+      responses:
+        '200':
+          description: Report statistics by status and target type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportStatsResponse'
+
+  /api/v1/social/reports:
+    post:
+      tags: [Reports]
+      operationId: createReport
+      summary: Report a comment, song or user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+      responses:
+        '201':
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+    get:
+      tags: [Reports]
+      operationId: listReports
+      summary: List individual reports by status and optional target type (admin only)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ReportStatus'
+            default: PENDING
+        - name: targetType
+          in: query
+          required: false
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ReportTargetType'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportPage'
+
+  /api/v1/social/reports/{reportId}/status:
+    patch:
+      tags: [Reports]
+      operationId: updateReportStatus
+      summary: Update report status (admin only)
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateReportStatusRequest'
+      responses:
+        '200':
+          description: Report updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+
+# ── Components ────────────────────────────────────────────────────────────────
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    FriendshipIdParam:
+      name: friendshipId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ArtistIdParam:
+      name: artistId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 0
+    SizeParam:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 20
+
+  schemas:
+
+    FriendRequestBody:
+      type: object
+      required: [addresseeId]
+      properties:
+        addresseeId:
+          type: string
+          format: uuid
+
+    FriendshipResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requesterId:
+          type: string
+          format: uuid
+        addresseeId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/FriendshipStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    FriendshipStatus:
+      type: string
+      enum: [PENDING, ACCEPTED, REJECTED, REMOVED]
+
+    FollowStatusResponse:
+      type: object
+      properties:
+        following:
+          type: boolean
+
+    CreateReportRequest:
+      type: object
+      required: [targetType, targetId]
+      properties:
+        targetType:
+          $ref: '#/components/schemas/ReportTargetType'
+        targetId:
+          type: string
+        reason:
+          type: string
+
+    UpdateReportStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+
+    ReportResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        reporterId:
+          type: string
+          format: uuid
+        targetType:
+          $ref: '#/components/schemas/ReportTargetType'
+        targetId:
+          type: string
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        createdAt:
+          type: string
+          format: date-time
+
+    ReportPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportResponse'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    ReportTargetType:
+      type: string
+      enum: [COMMENT, SONG, USER]
+
+    ReportStatus:
+      type: string
+      enum: [PENDING, REVIEWED, DISMISSED]
+
+    ReportStatsResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: Count per ReportStatus (PENDING, REVIEWED, DISMISSED)
+        byTargetType:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: Count per ReportTargetType (COMMENT, SONG, USER)
+
+    ReportTargetSummary:
+      type: object
+      description: Aggregated report info for one target entity (used in admin grouped list)
+      properties:
+        targetId:
+          type: string
+        targetType:
+          $ref: '#/components/schemas/ReportTargetType'
+        reportCount:
+          type: integer
+          format: int64
+          description: Total pending reports for this target
+        latestReportAt:
+          type: string
+          format: date-time
+          description: Date of the most recent report
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string

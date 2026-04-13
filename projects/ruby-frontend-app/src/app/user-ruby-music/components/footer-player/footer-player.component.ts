@@ -11,12 +11,7 @@ import {
 } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { PlayerState } from '../../state/player.state';
-
-interface StoredArtist {
-  id: string;
-  name: string;
-  photoUrl?: string | null;
-}
+import { LibraryState } from '../../state/library.state';
 
 @Component({
   selector: 'app-footer-player',
@@ -28,8 +23,8 @@ interface StoredArtist {
 export class FooterPlayerComponent implements AfterViewInit {
   private readonly playerState = inject(PlayerState);
   private readonly router = inject(Router);
+  private readonly libraryState = inject(LibraryState);
 
-  private readonly ARTISTS_KEY = 'ruby_artists';
   private readonly defaultCover = '/assets/icons/playlist-cover-placeholder.png';
 
   @ViewChild('audioRef') audioRef?: ElementRef<HTMLAudioElement>;
@@ -44,8 +39,6 @@ export class FooterPlayerComponent implements AfterViewInit {
 
   readonly isStationRoute = signal(this.router.url.includes('/user/station'));
 
-  readonly artistsCatalog = signal<StoredArtist[]>(this.loadArtists());
-
   readonly displayCoverUrl = computed(() => {
     return this.currentSong()?.coverUrl || this.defaultCover;
   });
@@ -58,8 +51,8 @@ export class FooterPlayerComponent implements AfterViewInit {
     const song = this.currentSong();
     if (!song) return 'Selecciona una canción';
 
-    const artist = this.artistsCatalog().find(item => item.id === song.artistId);
-    return artist?.name ?? 'Artista desconocido';
+    const artist = this.libraryState.artists().find(item => (item as any).id === (song as any).artistId);
+    return (artist as any)?.name ?? 'Artista desconocido';
   });
 
   readonly currentTimeLabel = computed(() => {
@@ -233,15 +226,4 @@ export class FooterPlayerComponent implements AfterViewInit {
     audio.pause();
   }
 
-  private loadArtists(): StoredArtist[] {
-    try {
-      const raw = localStorage.getItem(this.ARTISTS_KEY);
-      if (!raw) return [];
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as StoredArtist[]) : [];
-    } catch {
-      return [];
-    }
-  }
 }

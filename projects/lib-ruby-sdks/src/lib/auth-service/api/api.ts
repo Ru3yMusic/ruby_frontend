@@ -1,0 +1,16 @@
+export * from './authentication.service';
+import { AuthenticationApi } from './authentication.service';
+export * from './authentication.serviceInterface';
+export * from './internal.service';
+import { InternalApi } from './internal.service';
+export * from './internal.serviceInterface';
+export * from './password.service';
+import { PasswordApi } from './password.service';
+export * from './password.serviceInterface';
+export * from './registration.service';
+import { RegistrationApi } from './registration.service';
+export * from './registration.serviceInterface';
+export * from './users.service';
+import { UsersApi } from './users.service';
+export * from './users.serviceInterface';
+export const APIS = [AuthenticationApi, InternalApi, PasswordApi, RegistrationApi, UsersApi];

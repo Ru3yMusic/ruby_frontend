@@ -1,0 +1,37 @@
+<div
+  class="playlist-card"
+  [class.playlist-card--playing]="isPlaying()"
+  role="button"
+  tabindex="0"
+  [attr.aria-label]="'Abrir playlist ' + title()"
+  (click)="selected.emit()"
+  (keydown.enter)="selected.emit()">
+
+  <div class="playlist-card__cover-wrap">
+    <img
+      *ngIf="coverUrl(); else placeholderCover"
+      class="playlist-card__cover"
+      [src]="coverUrl()!"
+      [alt]="title()"
+      loading="lazy"
+    />
+    <ng-template #placeholderCover>
+      <div class="playlist-card__cover playlist-card__cover--placeholder">
+        <span class="playlist-card__cover-icon">♪</span>
+      </div>
+    </ng-template>
+
+    <button
+      type="button"
+      class="playlist-card__play-btn"
+      [attr.aria-label]="isPlaying() ? 'Pausar ' + title() : 'Reproducir ' + title()"
+      (click)="$event.stopPropagation(); played.emit()">
+      <span class="playlist-card__play-icon">{{ isPlaying() ? '⏸' : '▶' }}</span>
+    </button>
+  </div>
+
+  <div class="playlist-card__info">
+    <span class="playlist-card__title" [title]="title()">{{ title() }}</span>
+    <span class="playlist-card__subtitle">{{ subtitle() }}</span>
+  </div>
+</div>

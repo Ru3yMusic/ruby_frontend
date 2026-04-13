@@ -1,0 +1,10 @@
+export * from './internal.service';
+import { InternalApi } from './internal.service';
+export * from './internal.serviceInterface';
+export * from './playlist-songs.service';
+import { PlaylistSongsApi } from './playlist-songs.service';
+export * from './playlist-songs.serviceInterface';
+export * from './playlists.service';
+import { PlaylistsApi } from './playlists.service';
+export * from './playlists.serviceInterface';
+export const APIS = [InternalApi, PlaylistSongsApi, PlaylistsApi];

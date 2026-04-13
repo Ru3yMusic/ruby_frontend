@@ -69,8 +69,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "8kB",
-                  "maximumError": "16kB"
+                  "maximumWarning": "16kB",
+                  "maximumError": "32kB"
                 }
               ],
               "outputHashing": "all"
@@ -145,9 +145,35 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/lib-ruby-core-ui/tsconfig.spec.json"
+      }
+    },
+    "lib-ruby-sdks": {
+      "projectType": "library",
+      "root": "projects/lib-ruby-sdks",
+      "sourceRoot": "projects/lib-ruby-sdks/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/lib-ruby-sdks/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/lib-ruby-sdks/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/lib-ruby-sdks/tsconfig.spec.json"
           }
         }
       }
     }
+  }
+}
   }
 }

@@ -28,6 +28,28 @@
     </button>
   </div>
 
+  @if (recentSongs().length > 0) {
+    <section class="music-section">
+      <div class="music-section__header">
+        <h2 class="music-section__title">Canciones recientes</h2>
+      </div>
+
+      <div class="music-songs-list">
+        @for (song of recentSongs(); track song.id) {
+          <rm-song-card
+            [title]="song.title"
+            [artistName]="song.artistName"
+            [coverUrl]="song.coverUrl"
+            [isPlaying]="isSongPlaying(song.id)"
+            [isLiked]="isSongLiked(song.id)"
+            (played)="playSong(song.id)"
+            (liked)="toggleSongLike(song.id)"
+          />
+        }
+      </div>
+    </section>
+  }
+
   <section class="music-section">
     <div class="music-section__header">
       <h1 class="music-section__title">Tus álbumes más largos</h1>

@@ -1,45 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { ArtistResponse, SongResponse } from 'lib-ruby-sdks/catalog-service';
+import { SongCardComponent } from 'lib-ruby-core-ui';
+import { LibraryState } from '../../state/library.state';
+import { PlayerState, PlayerSong } from '../../state/player.state';
+import { InteractionState } from '../../state/interaction.state';
 
 type HomeTab = 'TODAS' | 'MUSICA' | 'ESTACION';
-
-interface StoredArtist {
-  id: string;
-  name: string;
-  photoUrl: string;
-  bio: string;
-  isTop: boolean;
-  followersCount: string;
-  monthlyListeners: string;
-  createdAt: string;
-}
-
-interface StoredAlbum {
-  id: string;
-  title: string;
-  artistId: string;
-  coverUrl: string;
-  releaseDate: string;
-  songsCount: number;
-  totalStreams: string;
-  createdAt: string;
-}
-
-interface StoredSong {
-  id: string;
-  title: string;
-  artistId: string;
-  albumId: string | null;
-  genreId: string;
-  coverUrl: string;
-  audioUrl: string;
-  durationSeconds: number;
-  lyrics: string | null;
-  playCount: number;
-  likesCount: number;
-  createdAt: string;
-}
 
 interface RankedAlbumCard {
   id: string;
@@ -50,41 +18,46 @@ interface RankedAlbumCard {
   totalMinutesLabel: string;
 }
 
+interface RecentSongCard {
+  id: string;
+  title: string;
+  artistName: string;
+  coverUrl: string;
+}
+
 @Component({
   selector: 'app-music',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SongCardComponent],
   templateUrl: './music.component.html',
   styleUrls: ['./music.component.scss'],
 })
 export class MusicComponent {
   private readonly router = inject(Router);
+  private readonly libraryState = inject(LibraryState);
+  private readonly playerState = inject(PlayerState);
+  private readonly interactionState = inject(InteractionState);
 
-  private readonly ALBUMS_KEY = 'ruby_albums';
-  private readonly SONGS_KEY = 'ruby_songs';
-  private readonly ARTISTS_KEY = 'ruby_artists';
   private readonly defaultAlbumCover = '/assets/icons/playlist-cover-placeholder.png';
 
-  private readonly albumsCatalog = signal<StoredAlbum[]>(this.loadStorageArray<StoredAlbum>(this.ALBUMS_KEY));
-  private readonly songsCatalog = signal<StoredSong[]>(this.loadStorageArray<StoredSong>(this.SONGS_KEY));
-  private readonly artistsCatalog = signal<StoredArtist[]>(this.loadStorageArray<StoredArtist>(this.ARTISTS_KEY));
+  readonly loading = this.libraryState.loading;
 
   readonly topAlbumsByMinutes = computed<RankedAlbumCard[]>(() => {
-    const albums = this.albumsCatalog();
-    const songs = this.songsCatalog();
-    const artists = this.artistsCatalog();
+    const albums = this.libraryState.albums();
+    const songs = this.libraryState.songs();
+    const artists = this.libraryState.artists();
 
     return albums
       .map(album => {
-        const artist = artists.find(item => item.id === album.artistId);
+        const artist = artists.find(a => a.id === album.artist?.id);
 
         const totalSeconds = songs
-          .filter(song => song.albumId === album.id)
-          .reduce((total, song) => total + (song.durationSeconds ?? 0), 0);
+          .filter(s => s.album?.id === album.id)
+          .reduce((total, s) => total + (s.duration ?? 0), 0);
 
         return {
-          id: album.id,
-          title: album.title,
+          id: album.id ?? '',
+          title: album.title ?? '',
           artistName: artist?.name ?? 'Artista desconocido',
           coverUrl: album.coverUrl || this.defaultAlbumCover,
           totalSeconds,
@@ -101,6 +74,31 @@ export class MusicComponent {
         totalMinutesLabel: this.formatMinutesLabel(album.totalSeconds),
       }));
   });
+
+  readonly recentSongs = computed<RecentSongCard[]>(() => {
+    const songs = this.libraryState.songs();
+    const artists = this.libraryState.artists();
+
+    return songs
+      .slice()
+      .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0))
+      .slice(0, 6)
+      .map((s: SongResponse) => {
+        const artist = artists.find((a: ArtistResponse) => a.id === s.artist?.id);
+        return {
+          id: s.id ?? '',
+          title: s.title ?? '',
+          artistName: artist?.name ?? 'Artista desconocido',
+          coverUrl: s.coverUrl ?? '',
+        };
+      });
+  });
+
+  constructor() {
+    this.libraryState.loadNewReleases();
+    this.libraryState.loadRecentSongs();
+    this.libraryState.loadTopArtists();
+  }
 
   setActiveTab(tab: HomeTab): void {
     if (tab === 'TODAS') {
@@ -121,17 +119,9 @@ export class MusicComponent {
   isTabActive(tab: HomeTab): boolean {
     const currentUrl = this.router.url;
 
-    if (tab === 'TODAS') {
-      return currentUrl === '/user/home';
-    }
-
-    if (tab === 'MUSICA') {
-      return currentUrl === '/user/music';
-    }
-
-    if (tab === 'ESTACION') {
-      return currentUrl === '/user/station';
-    }
+    if (tab === 'TODAS') return currentUrl === '/user/home';
+    if (tab === 'MUSICA') return currentUrl === '/user/music';
+    if (tab === 'ESTACION') return currentUrl === '/user/station';
 
     return false;
   }
@@ -141,16 +131,49 @@ export class MusicComponent {
     this.router.navigate(['/user/album', albumId]);
   }
 
-  private loadStorageArray<T>(storageKey: string): T[] {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return [];
+  isSongPlaying(songId: string): boolean {
+    const current = this.playerState.currentSong();
+    return !!current && current.id === songId && this.playerState.isPlaying();
+  }
 
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
+  isSongLiked(songId: string): boolean {
+    return this.interactionState.isSongLiked(songId);
+  }
+
+  playSong(songId: string): void {
+    const songRes = this.libraryState.songs().find((s: SongResponse) => s.id === songId);
+    if (!songRes) return;
+    const song = this.toPlayerSong(songRes);
+    const current = this.playerState.currentSong();
+
+    if (current?.id === songId && this.playerState.isPlaying()) {
+      this.playerState.pause(); return;
     }
+    if (current?.id === songId && !this.playerState.isPlaying()) {
+      this.playerState.resume(); return;
+    }
+    this.playerState.playSong(song);
+  }
+
+  toggleSongLike(songId: string): void {
+    this.interactionState.toggleLike(songId);
+  }
+
+  private toPlayerSong(song: SongResponse): PlayerSong {
+    return {
+      id: song.id ?? '',
+      title: song.title ?? '',
+      artistId: song.artist?.id ?? '',
+      albumId: song.album?.id ?? null,
+      genreId: song.genres?.[0]?.id ?? '',
+      coverUrl: song.coverUrl ?? '',
+      audioUrl: song.audioUrl ?? '',
+      durationSeconds: song.duration ?? 0,
+      lyrics: song.lyrics ?? null,
+      playCount: song.playCount ?? 0,
+      likesCount: song.likesCount ?? 0,
+      createdAt: '',
+    };
   }
 
   private formatMinutesLabel(totalSeconds: number): string {

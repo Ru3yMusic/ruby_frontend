@@ -1,30 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { AuthState, CurrentUser } from '../../../auth/state/auth.state';
+import { LibraryState } from '../../../../user-ruby-music/state/library.state';
 
 interface StationUI {
   id: string;
   name: string;
   gradientStart: string;
   gradientEnd: string;
-}
-
-interface AuthUser {
-  id: string;
-  email: string;
-  password: string;
-  authProvider: 'EMAIL';
-  name: string;
-  birthDate: string;
-  gender: string;
-  avatarUrl: string | null;
-  role: 'ADMIN' | 'USER';
-  status: 'ACTIVE' | 'BLOCKED' | 'INACTIVE';
-  blockReason: string | null;
-  blockedAt: string | null;
-  onboardingCompleted: boolean;
-  selectedStationIds: string[];
-  createdAt: string;
 }
 
 @Component({
@@ -36,52 +19,21 @@ interface AuthUser {
 })
 export class OnboardingCompletePage {
   private readonly authState = inject(AuthState);
-
-  private readonly AUTH_USERS_KEY = 'ruby_auth_users';
-
-  // Lista completa de estaciones cargadas desde localStorage
-  readonly stations = signal<StationUI[]>([]);
+  private readonly libraryState = inject(LibraryState);
 
   // IDs seleccionados en el step anterior
   readonly selectedStationIds = this.authState.selectedStations;
 
   // Estaciones seleccionadas completas para mostrar en pantalla
-  readonly selectedStations = computed(() => {
+  readonly selectedStations = computed<StationUI[]>(() => {
     const ids = this.selectedStationIds();
-    return this.stations().filter(station => ids.includes(station.id));
+    return this.libraryState.stations()
+      .filter(station => ids.includes((station as any).id))
+      .map(station => this.toStationUI(station));
   });
 
   constructor() {
-    this.loadStations();
     this.persistOnboardingProgress();
-  }
-
-  // =========================
-  // CARGAR ESTACIONES DESDE LOCALSTORAGE
-  // =========================
-  private loadStations(): void {
-    const raw = localStorage.getItem('ruby_stations');
-
-    if (!raw) {
-      this.stations.set([]);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-
-      const mapped: StationUI[] = parsed.map((station: any) => ({
-        id: station.id,
-        name: station.name,
-        gradientStart: station.gradientStart,
-        gradientEnd: station.gradientEnd,
-      }));
-
-      this.stations.set(mapped);
-    } catch (error) {
-      console.error('Error leyendo estaciones en onboarding-complete:', error);
-      this.stations.set([]);
-    }
   }
 
   // =========================
@@ -91,30 +43,13 @@ export class OnboardingCompletePage {
     const currentUser = this.authState.currentUser();
     if (!currentUser) return;
 
-    const authUsers = this.loadAuthUsers();
-    const index = authUsers.findIndex(user => user.id === currentUser.id);
-
-    if (index === -1) return;
-
-    authUsers[index] = {
-      ...authUsers[index],
+    const updatedCurrentUser: CurrentUser = {
+      ...currentUser,
       onboardingCompleted: true,
       selectedStationIds: this.selectedStationIds(),
     };
 
-    localStorage.setItem(this.AUTH_USERS_KEY, JSON.stringify(authUsers));
-
-    const updatedCurrentUser: CurrentUser = {
-      id: authUsers[index].id,
-      email: authUsers[index].email,
-      name: authUsers[index].name,
-      role: authUsers[index].role,
-      status: authUsers[index].status,
-      avatarUrl: authUsers[index].avatarUrl,
-      onboardingCompleted: authUsers[index].onboardingCompleted,
-      selectedStationIds: authUsers[index].selectedStationIds,
-    };
-
+    // Update session state — backend sync handled by auth adapter on next login
     this.authState.setCurrentUser(updatedCurrentUser);
   }
 
@@ -126,7 +61,6 @@ export class OnboardingCompletePage {
     const selected = this.selectedStations();
 
     if (selected.length === 0) {
-      console.warn('No hay estaciones seleccionadas');
       window.location.href = '/user/home';
       return;
     }
@@ -134,9 +68,7 @@ export class OnboardingCompletePage {
     const randomIndex = Math.floor(Math.random() * selected.length);
     const randomStation = selected[randomIndex];
 
-    console.log('Estación random elegida:', randomStation);
-
-  window.location.href = `/user/station/${randomStation.id}`;
+    window.location.href = `/user/station/${randomStation.id}`;
   }
 
   // =========================
@@ -150,12 +82,12 @@ export class OnboardingCompletePage {
   // =========================
   // HELPERS
   // =========================
-  private loadAuthUsers(): AuthUser[] {
-    try {
-      const raw = localStorage.getItem(this.AUTH_USERS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
+  private toStationUI(station: any): StationUI {
+    return {
+      id: station.id,
+      name: station.name,
+      gradientStart: station.gradientStart ?? '#1a1a2e',
+      gradientEnd: station.gradientEnd ?? '#16213e',
+    };
   }
 }

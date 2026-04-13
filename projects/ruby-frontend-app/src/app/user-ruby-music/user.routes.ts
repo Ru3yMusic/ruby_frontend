@@ -1,23 +1,12 @@
 import { Routes } from '@angular/router';
-import { UserLayoutComponent } from './layout/user-layout/user-layout.component';
-import { HomeComponent } from './pages/home/home.component';
-import { NotificationsComponent } from './pages/notifications/notifications.component';
-import { ChatStationComponent } from './pages/chat-station/chat-station.component';
-import { FriendsComponent } from './pages/friends/friends.component';
-import { LibraryComponent } from './pages/library/library.component';
-import { ProfileComponent } from './pages/profile/profile.component';
-import { PlaylistDetailComponent } from './pages/playlist-detail/playlist-detail.component';
-import { AlbumDetailComponent } from './pages/album-detail/album-detail.component';
-import { ArtistDetailComponent } from './pages/artist-detail/artist-detail.component';
-import { MusicComponent } from './pages/music/music.component';
-import { StationComponent } from './pages/station/station.component';
-import { StationDetailComponent } from './pages/station-detail/station-detail.component';
-import { SongDetailComponent } from './pages/song-detail/song-detail.component';
 
 export const USER_ROUTES: Routes = [
   {
     path: '',
-    component: UserLayoutComponent,
+    loadComponent: () =>
+      import('./layout/user-layout/user-layout.component').then(
+        m => m.UserLayoutComponent
+      ),
     children: [
       {
         path: '',
@@ -26,57 +15,91 @@ export const USER_ROUTES: Routes = [
       },
       {
         path: 'home',
-        component: HomeComponent,
+        loadComponent: () =>
+          import('./pages/home/home.component').then(m => m.HomeComponent),
       },
       {
         path: 'notifications',
-        component: NotificationsComponent,
+        loadComponent: () =>
+          import('./pages/notifications/notifications.component').then(
+            m => m.NotificationsComponent
+          ),
       },
       {
         path: 'chat-station',
-        component: ChatStationComponent,
+        loadComponent: () =>
+          import('./pages/chat-station/chat-station.component').then(
+            m => m.ChatStationComponent
+          ),
       },
       {
         path: 'friends',
-        component: FriendsComponent,
+        loadComponent: () =>
+          import('./pages/friends/friends.component').then(
+            m => m.FriendsComponent
+          ),
       },
       {
         path: 'library',
-        component: LibraryComponent,
+        loadComponent: () =>
+          import('./pages/library/library.component').then(
+            m => m.LibraryComponent
+          ),
       },
       {
         path: 'profile',
-        component: ProfileComponent,
+        loadComponent: () =>
+          import('./pages/profile/profile.component').then(
+            m => m.ProfileComponent
+          ),
       },
       {
         path: 'playlist/:id',
-        component: PlaylistDetailComponent,
+        loadComponent: () =>
+          import('./pages/playlist-detail/playlist-detail.component').then(
+            m => m.PlaylistDetailComponent
+          ),
       },
       {
         path: 'album/:id',
-        component: AlbumDetailComponent,
+        loadComponent: () =>
+          import('./pages/album-detail/album-detail.component').then(
+            m => m.AlbumDetailComponent
+          ),
       },
       {
         path: 'artist/:id',
-        component: ArtistDetailComponent,
+        loadComponent: () =>
+          import('./pages/artist-detail/artist-detail.component').then(
+            m => m.ArtistDetailComponent
+          ),
       },
       {
         path: 'music',
-        component: MusicComponent,
+        loadComponent: () =>
+          import('./pages/music/music.component').then(m => m.MusicComponent),
       },
       {
         path: 'station',
-        component: StationComponent,
+        loadComponent: () =>
+          import('./pages/station/station.component').then(
+            m => m.StationComponent
+          ),
       },
       {
         path: 'station/:id',
-        component: StationDetailComponent,
+        loadComponent: () =>
+          import('./pages/station-detail/station-detail.component').then(
+            m => m.StationDetailComponent
+          ),
       },
       {
         path: 'song/:id',
-        component: SongDetailComponent,
+        loadComponent: () =>
+          import('./pages/song-detail/song-detail.component').then(
+            m => m.SongDetailComponent
+          ),
       },
-
     ],
   },
 ];

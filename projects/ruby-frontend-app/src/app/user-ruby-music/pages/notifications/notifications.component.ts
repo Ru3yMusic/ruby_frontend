@@ -10,12 +10,6 @@ import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 
 type NotificationsTab = 'ACTIVIDAD' | 'SOLICITUDES';
 
-interface StoredUser {
-  id: string;
-  name: string;
-  avatarUrl: string | null;
-}
-
 @Component({
   selector: 'app-notifications',
   standalone: true,
@@ -28,8 +22,6 @@ export class NotificationsComponent {
   private readonly authState = inject(AuthState);
   private readonly notificationsState = inject(NotificationsState);
 
-  private readonly AUTH_USERS_KEY = 'ruby_auth_users';
-
   readonly currentUser = this.authState.currentUser;
 
   readonly activeTab = signal<NotificationsTab>('ACTIVIDAD');
@@ -39,10 +31,6 @@ export class NotificationsComponent {
 
   readonly toastMessage = signal('');
   readonly isToastVisible = signal(false);
-
-  readonly usersCatalog = signal<StoredUser[]>(
-    this.loadStorageArray<StoredUser>(this.AUTH_USERS_KEY)
-  );
 
   readonly activityNotifications = computed<StationNotificationItem[]>(() => {
     const user = this.currentUser();
@@ -139,26 +127,21 @@ export class NotificationsComponent {
   /* REQUESTS */
   /* ===================== */
   acceptRequest(request: FriendRequestItem): void {
-    this.notificationsState.acceptFriendRequest(request.id);
+    this.notificationsState.acceptFriendRequest(request.id!);
     this.showToast('Solicitud aceptada');
   }
 
   rejectRequest(request: FriendRequestItem): void {
-    this.notificationsState.rejectFriendRequest(request.id);
+    this.notificationsState.rejectFriendRequest(request.id!);
     this.showToast('Solicitud rechazada');
   }
 
   /* ===================== */
   /* UI HELPERS */
   /* ===================== */
-  getNotificationAvatar(notification: StationNotificationItem): string {
-    const actorUserId = notification.meta.actorUserId;
-    if (!actorUserId) {
-      return '/assets/icons/avatar-placeholder.png';
-    }
-
-    const user = this.usersCatalog().find(item => item.id === actorUserId);
-    return user?.avatarUrl || '/assets/icons/avatar-placeholder.png';
+  getNotificationAvatar(_notification: StationNotificationItem): string {
+    // Avatar lookup from mock user store removed — real user avatars come from notification payload
+    return '/assets/icons/avatar-placeholder.png';
   }
 
   getRequestAvatar(request: FriendRequestItem): string {
@@ -170,7 +153,7 @@ export class NotificationsComponent {
   }
 
   trackByRequest(_: number, request: FriendRequestItem): string {
-    return request.id;
+    return request.id ?? '';
   }
 
   /* ===================== */
@@ -184,20 +167,5 @@ export class NotificationsComponent {
       this.isToastVisible.set(false);
       this.toastMessage.set('');
     }, 2200);
-  }
-
-  /* ===================== */
-  /* STORAGE */
-  /* ===================== */
-  private loadStorageArray<T>(storageKey: string): T[] {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return [];
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
-    }
   }
 }

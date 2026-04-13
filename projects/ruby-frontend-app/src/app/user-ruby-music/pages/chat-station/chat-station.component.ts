@@ -1,58 +1,31 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { FriendshipStatus } from 'lib-ruby-sdks/social-service';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
+import { FriendsState } from '../../state/friends.state';
+import { LibraryState } from '../../state/library.state';
 
-interface FriendshipItem {
-  id: string;
-  userAId: string;
-  userBId: string;
-  createdAt: string;
-}
-
-interface AuthUserItem {
-  id: string;
-  email: string;
-  password: string;
-  authProvider: 'EMAIL';
-  name: string;
-  birthDate: string;
-  gender: string;
-  avatarUrl: string | null;
-  role: 'ADMIN' | 'USER';
-  status: 'ACTIVE' | 'BLOCKED' | 'INACTIVE';
-  blockReason: string | null;
-  blockedAt: string | null;
-  onboardingCompleted: boolean;
-  selectedStationIds: string[];
-  createdAt: string;
-}
-
-interface StationPresenceItem {
-  stationId: string;
-  userId: string;
-  enteredAt: string;
-}
-
-interface StoredStation {
-  id: string;
-  name: string;
-  genreId: string;
-  songIds: string[];
-  gradientStart: string;
-  gradientEnd: string;
-  liveListeners: number;
-  createdAt: string;
-}
-
-interface ChatStationFriendItem {
+/**
+ * Represents an accepted friend with optional station presence info.
+ *
+ * LIMITATION: Per-user station presence (which station a friend is listening to)
+ * requires a dedicated realtime event that is not defined in the current AsyncAPI spec
+ * (api-realtime-ws-ms.yml). The spec only exposes `listener_count` (total count per
+ * station), not individual user→station mappings.
+ *
+ * When a "friend_presence" or "station_member_list" event is added to the spec,
+ * stationId and stationName can be populated here from a realtime stream.
+ */
+interface FriendStationItem {
   friendshipId: string;
   friendUserId: string;
-  friendName: string;
-  friendAvatarUrl: string | null;
-  stationId: string;
-  stationName: string;
-  enteredAt: string;
+  /** null until enriched via UsersApi (pending Batch 5 / UsersApi availability) */
+  friendName: string | null;
+  /** null until per-user presence event is available in the realtime spec */
+  stationId: string | null;
+  /** null until per-user presence event is available in the realtime spec */
+  stationName: string | null;
 }
 
 @Component({
@@ -65,140 +38,78 @@ interface ChatStationFriendItem {
 export class ChatStationComponent {
   private readonly router = inject(Router);
   private readonly authState = inject(AuthState);
-
-  private readonly FRIENDSHIPS_KEY = 'ruby_friendships';
-  private readonly AUTH_USERS_KEY = 'ruby_auth_users';
-  private readonly STATION_PRESENCE_KEY = 'ruby_station_presence';
-  private readonly STATIONS_KEY = 'ruby_stations';
+  private readonly friendsState = inject(FriendsState);
+  private readonly libraryState = inject(LibraryState);
 
   readonly currentUser = this.authState.currentUser;
-
   readonly searchTerm = signal('');
 
-  readonly friendships = signal<FriendshipItem[]>(
-    this.loadStorageArray<FriendshipItem>(this.FRIENDSHIPS_KEY)
-  );
-
-  readonly authUsers = signal<AuthUserItem[]>(
-    this.loadStorageArray<AuthUserItem>(this.AUTH_USERS_KEY)
-  );
-
-  readonly stationPresence = signal<StationPresenceItem[]>(
-    this.loadStorageArray<StationPresenceItem>(this.STATION_PRESENCE_KEY)
-  );
-
-  readonly stations = signal<StoredStation[]>(
-    this.loadStorageArray<StoredStation>(this.STATIONS_KEY)
-  );
-
-  readonly activeFriendsInStations = computed<ChatStationFriendItem[]>(() => {
+  /**
+   * Accepted friends mapped to FriendStationItem.
+   * Friend names and station presence data are placeholders until
+   * UsersApi and a per-user presence realtime event are available.
+   */
+  readonly activeFriendsInStations = computed<FriendStationItem[]>(() => {
     const currentUser = this.currentUser();
     if (!currentUser?.id) return [];
 
     const currentUserId = currentUser.id;
-    const users = this.authUsers();
-    const stations = this.stations();
 
-    const friendshipsForUser = this.friendships().filter(
-      friendship =>
-        friendship.userAId === currentUserId || friendship.userBId === currentUserId
-    );
+    return this.friendsState.friends()
+      .filter(f => f.status === FriendshipStatus.ACCEPTED)
+      .flatMap(f => {
+        const friendUserId = f.requesterId === currentUserId
+          ? (f.addresseeId ?? '')
+          : (f.requesterId ?? '');
 
-    return friendshipsForUser
-      .map(friendship => {
-        const friendUserId =
-          friendship.userAId === currentUserId ? friendship.userBId : friendship.userAId;
+        if (!friendUserId) return [] as FriendStationItem[];
 
-        const friendUser = users.find(user => user.id === friendUserId);
-        const friendPresence = this.stationPresence().find(
-          presence => presence.userId === friendUserId
-        );
-
-        if (!friendUser || !friendPresence?.stationId) {
-          return null;
-        }
-
-        const station = stations.find(item => item.id === friendPresence.stationId);
-        if (!station) return null;
-
-        return {
-          friendshipId: friendship.id,
+        const item: FriendStationItem = {
+          friendshipId: f.id ?? '',
           friendUserId,
-          friendName: friendUser.name,
-          friendAvatarUrl: friendUser.avatarUrl ?? null,
-          stationId: station.id,
-          stationName: station.name,
-          enteredAt: friendPresence.enteredAt,
-        } satisfies ChatStationFriendItem;
-      })
-      .filter((item): item is ChatStationFriendItem => item !== null)
-      .sort((a, b) => {
-        return new Date(b.enteredAt).getTime() - new Date(a.enteredAt).getTime();
+          friendName: null,   // TODO: enrich from UsersApi when endpoint available
+          stationId: null,    // TODO: populate from realtime per-user presence event
+          stationName: null,  // TODO: populate from realtime per-user presence event
+        };
+        return [item];
       });
   });
 
-  readonly filteredActiveFriends = computed<ChatStationFriendItem[]>(() => {
+  readonly filteredActiveFriends = computed<FriendStationItem[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
     const items = this.activeFriendsInStations();
-
     if (!term) return items;
 
     return items.filter(item =>
-      item.friendName.toLowerCase().includes(term) ||
-      item.stationName.toLowerCase().includes(term)
+      (item.friendName?.toLowerCase().includes(term) ?? false) ||
+      (item.stationName?.toLowerCase().includes(term) ?? false) ||
+      item.friendUserId.toLowerCase().includes(term)
     );
   });
 
   readonly totalActiveFriends = computed(() => this.filteredActiveFriends().length);
 
   constructor() {
-    this.refreshData();
+    // Load friends and station catalog on init
+    this.friendsState.loadFriends();
+    this.libraryState.loadActiveStations();
   }
 
   updateSearchTerm(value: string): void {
     this.searchTerm.set(value);
   }
 
-  goToFriendStation(item: ChatStationFriendItem): void {
+  goToFriendStation(item: FriendStationItem): void {
     if (!item.stationId) return;
     this.router.navigate(['/user/station', item.stationId]);
   }
 
-  getFriendAvatar(item: ChatStationFriendItem): string {
-    return item.friendAvatarUrl || '/assets/icons/avatar-placeholder.png';
+  getFriendAvatar(_item: FriendStationItem): string {
+    // TODO: return friend's avatarUrl once UsersApi enrichment is available
+    return '/assets/icons/avatar-placeholder.png';
   }
 
-  trackByFriendStation(_: number, item: ChatStationFriendItem): string {
-    return `${item.friendshipId}-${item.stationId}`;
-  }
-
-  private refreshData(): void {
-    this.friendships.set(
-      this.loadStorageArray<FriendshipItem>(this.FRIENDSHIPS_KEY)
-    );
-
-    this.authUsers.set(
-      this.loadStorageArray<AuthUserItem>(this.AUTH_USERS_KEY)
-    );
-
-    this.stationPresence.set(
-      this.loadStorageArray<StationPresenceItem>(this.STATION_PRESENCE_KEY)
-    );
-
-    this.stations.set(
-      this.loadStorageArray<StoredStation>(this.STATIONS_KEY)
-    );
-  }
-
-  private loadStorageArray<T>(storageKey: string): T[] {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return [];
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
-    }
+  trackByFriendStation(_: number, item: FriendStationItem): string {
+    return item.friendshipId;
   }
 }

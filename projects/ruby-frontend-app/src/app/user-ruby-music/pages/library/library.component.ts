@@ -1,13 +1,16 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { ArtistResponse, AlbumResponse, SongResponse } from 'lib-ruby-sdks/catalog-service';
+import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
+import { PlaylistCardComponent } from 'lib-ruby-core-ui';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
-import { Playlist } from '../../models/playlist.model';
 import { PlaylistState } from '../../state/playlist.state';
-import { PlayerState } from '../../state/player.state';
+import { PlayerState, PlayerSong } from '../../state/player.state';
+import { LibraryState } from '../../state/library.state';
+import { InteractionState } from '../../state/interaction.state';
 
 type LibraryFilter = 'TODOS' | 'PLAYLISTS' | 'ARTISTAS' | 'ALBUMES';
-type LibraryItemType = 'ARTIST' | 'ALBUM';
 
 interface LibraryArtistCard {
   id: string;
@@ -32,55 +35,10 @@ interface LibraryPlaylistCard {
   isLikedSongs: boolean;
 }
 
-interface LibraryItem {
-  id: string;
-  userId: string;
-  itemType: LibraryItemType;
-  itemId: string;
-  addedAt: string;
-}
-
-interface StoredArtist {
-  id: string;
-  name: string;
-  photoUrl: string;
-  bio: string;
-  isTop: boolean;
-  followersCount: string;
-  monthlyListeners: string;
-  createdAt: string;
-}
-
-interface StoredAlbum {
-  id: string;
-  title: string;
-  artistId: string;
-  coverUrl: string;
-  releaseDate: string;
-  songsCount: number;
-  totalStreams: string;
-  createdAt: string;
-}
-
-interface StoredSong {
-  id: string;
-  title: string;
-  artistId: string;
-  albumId: string | null;
-  genreId: string;
-  coverUrl: string;
-  audioUrl: string;
-  durationSeconds: number;
-  lyrics: string | null;
-  playCount: number;
-  likesCount: number;
-  createdAt: string;
-}
-
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PlaylistCardComponent],
   templateUrl: './library.component.html',
   styleUrls: ['./library.component.scss'],
 })
@@ -89,17 +47,14 @@ export class LibraryComponent {
   private readonly playlistState = inject(PlaylistState);
   private readonly router = inject(Router);
   private readonly playerState = inject(PlayerState);
+  private readonly libraryState = inject(LibraryState);
+  private readonly interactionState = inject(InteractionState);
 
-  private readonly USER_LIBRARY_KEY = 'ruby_user_library';
-  private readonly ARTISTS_KEY = 'ruby_artists';
-  private readonly ALBUMS_KEY = 'ruby_albums';
-  private readonly SONGS_KEY = 'ruby_songs';
-
-  private readonly defaultTopColor = '#3e3535';
   private readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
   private readonly defaultPlaylistCover = '/assets/icons/playlist-cover-placeholder.png';
 
   readonly currentUser = this.authState.currentUser;
+  readonly loading = this.libraryState.loading;
 
   readonly isCreateMenuOpen = signal(false);
   readonly isSearchOpen = signal(false);
@@ -108,17 +63,10 @@ export class LibraryComponent {
 
   readonly isArtistsModalOpen = signal(false);
   readonly isAlbumsModalOpen = signal(false);
-
   readonly artistModalSearch = signal('');
   readonly albumModalSearch = signal('');
-
   readonly selectedArtistIds = signal<string[]>([]);
   readonly selectedAlbumIds = signal<string[]>([]);
-
-  readonly userLibrary = signal<LibraryItem[]>(this.loadUserLibrary());
-  readonly artistsCatalog = signal<StoredArtist[]>(this.loadStorageArray<StoredArtist>(this.ARTISTS_KEY));
-  readonly albumsCatalog = signal<StoredAlbum[]>(this.loadStorageArray<StoredAlbum>(this.ALBUMS_KEY));
-  readonly songsCatalog = signal<StoredSong[]>(this.loadStorageArray<StoredSong>(this.SONGS_KEY));
 
   readonly displayAvatarUrl = computed(() => {
     return this.currentUser()?.avatarUrl || this.defaultAvatar;
@@ -128,22 +76,23 @@ export class LibraryComponent {
     const user = this.currentUser();
     if (!user) return null;
 
-    const liked = this.playlistState.ensureLikedSongsPlaylist(user.id);
+    const liked = this.playlistState.getLikedSongsPlaylist(user.id);
+    if (!liked) return null;
+
     const term = this.librarySearch().trim().toLowerCase();
+    const count = liked.songCount ?? 0;
 
     const likedCard: LibraryPlaylistCard = {
-      id: liked.id,
-      title: liked.name,
-      coverUrl: liked.coverUrl,
-      subtitle: `Playlist · ${liked.songIds.length} canción${liked.songIds.length === 1 ? '' : 'es'}`,
-      songsCount: liked.songIds.length,
+      id: liked.id ?? '',
+      title: liked.name ?? 'Canciones que te gustan',
+      coverUrl: liked.coverUrl ?? null,
+      subtitle: `Playlist · ${count} canción${count === 1 ? '' : 'es'}`,
+      songsCount: count,
       isLikedSongs: true,
     };
 
     if (!term) return likedCard;
-
-    const matches = `${likedCard.title} ${likedCard.subtitle}`.toLowerCase().includes(term);
-    return matches ? likedCard : null;
+    return `${likedCard.title} ${likedCard.subtitle}`.toLowerCase().includes(term) ? likedCard : null;
   });
 
   readonly customPlaylists = computed<LibraryPlaylistCard[]>(() => {
@@ -154,20 +103,19 @@ export class LibraryComponent {
 
     const playlists = this.playlistState
       .getCustomPlaylistsByUser(user.id)
-      .filter((playlist: Playlist) => playlist.name.trim().length > 0)
-      .map((playlist: Playlist) => ({
-        id: playlist.id,
-        title: playlist.name,
-        coverUrl: playlist.coverUrl,
+      .filter((p: PlaylistResponse) => (p.name ?? '').trim().length > 0)
+      .map((p: PlaylistResponse) => ({
+        id: p.id ?? '',
+        title: p.name ?? '',
+        coverUrl: p.coverUrl ?? null,
         subtitle: `Playlist · ${user.name}`,
-        songsCount: playlist.songIds.length,
+        songsCount: p.songCount ?? 0,
         isLikedSongs: false,
       }));
 
     if (!term) return playlists;
-
-    return playlists.filter(playlist =>
-      `${playlist.title} ${playlist.subtitle}`.toLowerCase().includes(term)
+    return playlists.filter(p =>
+      `${p.title} ${p.subtitle}`.toLowerCase().includes(term)
     );
   });
 
@@ -176,24 +124,21 @@ export class LibraryComponent {
     if (!user?.id) return [];
 
     const term = this.librarySearch().trim().toLowerCase();
+    const artistIds = this.interactionState.libraryArtistIds();
 
-    const artistIds = this.userLibrary()
-      .filter(item => item.userId === user.id && item.itemType === 'ARTIST')
-      .map(item => item.itemId);
-
-    const artists = this.artistsCatalog()
-      .filter(artist => artistIds.includes(artist.id))
-      .map((artist) => ({
-        id: artist.id,
-        name: artist.name,
-        photoUrl: artist.photoUrl || this.defaultAvatar,
+    const artists = this.libraryState
+      .artists()
+      .filter((a: ArtistResponse) => artistIds.includes(a.id ?? ''))
+      .map((a: ArtistResponse) => ({
+        id: a.id ?? '',
+        name: a.name ?? '',
+        photoUrl: a.photoUrl || this.defaultAvatar,
         typeLabel: 'Artista',
       }));
 
     if (!term) return artists;
-
-    return artists.filter(artist =>
-      `${artist.name} ${artist.typeLabel}`.toLowerCase().includes(term)
+    return artists.filter(a =>
+      `${a.name} ${a.typeLabel}`.toLowerCase().includes(term)
     );
   });
 
@@ -202,28 +147,24 @@ export class LibraryComponent {
     if (!user?.id) return [];
 
     const term = this.librarySearch().trim().toLowerCase();
+    const albumIds = this.interactionState.libraryAlbumIds();
 
-    const albumIds = this.userLibrary()
-      .filter(item => item.userId === user.id && item.itemType === 'ALBUM')
-      .map(item => item.itemId);
-
-    const albums = this.albumsCatalog()
-      .filter(album => albumIds.includes(album.id))
-      .map((album) => {
-        const artist = this.artistsCatalog().find(a => a.id === album.artistId);
-
-        return {
-          id: album.id,
-          title: album.title,
-          coverUrl: album.coverUrl || this.defaultPlaylistCover,
-          subtitle: `Álbum · ${artist?.name ?? 'Artista desconocido'}`,
+    const albums = this.libraryState
+      .albums()
+      .filter((a: AlbumResponse) => albumIds.includes(a.id ?? ''))
+      .map((album: AlbumResponse) => {
+      const artist = this.libraryState.artists().find((a: ArtistResponse) => a.id === album.artist?.id);
+      return {
+        id: album.id ?? '',
+        title: album.title ?? '',
+        coverUrl: album.coverUrl || this.defaultPlaylistCover,
+        subtitle: `Álbum · ${artist?.name ?? 'Artista desconocido'}`,
         };
       });
 
     if (!term) return albums;
-
-    return albums.filter(album =>
-      `${album.title} ${album.subtitle}`.toLowerCase().includes(term)
+    return albums.filter(a =>
+      `${a.title} ${a.subtitle}`.toLowerCase().includes(term)
     );
   });
 
@@ -231,96 +172,65 @@ export class LibraryComponent {
   readonly hasArtists = computed(() => this.filteredArtists().length > 0);
   readonly hasAlbums = computed(() => this.filteredAlbums().length > 0);
   readonly hasCustomPlaylists = computed(() => this.customPlaylists().length > 0);
-
-  readonly hasPlaylists = computed(() => {
-    return this.hasLikedSongsCard() || this.hasCustomPlaylists();
-  });
-
-  readonly hasAnyLibraryContent = computed(() => {
-    return this.hasPlaylists() || this.hasArtists() || this.hasAlbums();
-  });
+  readonly hasPlaylists = computed(() => this.hasLikedSongsCard() || this.hasCustomPlaylists());
+  readonly hasAnyLibraryContent = computed(() => this.hasPlaylists() || this.hasArtists() || this.hasAlbums());
 
   readonly visibleFilters = computed<LibraryFilter[]>(() => {
     const filters: LibraryFilter[] = ['TODOS', 'PLAYLISTS'];
-
-    if (this.hasArtists()) {
-      filters.push('ARTISTAS');
-    }
-
-    if (this.hasAlbums()) {
-      filters.push('ALBUMES');
-    }
-
+    if (this.hasArtists()) filters.push('ARTISTAS');
+    if (this.hasAlbums()) filters.push('ALBUMES');
     return filters;
   });
 
   readonly showArtistsColumn = computed(() => {
-    const filter = this.activeFilter();
-    return filter === 'TODOS' || filter === 'ARTISTAS';
+    const f = this.activeFilter();
+    return f === 'TODOS' || f === 'ARTISTAS';
   });
 
   readonly showPlaylistsColumn = computed(() => {
-    const filter = this.activeFilter();
-    return filter === 'TODOS' || filter === 'PLAYLISTS';
+    const f = this.activeFilter();
+    return f === 'TODOS' || f === 'PLAYLISTS';
   });
 
   readonly showAlbumsColumn = computed(() => {
-    const filter = this.activeFilter();
-    return filter === 'TODOS' || filter === 'ALBUMES';
-  });
-
-  readonly dynamicMiddleColor = computed(() => {
-    return this.defaultTopColor;
+    const f = this.activeFilter();
+    return f === 'TODOS' || f === 'ALBUMES';
   });
 
   readonly libraryGradient = computed(() => {
-    const middle = this.dynamicMiddleColor();
-    return `linear-gradient(180deg, #777777 2%, #4e4d4d 12%, ${middle} 34%, #181818 66%, #0c0c0c 96%)`;
+    return 'linear-gradient(180deg, #777777 2%, #4e4d4d 12%, #3e3535 34%, #181818 66%, #0c0c0c 96%)';
   });
 
-  readonly topArtists = computed<StoredArtist[]>(() => {
-    const all = this.artistsCatalog();
-    const top = all.filter(artist => artist.isTop).slice(0, 3);
-
+  readonly topArtists = computed<ArtistResponse[]>(() => {
+    const all = this.libraryState.artists();
+    const top = all.filter((a: ArtistResponse) => a.isTop).slice(0, 3);
     if (top.length === 3) return top;
-
-    const usedIds = new Set(top.map(artist => artist.id));
-    const rest = all.filter(artist => !usedIds.has(artist.id)).slice(0, 3 - top.length);
-
+    const usedIds = new Set(top.map((a: ArtistResponse) => a.id));
+    const rest = all.filter((a: ArtistResponse) => !usedIds.has(a.id)).slice(0, 3 - top.length);
     return [...top, ...rest];
   });
 
-  readonly artistSuggestions = computed<StoredArtist[]>(() => {
+  readonly artistSuggestions = computed<ArtistResponse[]>(() => {
     const query = this.artistModalSearch().trim().toLowerCase();
-    const topIds = new Set(this.topArtists().map(artist => artist.id));
-
-    let result = this.artistsCatalog().filter(artist => !topIds.has(artist.id));
-
+    const topIds = new Set(this.topArtists().map((a: ArtistResponse) => a.id));
+    let result = this.libraryState.artists().filter((a: ArtistResponse) => !topIds.has(a.id));
     if (query) {
-      result = result.filter(artist =>
-        artist.name.toLowerCase().includes(query)
-      );
+      result = result.filter((a: ArtistResponse) => (a.name ?? '').toLowerCase().includes(query));
     }
-
     return result.slice(0, 9);
   });
 
-  readonly topAlbums = computed<StoredAlbum[]>(() => {
-    return this.albumsCatalog().slice(0, 3);
+  readonly topAlbums = computed<AlbumResponse[]>(() => {
+    return this.libraryState.albums().slice(0, 3);
   });
 
-  readonly albumSuggestions = computed<StoredAlbum[]>(() => {
+  readonly albumSuggestions = computed<AlbumResponse[]>(() => {
     const query = this.albumModalSearch().trim().toLowerCase();
-    const topIds = new Set(this.topAlbums().map(album => album.id));
-
-    let result = this.albumsCatalog().filter(album => !topIds.has(album.id));
-
+    const topIds = new Set(this.topAlbums().map((a: AlbumResponse) => a.id));
+    let result = this.libraryState.albums().filter((a: AlbumResponse) => !topIds.has(a.id));
     if (query) {
-      result = result.filter(album =>
-        album.title.toLowerCase().includes(query)
-      );
+      result = result.filter((a: AlbumResponse) => (a.title ?? '').toLowerCase().includes(query));
     }
-
     return result.slice(0, 9);
   });
 
@@ -332,42 +242,12 @@ export class LibraryComponent {
   /* INIT */
   /* ===================== */
   private bootstrapLibrary(): void {
-    const user = this.currentUser();
-    if (!user?.id) return;
-
-    this.playlistState.ensureLikedSongsPlaylist(user.id);
-  }
-
-  /* ===================== */
-  /* STORAGE */
-  /* ===================== */
-  private loadUserLibrary(): LibraryItem[] {
-    try {
-      const raw = localStorage.getItem(this.USER_LIBRARY_KEY);
-      if (!raw) return [];
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed as LibraryItem[] : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private loadStorageArray<T>(storageKey: string): T[] {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return [];
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed as T[] : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private persistUserLibrary(items: LibraryItem[]): void {
-    localStorage.setItem(this.USER_LIBRARY_KEY, JSON.stringify(items));
-    this.userLibrary.set(items);
+    this.libraryState.loadTopArtists();
+    this.libraryState.loadNewReleases();
+    this.libraryState.loadRecentSongs();
+    this.interactionState.loadLibraryAlbums();
+    this.interactionState.loadLibraryArtists();
+    this.playlistState.loadPlaylists();
   }
 
   /* ===================== */
@@ -385,10 +265,7 @@ export class LibraryComponent {
   toggleSearch(event?: MouseEvent): void {
     event?.stopPropagation();
     this.isSearchOpen.set(!this.isSearchOpen());
-
-    if (!this.isSearchOpen()) {
-      this.librarySearch.set('');
-    }
+    if (!this.isSearchOpen()) this.librarySearch.set('');
   }
 
   closeSearch(): void {
@@ -425,23 +302,18 @@ export class LibraryComponent {
 
     const nextNumber = this.customPlaylists().length + 1;
 
-    const created = this.playlistState.createPlaylist({
-      userId: user.id,
-      name: `Mi playlist n.° ${nextNumber}`,
-      description: null,
-      coverUrl: null,
-      visibility: 'PUBLIC',
-    });
-
-    this.activeFilter.set('PLAYLISTS');
-    this.isCreateMenuOpen.set(false);
-
-    this.router.navigate(['/user/playlist', created.id]);
+    this.playlistState.createPlaylist(
+      { name: `Mi playlist n.° ${nextNumber}`, description: null, isPublic: true },
+      (created) => {
+        this.activeFilter.set('PLAYLISTS');
+        this.isCreateMenuOpen.set(false);
+        this.router.navigate(['/user/playlist', created.id]);
+      }
+    );
   }
 
   goToPlaylistDetail(playlistId: string): void {
     if (!playlistId) return;
-
     this.isCreateMenuOpen.set(false);
     this.router.navigate(['/user/playlist', playlistId]);
   }
@@ -449,7 +321,6 @@ export class LibraryComponent {
   goToLikedSongs(): void {
     const liked = this.likedSongsPlaylist();
     if (!liked?.id) return;
-
     this.isCreateMenuOpen.set(false);
     this.router.navigate(['/user/playlist', liked.id]);
   }
@@ -460,12 +331,7 @@ export class LibraryComponent {
   openArtistsModal(): void {
     const user = this.currentUser();
     if (!user?.id) return;
-
-    const currentIds = this.userLibrary()
-      .filter(item => item.userId === user.id && item.itemType === 'ARTIST')
-      .map(item => item.itemId);
-
-    this.selectedArtistIds.set(currentIds);
+    this.selectedArtistIds.set([...this.interactionState.libraryArtistIds()]);
     this.artistModalSearch.set('');
     this.isArtistsModalOpen.set(true);
   }
@@ -486,32 +352,22 @@ export class LibraryComponent {
 
   toggleArtistSelection(artistId: string): void {
     if (this.isArtistSelected(artistId)) {
-      this.selectedArtistIds.set(
-        this.selectedArtistIds().filter(id => id !== artistId)
-      );
+      this.selectedArtistIds.set(this.selectedArtistIds().filter(id => id !== artistId));
       return;
     }
-
     this.selectedArtistIds.set([...this.selectedArtistIds(), artistId]);
   }
 
   saveSelectedArtists(): void {
-    const user = this.currentUser();
-    if (!user?.id) return;
+    const current = this.interactionState.libraryArtistIds();
+    const selected = this.selectedArtistIds();
 
-    const otherItems = this.userLibrary().filter(
-      item => !(item.userId === user.id && item.itemType === 'ARTIST')
-    );
+    current.filter(id => !selected.includes(id))
+      .forEach(id => this.interactionState.removeArtistFromLibrary(id));
 
-    const newArtistItems: LibraryItem[] = this.selectedArtistIds().map(artistId => ({
-      id: crypto.randomUUID(),
-      userId: user.id,
-      itemType: 'ARTIST',
-      itemId: artistId,
-      addedAt: new Date().toISOString(),
-    }));
+    selected.filter(id => !current.includes(id))
+      .forEach(id => this.interactionState.addArtistToLibrary(id));
 
-    this.persistUserLibrary([...otherItems, ...newArtistItems]);
     this.closeArtistsModal();
   }
 
@@ -521,12 +377,7 @@ export class LibraryComponent {
   openAlbumsModal(): void {
     const user = this.currentUser();
     if (!user?.id) return;
-
-    const currentIds = this.userLibrary()
-      .filter(item => item.userId === user.id && item.itemType === 'ALBUM')
-      .map(item => item.itemId);
-
-    this.selectedAlbumIds.set(currentIds);
+    this.selectedAlbumIds.set([...this.interactionState.libraryAlbumIds()]);
     this.albumModalSearch.set('');
     this.isAlbumsModalOpen.set(true);
   }
@@ -547,36 +398,27 @@ export class LibraryComponent {
 
   toggleAlbumSelection(albumId: string): void {
     if (this.isAlbumSelected(albumId)) {
-      this.selectedAlbumIds.set(
-        this.selectedAlbumIds().filter(id => id !== albumId)
-      );
+      this.selectedAlbumIds.set(this.selectedAlbumIds().filter(id => id !== albumId));
       return;
     }
-
     this.selectedAlbumIds.set([...this.selectedAlbumIds(), albumId]);
   }
 
-  getAlbumArtistName(album: StoredAlbum): string {
-    return this.artistsCatalog().find(artist => artist.id === album.artistId)?.name ?? 'Artista desconocido';
+  getAlbumArtistName(album: AlbumResponse): string {
+    return this.libraryState.artists().find((a: ArtistResponse) => a.id === album.artist?.id)?.name
+      ?? 'Artista desconocido';
   }
 
   saveSelectedAlbums(): void {
-    const user = this.currentUser();
-    if (!user?.id) return;
+    const current = this.interactionState.libraryAlbumIds();
+    const selected = this.selectedAlbumIds();
 
-    const otherItems = this.userLibrary().filter(
-      item => !(item.userId === user.id && item.itemType === 'ALBUM')
-    );
+    current.filter(id => !selected.includes(id))
+      .forEach(id => this.interactionState.removeAlbumFromLibrary(id));
 
-    const newAlbumItems: LibraryItem[] = this.selectedAlbumIds().map(albumId => ({
-      id: crypto.randomUUID(),
-      userId: user.id,
-      itemType: 'ALBUM',
-      itemId: albumId,
-      addedAt: new Date().toISOString(),
-    }));
+    selected.filter(id => !current.includes(id))
+      .forEach(id => this.interactionState.addAlbumToLibrary(id));
 
-    this.persistUserLibrary([...otherItems, ...newAlbumItems]);
     this.closeAlbumsModal();
   }
 
@@ -585,133 +427,83 @@ export class LibraryComponent {
   /* ===================== */
   playAlbumFromLibrary(albumId: string, event?: MouseEvent): void {
     event?.stopPropagation();
-
     if (!albumId) return;
 
-    const firstSong = this.songsCatalog().find(song => song.albumId === albumId);
-    if (!firstSong) return;
+    const firstSongRes = this.libraryState.songs().find(s => s.album?.id === albumId);
+    if (!firstSongRes) return;
+    const firstSong = this.toPlayerSong(firstSongRes);
+    const current = this.playerState.currentSong();
 
-    const currentSong = this.playerState.currentSong();
-
-    if (
-      currentSong?.albumId === albumId &&
-      currentSong.id === firstSong.id &&
-      this.playerState.isPlaying()
-    ) {
-      this.playerState.pause();
-      return;
+    if (current?.albumId === albumId && current.id === firstSong.id && this.playerState.isPlaying()) {
+      this.playerState.pause(); return;
     }
-
-    if (
-      currentSong?.albumId === albumId &&
-      currentSong.id === firstSong.id &&
-      !this.playerState.isPlaying()
-    ) {
-      this.playerState.resume();
-      return;
+    if (current?.albumId === albumId && current.id === firstSong.id && !this.playerState.isPlaying()) {
+      this.playerState.resume(); return;
     }
-
     this.playerState.playSong(firstSong);
   }
 
   isAlbumPlaying(albumId: string): boolean {
-    const currentSong = this.playerState.currentSong();
-    return !!currentSong && currentSong.albumId === albumId && this.playerState.isPlaying();
+    const current = this.playerState.currentSong();
+    return !!current && current.albumId === albumId && this.playerState.isPlaying();
   }
 
   playArtistFromLibrary(artistId: string, event?: MouseEvent): void {
     event?.stopPropagation();
-
     if (!artistId) return;
 
-    const artistSongs = this.songsCatalog()
-      .filter(song => song.artistId === artistId)
-      .sort((a, b) => {
-        const diff = (b.playCount ?? 0) - (a.playCount ?? 0);
-        if (diff !== 0) return diff;
+    const songs = this.libraryState.songs()
+      .filter(s => s.artist?.id === artistId)
+      .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0));
 
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+    const firstSongRes = songs[0];
+    if (!firstSongRes) return;
+    const firstSong = this.toPlayerSong(firstSongRes);
+    const current = this.playerState.currentSong();
 
-    const firstSong = artistSongs[0];
-    if (!firstSong) return;
-
-    const currentSong = this.playerState.currentSong();
-
-    if (
-      currentSong?.artistId === artistId &&
-      currentSong.id === firstSong.id &&
-      this.playerState.isPlaying()
-    ) {
-      this.playerState.pause();
-      return;
+    if (current?.artistId === artistId && current.id === firstSong.id && this.playerState.isPlaying()) {
+      this.playerState.pause(); return;
     }
-
-    if (
-      currentSong?.artistId === artistId &&
-      currentSong.id === firstSong.id &&
-      !this.playerState.isPlaying()
-    ) {
-      this.playerState.resume();
-      return;
+    if (current?.artistId === artistId && current.id === firstSong.id && !this.playerState.isPlaying()) {
+      this.playerState.resume(); return;
     }
-
     this.playerState.playSong(firstSong);
   }
 
   isArtistPlaying(artistId: string): boolean {
-    const currentSong = this.playerState.currentSong();
-    return !!currentSong && currentSong.artistId === artistId && this.playerState.isPlaying();
+    const current = this.playerState.currentSong();
+    return !!current && current.artistId === artistId && this.playerState.isPlaying();
   }
 
+  playPlaylistFromLibrary(playlistId: string, event?: MouseEvent): void {
+    event?.stopPropagation();
+    if (!playlistId) return;
 
-playPlaylistFromLibrary(playlistId: string, event?: MouseEvent): void {
-  event?.stopPropagation();
+    const playlist = this.playlistState.getPlaylistById(playlistId);
+    if (!playlist || (playlist.songCount ?? 0) === 0) return;
 
-  if (!playlistId) return;
+    const current = this.playerState.currentSong();
+    const loadedIds = this.playlistState.getSongIdsForCurrentPlaylist();
 
-  const playlist = this.playlistState.playlists().find(item => item.id === playlistId);
-  if (!playlist || playlist.songIds.length === 0) return;
+    if (current && loadedIds.includes(current.id) && this.playerState.isPlaying()) {
+      this.playerState.pause(); return;
+    }
+    if (current && loadedIds.includes(current.id) && !this.playerState.isPlaying()) {
+      this.playerState.resume(); return;
+    }
 
-  const firstSongId = playlist.songIds[0];
-  const firstSong = this.songsCatalog().find(song => song.id === firstSongId);
-  if (!firstSong) return;
-
-  const currentSong = this.playerState.currentSong();
-
-  if (
-    currentSong &&
-    playlist.songIds.includes(currentSong.id) &&
-    this.playerState.isPlaying()
-  ) {
-    this.playerState.pause();
-    return;
+    // Navigate to detail page to load and play songs
+    this.router.navigate(['/user/playlist', playlistId]);
   }
 
-  if (
-    currentSong &&
-    playlist.songIds.includes(currentSong.id) &&
-    !this.playerState.isPlaying()
-  ) {
-    this.playerState.resume();
-    return;
+  isPlaylistPlaying(playlistId: string): boolean {
+    const current = this.playerState.currentSong();
+    const loadedIds = this.playlistState.getSongIdsForCurrentPlaylist();
+    if (!current) return false;
+    const playlist = this.playlistState.getPlaylistById(playlistId);
+    if (!playlist) return false;
+    return loadedIds.includes(current.id) && this.playerState.isPlaying();
   }
-
-  this.playerState.playSong(firstSong);
-}
-
-isPlaylistPlaying(playlistId: string): boolean {
-  const playlist = this.playlistState.playlists().find(item => item.id === playlistId);
-  const currentSong = this.playerState.currentSong();
-
-  if (!playlist || !currentSong) return false;
-
-  return playlist.songIds.includes(currentSong.id) && this.playerState.isPlaying();
-}
-
-
-
-
 
   /* ===================== */
   /* TOP ACTIONS */
@@ -733,15 +525,33 @@ isPlaylistPlaying(playlistId: string): boolean {
 
   goToAlbumDetail(albumId: string): void {
     if (!albumId) return;
-
     this.isCreateMenuOpen.set(false);
     this.router.navigate(['/user/album', albumId]);
   }
 
   goToArtistDetail(artistId: string): void {
     if (!artistId) return;
-
     this.isCreateMenuOpen.set(false);
     this.router.navigate(['/user/artist', artistId]);
+  }
+
+  /* ===================== */
+  /* HELPERS */
+  /* ===================== */
+  private toPlayerSong(song: SongResponse): PlayerSong {
+    return {
+      id: song.id ?? '',
+      title: song.title ?? '',
+      artistId: song.artist?.id ?? '',
+      albumId: song.album?.id ?? null,
+      genreId: song.genres?.[0]?.id ?? '',
+      coverUrl: song.coverUrl ?? '',
+      audioUrl: song.audioUrl ?? '',
+      durationSeconds: song.duration ?? 0,
+      lyrics: song.lyrics ?? null,
+      playCount: song.playCount ?? 0,
+      likesCount: song.likesCount ?? 0,
+      createdAt: '',
+    };
   }
 }

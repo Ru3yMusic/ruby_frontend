@@ -1,0 +1,31 @@
+<article class="song-card" [class.song-card--playing]="isPlaying()">
+  <div class="song-card__cover-wrap">
+    <img
+      class="song-card__cover"
+      [src]="coverUrl() || '/assets/icons/playlist-cover-placeholder.png'"
+      [alt]="title()"
+      loading="lazy"
+    />
+    <button
+      type="button"
+      class="song-card__play-btn"
+      [attr.aria-label]="isPlaying() ? 'Pausar ' + title() : 'Reproducir ' + title()"
+      (click)="played.emit()">
+      <span class="song-card__play-icon">{{ isPlaying() ? '⏸' : '▶' }}</span>
+    </button>
+  </div>
+
+  <div class="song-card__info">
+    <span class="song-card__title" [title]="title()">{{ title() }}</span>
+    <span class="song-card__artist">{{ artistName() }}</span>
+  </div>
+
+  <button
+    type="button"
+    class="song-card__like-btn"
+    [class.song-card__like-btn--active]="isLiked()"
+    [attr.aria-label]="isLiked() ? 'Quitar de favoritos' : 'Agregar a favoritos'"
+    (click)="liked.emit()">
+    <span class="song-card__like-icon">{{ isLiked() ? '♥' : '♡' }}</span>
+  </button>
+</article>

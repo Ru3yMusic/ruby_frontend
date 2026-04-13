@@ -1,0 +1,844 @@
+openapi: 3.0.3
+info:
+  title: Auth Service API
+  description: |
+    Handles user registration, email/OTP verification, login (email & Google OAuth),
+    JWT token management, and password recovery for RUBY MUSIC.
+  version: 1.0.0
+  contact:
+    name: RUBY MUSIC Team
+
+servers:
+  - url: http://localhost:8081
+    description: Local development
+  - url: http://localhost:8080/api/v1/auth
+    description: Via API Gateway
+
+tags:
+  - name: Registration
+    description: Sign-up and email verification flow
+  - name: Authentication
+    description: Login, token refresh and logout
+  - name: Password
+    description: Password recovery via OTP
+  - name: Users
+    description: User profile management
+  - name: Internal
+    description: Internal service-to-service endpoints (not exposed publicly via gateway)
+
+paths:
+
+  # ── Registration ────────────────────────────────────────────────────────────
+
+  /api/v1/auth/register:
+    post:
+      tags: [Registration]
+      operationId: register
+      summary: Register a new user with email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created — OTP sent to email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/verify-email:
+    post:
+      tags: [Registration]
+      operationId: verifyEmail
+      summary: Verify email with 6-digit OTP (REGISTER or PASSWORD_RESET)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpRequest'
+      responses:
+        '204':
+          description: Email verified successfully
+        '400':
+          description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/resend-otp:
+    post:
+      tags: [Registration]
+      operationId: resendOtp
+      summary: Resend OTP to the given email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendOtpRequest'
+      responses:
+        '204':
+          description: OTP sent
+        '404':
+          description: Email not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── Authentication ───────────────────────────────────────────────────────────
+
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      operationId: login
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated — returns access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid credentials or email not verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/login/google:
+    post:
+      tags: [Authentication]
+      operationId: loginWithGoogle
+      summary: Login or register via Google OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleLoginRequest'
+      responses:
+        '200':
+          description: Authenticated — returns access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid Google token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Authentication]
+      operationId: refreshToken
+      summary: Issue a new access token using a refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Refresh token invalid, expired, or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logout
+      summary: Revoke current refresh token (logout from this device)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '204':
+          description: Logged out
+
+  /api/v1/auth/logout-all:
+    post:
+      tags: [Authentication]
+      operationId: logoutAll
+      summary: Revoke all refresh tokens (logout from all devices)
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: All sessions revoked
+
+  # ── Password recovery ────────────────────────────────────────────────────────
+
+  /api/v1/auth/password/reset-request:
+    post:
+      tags: [Password]
+      operationId: requestPasswordReset
+      summary: Request a PASSWORD_RESET OTP by email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequestBody'
+      responses:
+        '204':
+          description: OTP sent (response is the same even if email is unknown)
+
+  /api/v1/auth/password/reset:
+    post:
+      tags: [Password]
+      operationId: resetPassword
+      summary: Set new password after OTP verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetBody'
+      responses:
+        '204':
+          description: Password updated — all sessions revoked
+        '400':
+          description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── User management (admin) ───────────────────────────────────────────────────
+
+  /api/v1/auth/users:
+    get:
+      tags: [Users]
+      operationId: listUsers
+      summary: List/search all users (admin — Gestión de Usuarios screen)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search by display name or email
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserStatus'
+          description: Filter by account status
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated user list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+
+  /api/v1/auth/users/stats:
+    get:
+      tags: [Users]
+      operationId: getUserStats
+      summary: Aggregate user stats for the admin dashboard (gender distribution, status counts)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatsResponse'
+
+  # ── User profile ─────────────────────────────────────────────────────────────
+
+  /api/v1/auth/users/{id}:
+    get:
+      tags: [Users]
+      operationId: getUserById
+      summary: Get user profile by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/users/{id}/status:
+    patch:
+      tags: [Users]
+      operationId: changeUserStatus
+      summary: Change user account status — Activo / Inactivo / Bloqueado (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeUserStatusRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: User not found
+
+  /api/v1/auth/users/batch:
+    post:
+      tags: [Users]
+      operationId: batchGetUsers
+      summary: Fetch multiple user profiles by ID in one request (for friends list, mentions, etc.)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchUsersRequest'
+      responses:
+        '200':
+          description: List of found users (unknown IDs are silently omitted)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+
+  # ── Internal (service-to-service, blocked at gateway) ────────────────────────
+
+  /api/internal/v1/service-token:
+    post:
+      tags: [Internal]
+      operationId: issueServiceToken
+      summary: Issue a service JWT for M2M authentication (secret-based)
+      security:
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceTokenRequest'
+      responses:
+        '200':
+          description: Service JWT issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceTokenResponse'
+        '401':
+          description: Invalid service secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/internal/v1/users/{id}:
+    get:
+      tags: [Internal]
+      operationId: getInternalUserById
+      summary: Fetch minimal user data for internal service consumption
+      security:
+        - ServiceJwt: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInternalDto'
+        '401':
+          description: Missing or invalid service JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Token does not have SERVICE role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/internal/v1/users/batch:
+    get:
+      tags: [Internal]
+      operationId: getInternalUsersBatch
+      summary: Fetch multiple users by comma-separated UUIDs (unknown IDs silently omitted)
+      security:
+        - ServiceJwt: []
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated list of user UUIDs
+      responses:
+        '200':
+          description: List of found users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserInternalDto'
+        '401':
+          description: Missing or invalid service JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Token does not have SERVICE role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/users/{id}/profile:
+    patch:
+      tags: [Users]
+      operationId: updateProfile
+      summary: Update display name and/or profile photo URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+# ── Components ───────────────────────────────────────────────────────────────
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ServiceJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Service-to-service JWT (role=SERVICE, issued by auth-service)
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 0
+    SizeParam:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 20
+
+  schemas:
+
+    RegisterRequest:
+      type: object
+      required: [email, password, displayName, birthDate, gender, acceptedTerms, acceptedPrivacyPolicy]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        displayName:
+          type: string
+          maxLength: 100
+        birthDate:
+          type: string
+          format: date
+        gender:
+          $ref: '#/components/schemas/Gender'
+        acceptedTerms:
+          type: boolean
+        acceptedPrivacyPolicy:
+          type: boolean
+        acceptsMarketing:
+          type: boolean
+          default: false
+
+    VerifyOtpRequest:
+      type: object
+      required: [email, code, type]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+        type:
+          $ref: '#/components/schemas/VerificationType'
+
+    ResendOtpRequest:
+      type: object
+      required: [email, type]
+      properties:
+        email:
+          type: string
+          format: email
+        type:
+          $ref: '#/components/schemas/VerificationType'
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        deviceInfo:
+          type: string
+
+    GoogleLoginRequest:
+      type: object
+      required: [googleIdToken]
+      properties:
+        googleIdToken:
+          type: string
+        deviceInfo:
+          type: string
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    PasswordResetRequestBody:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    PasswordResetBody:
+      type: object
+      required: [email, code, newPassword]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+        newPassword:
+          type: string
+          minLength: 8
+
+    UserRole:
+      type: string
+      enum: [USER, ADMIN]
+
+    UserStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, BLOCKED]
+
+    BlockReason:
+      type: string
+      enum: [HARASSMENT_OR_BULLYING, INCITEMENT_TO_VIOLENCE, RACISM_OR_DISCRIMINATION, INAPPROPRIATE_CONTENT, SPAM_OR_ADVERTISING]
+
+    ChangeUserStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        blockReason:
+          $ref: '#/components/schemas/BlockReason'
+          description: Required when status is BLOCKED
+
+    UserPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    UserStatsResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+        byGender:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: Count per Gender enum value
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: Count per UserStatus enum value
+        recentUsers:
+          type: array
+          description: 10 most recently registered users for the dashboard widget
+          items:
+            $ref: '#/components/schemas/UserResponse'
+
+    BatchUsersRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 100
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          maxLength: 100
+        profilePhotoUrl:
+          type: string
+
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          description: Expiration in seconds
+        refreshToken:
+          type: string
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        displayName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        gender:
+          $ref: '#/components/schemas/Gender'
+        authProvider:
+          $ref: '#/components/schemas/AuthProvider'
+        profilePhotoUrl:
+          type: string
+        isEmailVerified:
+          type: boolean
+        role:
+          $ref: '#/components/schemas/UserRole'
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        blockReason:
+          $ref: '#/components/schemas/BlockReason'
+        createdAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+
+    Gender:
+      type: string
+      enum: [FEMENINO, MASCULINO, NO_BINARIO, OTRO, PREFER_NOT_SAY]
+
+    AuthProvider:
+      type: string
+      enum: [EMAIL, GOOGLE]
+
+    VerificationType:
+      type: string
+      enum: [REGISTER, PASSWORD_RESET]
+
+    ServiceTokenRequest:
+      type: object
+      required: [serviceName, serviceSecret]
+      properties:
+        serviceName:
+          type: string
+          description: Unique service identifier (e.g. interaction-service)
+        serviceSecret:
+          type: string
+          description: Shared secret distributed via config-server
+
+    ServiceTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Signed RS256 JWT with role=SERVICE
+        expiresIn:
+          type: integer
+          description: Token validity in seconds
+
+    UserInternalDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        username:
+          type: string
+          description: User display name (mapped from displayName)
+        profilePhotoUrl:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, BLOCKED]

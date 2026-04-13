@@ -8,7 +8,13 @@
     "noPropertyAccessFromIndexSignature": true,
     "paths": {
       "lib-ruby-core": ["./projects/lib-ruby-core/src/public-api.ts"],
-      "lib-ruby-core-ui": ["./projects/lib-ruby-core-ui/src/public-api.ts"]
+      "lib-ruby-core-ui": ["./projects/lib-ruby-core-ui/src/public-api.ts"],
+      "lib-ruby-sdks": ["./projects/lib-ruby-sdks/src/public-api.ts"],
+      "lib-ruby-sdks/auth-service": ["./projects/lib-ruby-sdks/src/lib/auth-service/index.ts"],
+      "lib-ruby-sdks/catalog-service": ["./projects/lib-ruby-sdks/src/lib/catalog-service/index.ts"],
+      "lib-ruby-sdks/playlist-service": ["./projects/lib-ruby-sdks/src/lib/playlist-service/index.ts"],
+      "lib-ruby-sdks/interaction-service": ["./projects/lib-ruby-sdks/src/lib/interaction-service/index.ts"],
+      "lib-ruby-sdks/social-service": ["./projects/lib-ruby-sdks/src/lib/social-service/index.ts"]
     },
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
@@ -41,6 +47,12 @@
     },
     {
       "path": "./projects/lib-ruby-core-ui/tsconfig.spec.json"
+    },
+    {
+      "path": "./projects/lib-ruby-sdks/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/lib-ruby-sdks/tsconfig.spec.json"
     }
   ]
 }

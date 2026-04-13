@@ -1,205 +1,249 @@
-import { computed, Injectable, signal } from '@angular/core';
-import { Playlist } from '../models/playlist.model';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import {
+  PlaylistsApi,
+  PlaylistSongsApi,
+  PlaylistResponse,
+  PlaylistSongResponse,
+  CreatePlaylistRequest,
+  UpdatePlaylistRequest,
+} from 'lib-ruby-sdks/playlist-service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class PlaylistState {
-  private readonly STORAGE_KEY = 'ruby_playlists';
+  private readonly playlistsApi = inject(PlaylistsApi);
+  private readonly playlistSongsApi = inject(PlaylistSongsApi);
 
-  private readonly _playlists = signal<Playlist[]>(this.loadPlaylists());
+  /* ===================== */
+  /* SIGNALS */
+  /* ===================== */
+
+  private readonly _playlists = signal<PlaylistResponse[]>([]);
   readonly playlists = this._playlists.asReadonly();
+
+  private readonly _currentPlaylistSongs = signal<PlaylistSongResponse[]>([]);
+  readonly currentPlaylistSongs = this._currentPlaylistSongs.asReadonly();
+
+  private readonly _loading = signal(false);
+  readonly loading = this._loading.asReadonly();
+
+  private readonly _error = signal<string | null>(null);
+  readonly error = this._error.asReadonly();
+
+  /* ===================== */
+  /* COMPUTED */
+  /* ===================== */
 
   readonly totalPlaylists = computed(() => this._playlists().length);
 
   /* ===================== */
-  /* LOAD / PERSIST */
+  /* LOAD */
   /* ===================== */
-  private loadPlaylists(): Playlist[] {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
+
+  loadPlaylists(): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.playlistsApi.getMyPlaylists().subscribe({
+      next: (playlists) => {
+        this._playlists.set(playlists);
+        this._loading.set(false);
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error loading playlists');
+        this._loading.set(false);
+      },
+    });
   }
 
-  private persistPlaylists(playlists: Playlist[]): void {
-    this._playlists.set(playlists);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(playlists));
-  }
-
-  /* ===================== */
-  /* HELPERS */
-  /* ===================== */
-  private generateId(): string {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-      return crypto.randomUUID();
-    }
-
-    return `playlist-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  }
-
-  private nowIso(): string {
-    return new Date().toISOString();
+  loadPlaylistSongs(playlistId: string): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.playlistSongsApi.getPlaylistSongs(playlistId).subscribe({
+      next: (songs) => {
+        this._currentPlaylistSongs.set(songs);
+        this._loading.set(false);
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error loading playlist songs');
+        this._loading.set(false);
+      },
+    });
   }
 
   /* ===================== */
   /* GETTERS */
   /* ===================== */
-  getPlaylistsByUser(userId: string): Playlist[] {
-    return this._playlists().filter(playlist => playlist.userId === userId);
+
+  getPlaylistsByUser(userId: string): PlaylistResponse[] {
+    return this._playlists().filter(p => p.userId === userId);
   }
 
-  getPublicPlaylistsByUser(userId: string): Playlist[] {
-    return this._playlists().filter(
-      playlist => playlist.userId === userId && playlist.visibility === 'PUBLIC'
-    );
+  getPublicPlaylistsByUser(userId: string): PlaylistResponse[] {
+    return this._playlists().filter(p => p.userId === userId && p.isPublic === true);
   }
 
-  getCustomPlaylistsByUser(userId: string): Playlist[] {
-    return this._playlists().filter(
-      playlist => playlist.userId === userId && playlist.type === 'CUSTOM'
-    );
+  getCustomPlaylistsByUser(userId: string): PlaylistResponse[] {
+    return this._playlists().filter(p => p.userId === userId && p.isSystem !== true);
   }
 
-  getLikedSongsPlaylist(userId: string): Playlist | undefined {
-    return this._playlists().find(
-      playlist =>
-        playlist.userId === userId &&
-        playlist.type === 'SYSTEM' &&
-        playlist.systemType === 'LIKED_SONGS'
-    );
+  getLikedSongsPlaylist(userId: string): PlaylistResponse | undefined {
+    return this._playlists().find(p => p.userId === userId && p.isSystem === true);
   }
 
-  /* ===================== */
-  /* ENSURE SYSTEM PLAYLIST */
-  /* ===================== */
-  ensureLikedSongsPlaylist(userId: string): Playlist {
-    const existing = this.getLikedSongsPlaylist(userId);
+  getPlaylistById(playlistId: string): PlaylistResponse | undefined {
+    return this._playlists().find(p => p.id === playlistId);
+  }
 
-    if (existing) {
-      return existing;
-    }
-
-    const now = this.nowIso();
-
-    const likedSongsPlaylist: Playlist = {
-      id: this.generateId(),
-      userId,
-      name: 'Tus me gusta',
-      description: 'Playlist automática con tus canciones favoritas',
-      coverUrl: null,
-      visibility: 'PUBLIC',
-      type: 'SYSTEM',
-      systemType: 'LIKED_SONGS',
-      songIds: [],
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const updated = [...this._playlists(), likedSongsPlaylist];
-    this.persistPlaylists(updated);
-
-    return likedSongsPlaylist;
+  getSongIdsForCurrentPlaylist(): string[] {
+    return this._currentPlaylistSongs()
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      .map(s => s.songId ?? '')
+      .filter(id => id.length > 0);
   }
 
   /* ===================== */
-  /* CREATE PLAYLIST */
+  /* CREATE */
   /* ===================== */
-  createPlaylist(payload: {
-    userId: string;
-    name: string;
-    description?: string | null;
-    coverUrl?: string | null;
-    visibility?: 'PUBLIC' | 'PRIVATE';
-  }): Playlist {
-    const now = this.nowIso();
 
-    const newPlaylist: Playlist = {
-      id: this.generateId(),
-      userId: payload.userId,
+  createPlaylist(
+    payload: {
+      name: string;
+      description?: string | null;
+      isPublic?: boolean;
+    },
+    onSuccess?: (playlist: PlaylistResponse) => void
+  ): void {
+    const body: CreatePlaylistRequest = {
       name: payload.name.trim(),
-      description: payload.description ?? null,
-      coverUrl: payload.coverUrl ?? null,
-      visibility: payload.visibility ?? 'PUBLIC',
-      type: 'CUSTOM',
-      systemType: null,
-      songIds: [],
-      createdAt: now,
-      updatedAt: now,
+      description: payload.description ?? undefined,
+      isPublic: payload.isPublic ?? true,
     };
-
-    const updated = [...this._playlists(), newPlaylist];
-    this.persistPlaylists(updated);
-
-    return newPlaylist;
+    this._loading.set(true);
+    this._error.set(null);
+    this.playlistsApi.createPlaylist(body).subscribe({
+      next: (playlist) => {
+        this._playlists.update(list => [...list, playlist]);
+        this._loading.set(false);
+        onSuccess?.(playlist);
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error creating playlist');
+        this._loading.set(false);
+      },
+    });
   }
 
   /* ===================== */
-  /* UPDATE PLAYLIST */
+  /* UPDATE */
   /* ===================== */
+
   updatePlaylist(
     playlistId: string,
-    patch: Partial<Omit<Playlist, 'id' | 'userId' | 'type' | 'systemType' | 'createdAt'>>
+    patch: {
+      name?: string;
+      description?: string | null;
+      coverUrl?: string | null;
+      isPublic?: boolean;
+    },
+    onSuccess?: (playlist: PlaylistResponse) => void
   ): void {
-    const updated = this._playlists().map(playlist => {
-      if (playlist.id !== playlistId) return playlist;
-
-      return {
-        ...playlist,
-        ...patch,
-        updatedAt: this.nowIso(),
-      };
+    const body: UpdatePlaylistRequest = {
+      name: patch.name,
+      description: patch.description ?? undefined,
+      coverUrl: patch.coverUrl ?? undefined,
+      isPublic: patch.isPublic,
+    };
+    this._loading.set(true);
+    this._error.set(null);
+    this.playlistsApi.updatePlaylist(playlistId, body).subscribe({
+      next: (updated) => {
+        this._playlists.update(list =>
+          list.map(p => (p.id === playlistId ? updated : p))
+        );
+        this._loading.set(false);
+        onSuccess?.(updated);
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error updating playlist');
+        this._loading.set(false);
+      },
     });
+  }
 
-    this.persistPlaylists(updated);
+  /* ===================== */
+  /* DELETE */
+  /* ===================== */
+
+  deletePlaylist(playlistId: string, onSuccess?: () => void): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.playlistsApi.deletePlaylist(playlistId).subscribe({
+      next: () => {
+        this._playlists.update(list => list.filter(p => p.id !== playlistId));
+        this._loading.set(false);
+        onSuccess?.();
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error deleting playlist');
+        this._loading.set(false);
+      },
+    });
   }
 
   /* ===================== */
   /* SONGS IN PLAYLIST */
   /* ===================== */
-  addSongToPlaylist(playlistId: string, songId: string): void {
-    const updated = this._playlists().map(playlist => {
-      if (playlist.id !== playlistId) return playlist;
-      if (playlist.songIds.includes(songId)) return playlist;
 
-      return {
-        ...playlist,
-        songIds: [...playlist.songIds, songId],
-        updatedAt: this.nowIso(),
-      };
+  addSongToPlaylist(playlistId: string, songId: string, onSuccess?: () => void): void {
+    this.playlistSongsApi.addSongToPlaylist(playlistId, { songId }).subscribe({
+      next: () => {
+        this._playlists.update(list =>
+          list.map(p =>
+            p.id === playlistId
+              ? { ...p, songCount: (p.songCount ?? 0) + 1 }
+              : p
+          )
+        );
+        this.loadPlaylistSongs(playlistId);
+        onSuccess?.();
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error adding song to playlist');
+      },
     });
-
-    this.persistPlaylists(updated);
   }
 
-  removeSongFromPlaylist(playlistId: string, songId: string): void {
-    const updated = this._playlists().map(playlist => {
-      if (playlist.id !== playlistId) return playlist;
-
-      return {
-        ...playlist,
-        songIds: playlist.songIds.filter(id => id !== songId),
-        updatedAt: this.nowIso(),
-      };
+  removeSongFromPlaylist(playlistId: string, songId: string, onSuccess?: () => void): void {
+    this.playlistSongsApi.removeSongFromPlaylist(playlistId, songId).subscribe({
+      next: () => {
+        this._currentPlaylistSongs.update(songs =>
+          songs.filter(s => s.songId !== songId)
+        );
+        this._playlists.update(list =>
+          list.map(p =>
+            p.id === playlistId
+              ? { ...p, songCount: Math.max(0, (p.songCount ?? 1) - 1) }
+              : p
+          )
+        );
+        onSuccess?.();
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error removing song from playlist');
+      },
     });
-
-    this.persistPlaylists(updated);
   }
 
   /* ===================== */
-  /* LIKED SONGS HELPERS */
+  /* UTILS */
   /* ===================== */
-  addSongToLikedSongs(userId: string, songId: string): void {
-    const likedSongsPlaylist = this.ensureLikedSongsPlaylist(userId);
-    this.addSongToPlaylist(likedSongsPlaylist.id, songId);
+
+  clearError(): void {
+    this._error.set(null);
   }
 
-  removeSongFromLikedSongs(userId: string, songId: string): void {
-    const likedSongsPlaylist = this.getLikedSongsPlaylist(userId);
-    if (!likedSongsPlaylist) return;
-
-    this.removeSongFromPlaylist(likedSongsPlaylist.id, songId);
+  clearCurrentPlaylistSongs(): void {
+    this._currentPlaylistSongs.set([]);
   }
 }

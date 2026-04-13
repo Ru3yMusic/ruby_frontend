@@ -1,0 +1,16 @@
+export * from './internal.service';
+import { InternalApi } from './internal.service';
+export * from './internal.serviceInterface';
+export * from './library.service';
+import { LibraryApi } from './library.service';
+export * from './library.serviceInterface';
+export * from './play-history.service';
+import { PlayHistoryApi } from './play-history.service';
+export * from './play-history.serviceInterface';
+export * from './preferences.service';
+import { PreferencesApi } from './preferences.service';
+export * from './preferences.serviceInterface';
+export * from './song-interactions.service';
+import { SongInteractionsApi } from './song-interactions.service';
+export * from './song-interactions.serviceInterface';
+export const APIS = [InternalApi, LibraryApi, PlayHistoryApi, PreferencesApi, SongInteractionsApi];

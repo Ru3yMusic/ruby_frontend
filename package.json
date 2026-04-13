@@ -6,7 +6,14 @@
     "start": "ng serve ruby-frontend",
     "build": "ng build ruby-frontend",
     "watch": "ng build ruby-frontend --watch --configuration development",
-    "test": "ng test ruby-frontend"
+    "test": "ng test ruby-frontend",
+    "sdk:generate": "openapi-generator-cli generate",
+    "sdk:generate:auth": "openapi-generator-cli generate --generator-key auth-service",
+    "sdk:generate:catalog": "openapi-generator-cli generate --generator-key catalog-service",
+    "sdk:generate:interaction": "openapi-generator-cli generate --generator-key interaction-service",
+    "sdk:generate:playlist": "openapi-generator-cli generate --generator-key playlist-service",
+    "sdk:generate:social": "openapi-generator-cli generate --generator-key social-service",
+    "sdk:clean": "rimraf projects/lib-ruby-sdks/src/lib/auth-service projects/lib-ruby-sdks/src/lib/catalog-service projects/lib-ruby-sdks/src/lib/interaction-service projects/lib-ruby-sdks/src/lib/playlist-service projects/lib-ruby-sdks/src/lib/social-service"
   },
   "private": true,
   "packageManager": "npm@11.6.2",
@@ -20,12 +27,14 @@
     "chart.js": "^4.5.1",
     "lucide-angular": "^1.0.0",
     "rxjs": "~7.8.0",
+    "socket.io-client": "^4.8.3",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
     "@angular/build": "^21.2.6",
     "@angular/cli": "^21.2.6",
     "@angular/compiler-cli": "^21.2.0",
+    "@openapitools/openapi-generator-cli": "^2.31.1",
     "jsdom": "^28.0.0",
     "ng-packagr": "^21.2.0",
     "prettier": "^3.8.1",

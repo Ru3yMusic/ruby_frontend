@@ -1,35 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
+import { LibraryState } from '../../state/library.state';
 
 type HomeTab = 'TODAS' | 'MUSICA' | 'ESTACION';
-
-interface StoredStation {
-  id: string;
-  name: string;
-  genreId: string;
-  songIds: string[];
-  gradientStart: string;
-  gradientEnd: string;
-  liveListeners: number;
-  createdAt: string;
-}
-
-interface StoredSong {
-  id: string;
-  title: string;
-  artistId: string;
-  albumId: string | null;
-  genreId: string;
-  coverUrl: string;
-  audioUrl: string;
-  durationSeconds: number;
-  lyrics: string | null;
-  playCount: number;
-  likesCount: number;
-  createdAt: string;
-}
 
 interface StationCardView {
   id: string;
@@ -51,23 +26,16 @@ interface StationCardView {
 export class StationComponent {
   private readonly router = inject(Router);
   private readonly authState = inject(AuthState);
+  private readonly libraryState = inject(LibraryState);
 
-  private readonly STATIONS_KEY = 'ruby_stations';
-  private readonly SONGS_KEY = 'ruby_songs';
   private readonly defaultStationImage = '/assets/icons/playlist-cover-placeholder.png';
+  private readonly defaultGradientStart = '#1a1a2e';
+  private readonly defaultGradientEnd = '#16213e';
 
   readonly currentUser = this.authState.currentUser;
 
-  readonly stationsCatalog = signal<StoredStation[]>(
-    this.loadStorageArray<StoredStation>(this.STATIONS_KEY)
-  );
-
-  readonly songsCatalog = signal<StoredSong[]>(
-    this.loadStorageArray<StoredSong>(this.SONGS_KEY)
-  );
-
   readonly allStations = computed<StationCardView[]>(() => {
-    return this.stationsCatalog().map(station => this.mapStationToCard(station));
+    return this.libraryState.stations().map(station => this.mapStationToCard(station));
   });
 
   readonly favoriteStations = computed<StationCardView[]>(() => {
@@ -76,8 +44,8 @@ export class StationComponent {
 
     const selectedIdSet = new Set(selectedIds);
 
-    return this.stationsCatalog()
-      .filter(station => selectedIdSet.has(station.id))
+    return this.libraryState.stations()
+      .filter(station => selectedIdSet.has((station as any).id))
       .map(station => this.mapStationToCard(station));
   });
 
@@ -146,36 +114,19 @@ export class StationComponent {
   /* ===================== */
   /* PRIVATE HELPERS */
   /* ===================== */
-  private mapStationToCard(station: StoredStation): StationCardView {
-    const firstSong = this.getFirstSongFromStation(station);
+  private mapStationToCard(station: any): StationCardView {
+    // Station songs approximated by genre match — StationResponse has no songIds[]
+    const firstSong = this.libraryState.songs()
+      .find(song => (song as any).genreId === station.genreId);
 
     return {
       id: station.id,
       name: station.name,
-      gradientStart: station.gradientStart,
-      gradientEnd: station.gradientEnd,
-      imageUrl: firstSong?.coverUrl || null,
-      songCount: station.songIds?.length ?? 0,
-      liveListeners: station.liveListeners ?? 0,
+      gradientStart: station.gradientStart ?? this.defaultGradientStart,
+      gradientEnd: station.gradientEnd ?? this.defaultGradientEnd,
+      imageUrl: station.imageUrl ?? (firstSong as any)?.coverUrl ?? null,
+      songCount: 0,
+      liveListeners: station.listenerCount ?? 0,
     };
-  }
-
-  private getFirstSongFromStation(station: StoredStation): StoredSong | undefined {
-    if (!station.songIds?.length) return undefined;
-
-    const firstSongId = station.songIds[0];
-    return this.songsCatalog().find(song => song.id === firstSongId);
-  }
-
-  private loadStorageArray<T>(storageKey: string): T[] {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return [];
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
-    }
   }
 }

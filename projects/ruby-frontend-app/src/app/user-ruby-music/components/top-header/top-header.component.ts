@@ -1,40 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { SongResponse, ArtistResponse, AlbumResponse } from 'lib-ruby-sdks/catalog-service';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
-import { PlaylistState } from '../../state/playlist.state';
+import { LibraryState } from '../../state/library.state';
+import { InteractionState } from '../../state/interaction.state';
 
 type HeaderSearchResultType = 'SONG' | 'ALBUM' | 'ARTIST';
-
-interface ArtistItem {
-  id: string;
-  name: string;
-  photoUrl?: string | null;
-  monthlyListeners?: string;
-}
-
-interface AlbumItem {
-  id: string;
-  title: string;
-  artistId: string;
-  coverUrl?: string | null;
-}
-
-interface SongItem {
-  id: string;
-  title: string;
-  artistId: string;
-  albumId: string | null;
-  coverUrl?: string | null;
-}
-
-interface LibraryItem {
-  id: string;
-  userId: string;
-  itemType: 'ARTIST' | 'ALBUM';
-  itemId: string;
-  addedAt: string;
-}
 
 interface HeaderSearchResult {
   id: string;
@@ -53,14 +25,10 @@ interface HeaderSearchResult {
 })
 export class TopHeaderComponent {
   private readonly authState = inject(AuthState);
-  private readonly playlistState = inject(PlaylistState);
+  private readonly libraryState = inject(LibraryState);
+  private readonly interactionState = inject(InteractionState);
   private readonly router = inject(Router);
   private readonly elementRef = inject(ElementRef);
-
-  private readonly ARTISTS_KEY = 'ruby_artists';
-  private readonly ALBUMS_KEY = 'ruby_albums';
-  private readonly SONGS_KEY = 'ruby_songs';
-  private readonly USER_LIBRARY_KEY = 'ruby_user_library';
 
   readonly currentUser = this.authState.currentUser;
 
@@ -122,48 +90,46 @@ export class TopHeaderComponent {
     const term = this.normalizedSearchTerm;
     if (!term) return [];
 
-    const songs = this.loadStorage<SongItem>(this.SONGS_KEY);
-    const albums = this.loadStorage<AlbumItem>(this.ALBUMS_KEY);
-    const artists = this.loadStorage<ArtistItem>(this.ARTISTS_KEY);
+    const songs = this.libraryState.songs();
+    const albums = this.libraryState.albums();
+    const artists = this.libraryState.artists();
 
     const songResults: HeaderSearchResult[] = songs
-      .filter(song => (song.title ?? '').toLowerCase().includes(term))
+      .filter((s: SongResponse) => (s.title ?? '').toLowerCase().includes(term))
       .slice(0, 4)
-      .map(song => {
-        const artist = artists.find(item => item.id === song.artistId);
-
+      .map((s: SongResponse) => {
+        const artist = artists.find((a: ArtistResponse) => a.id === s.artist?.id);
         return {
-          id: song.id,
-          type: 'SONG',
-          title: song.title?.trim() || 'Canción sin nombre',
-          imageUrl: song.coverUrl ?? null,
+          id: s.id ?? '',
+          type: 'SONG' as HeaderSearchResultType,
+          title: s.title?.trim() || 'Canción sin nombre',
+          imageUrl: s.coverUrl ?? null,
           subtitle: `Canción · ${artist?.name ?? 'Artista desconocido'}`,
         };
       });
 
     const albumResults: HeaderSearchResult[] = albums
-      .filter(album => (album.title ?? '').toLowerCase().includes(term))
+      .filter((a: AlbumResponse) => (a.title ?? '').toLowerCase().includes(term))
       .slice(0, 4)
-      .map(album => {
-        const artist = artists.find(item => item.id === album.artistId);
-
+      .map((a: AlbumResponse) => {
+        const artist = artists.find((ar: ArtistResponse) => ar.id === a.artist?.id);
         return {
-          id: album.id,
-          type: 'ALBUM',
-          title: album.title?.trim() || 'Álbum sin nombre',
-          imageUrl: album.coverUrl ?? null,
+          id: a.id ?? '',
+          type: 'ALBUM' as HeaderSearchResultType,
+          title: a.title?.trim() || 'Álbum sin nombre',
+          imageUrl: a.coverUrl ?? null,
           subtitle: `Álbum · ${artist?.name ?? 'Artista desconocido'}`,
         };
       });
 
     const artistResults: HeaderSearchResult[] = artists
-      .filter(artist => (artist.name ?? '').toLowerCase().includes(term))
+      .filter((a: ArtistResponse) => (a.name ?? '').toLowerCase().includes(term))
       .slice(0, 4)
-      .map(artist => ({
-        id: artist.id,
-        type: 'ARTIST',
-        title: artist.name?.trim() || 'Artista desconocido',
-        imageUrl: artist.photoUrl ?? null,
+      .map((a: ArtistResponse) => ({
+        id: a.id ?? '',
+        type: 'ARTIST' as HeaderSearchResultType,
+        title: a.name?.trim() || 'Artista desconocido',
+        imageUrl: a.photoUrl ?? null,
         subtitle: 'Artista',
       }));
 
@@ -187,136 +153,50 @@ export class TopHeaderComponent {
   }
 
   goToSearchResult(result: HeaderSearchResult): void {
-    if (result.type === 'ALBUM') {
-      this.closeAllOverlays();
-      this.router.navigate(['/user/album', result.id]);
-      return;
-    }
-
-    if (result.type === 'ARTIST') {
-      this.closeAllOverlays();
-      this.router.navigate(['/user/artist', result.id]);
-      return;
-    }
-
-    if (result.type === 'SONG') {
-      this.closeAllOverlays();
-      this.router.navigate(['/user/song', result.id]);
-    }
+    this.closeAllOverlays();
+    if (result.type === 'ALBUM') { this.router.navigate(['/user/album', result.id]); return; }
+    if (result.type === 'ARTIST') { this.router.navigate(['/user/artist', result.id]); return; }
+    if (result.type === 'SONG') { this.router.navigate(['/user/song', result.id]); }
   }
 
   isSongLiked(songId: string): boolean {
-    const user = this.currentUser();
-    if (!user?.id) return false;
-
-    const likedPlaylist = this.playlistState.getLikedSongsPlaylist(user.id)
-      ?? this.playlistState.ensureLikedSongsPlaylist(user.id);
-
-    return likedPlaylist.songIds.includes(songId);
+    return this.interactionState.isSongLiked(songId);
   }
 
   toggleSongLike(result: HeaderSearchResult, event: MouseEvent): void {
     event.stopPropagation();
-
-    const user = this.currentUser();
-    if (!user?.id || result.type !== 'SONG') return;
-
-    if (this.isSongLiked(result.id)) {
-      this.playlistState.removeSongFromLikedSongs(user.id, result.id);
-      return;
-    }
-
-    this.playlistState.addSongToLikedSongs(user.id, result.id);
+    if (result.type !== 'SONG') return;
+    this.interactionState.toggleLike(result.id);
   }
 
   isAlbumSaved(albumId: string): boolean {
-    const user = this.currentUser();
-    if (!user?.id) return false;
-
-    return this.loadUserLibrary().some(
-      item =>
-        item.userId === user.id &&
-        item.itemType === 'ALBUM' &&
-        item.itemId === albumId
-    );
+    return this.interactionState.isAlbumInLibrary(albumId);
   }
 
   toggleSaveAlbum(result: HeaderSearchResult, event: MouseEvent): void {
     event.stopPropagation();
+    if (result.type !== 'ALBUM') return;
 
-    const user = this.currentUser();
-    if (!user?.id || result.type !== 'ALBUM') return;
-
-    const currentLibrary = this.loadUserLibrary();
-
-    if (this.isAlbumSaved(result.id)) {
-      const updated = currentLibrary.filter(
-        item =>
-          !(
-            item.userId === user.id &&
-            item.itemType === 'ALBUM' &&
-            item.itemId === result.id
-          )
-      );
-
-      this.persistUserLibrary(updated);
-      return;
+    if (this.interactionState.isAlbumInLibrary(result.id)) {
+      this.interactionState.removeAlbumFromLibrary(result.id);
+    } else {
+      this.interactionState.addAlbumToLibrary(result.id);
     }
-
-    const newItem: LibraryItem = {
-      id: this.generateId(),
-      userId: user.id,
-      itemType: 'ALBUM',
-      itemId: result.id,
-      addedAt: new Date().toISOString(),
-    };
-
-    this.persistUserLibrary([...currentLibrary, newItem]);
   }
 
   isArtistFollowed(artistId: string): boolean {
-    const user = this.currentUser();
-    if (!user?.id) return false;
-
-    return this.loadUserLibrary().some(
-      item =>
-        item.userId === user.id &&
-        item.itemType === 'ARTIST' &&
-        item.itemId === artistId
-    );
+    return this.interactionState.isArtistInLibrary(artistId);
   }
 
   toggleFollowArtist(result: HeaderSearchResult, event: MouseEvent): void {
     event.stopPropagation();
+    if (result.type !== 'ARTIST') return;
 
-    const user = this.currentUser();
-    if (!user?.id || result.type !== 'ARTIST') return;
-
-    const currentLibrary = this.loadUserLibrary();
-
-    if (this.isArtistFollowed(result.id)) {
-      const updated = currentLibrary.filter(
-        item =>
-          !(
-            item.userId === user.id &&
-            item.itemType === 'ARTIST' &&
-            item.itemId === result.id
-          )
-      );
-
-      this.persistUserLibrary(updated);
-      return;
+    if (this.interactionState.isArtistInLibrary(result.id)) {
+      this.interactionState.removeArtistFromLibrary(result.id);
+    } else {
+      this.interactionState.addArtistToLibrary(result.id);
     }
-
-    const newItem: LibraryItem = {
-      id: this.generateId(),
-      userId: user.id,
-      itemType: 'ARTIST',
-      itemId: result.id,
-      addedAt: new Date().toISOString(),
-    };
-
-    this.persistUserLibrary([...currentLibrary, newItem]);
   }
 
   trackBySearchResult(_: number, result: HeaderSearchResult): string {
@@ -325,31 +205,6 @@ export class TopHeaderComponent {
 
   private get normalizedSearchTerm(): string {
     return this.searchQuery.trim().toLowerCase();
-  }
-
-  private loadStorage<T>(key: string): T[] {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as T[]) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private loadUserLibrary(): LibraryItem[] {
-    return this.loadStorage<LibraryItem>(this.USER_LIBRARY_KEY);
-  }
-
-  private persistUserLibrary(items: LibraryItem[]): void {
-    localStorage.setItem(this.USER_LIBRARY_KEY, JSON.stringify(items));
-  }
-
-  private generateId(): string {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-      return crypto.randomUUID();
-    }
-
-    return `library-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
   private closeAllOverlays(): void {
@@ -361,7 +216,6 @@ export class TopHeaderComponent {
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as Node | null;
     if (!target) return;
-
     if (!this.elementRef.nativeElement.contains(target)) {
       this.closeAllOverlays();
     }
