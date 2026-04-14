@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, filter, switchMap, take } from 'rxjs/operators';
-import { AuthApiAdapter } from 'lib-ruby-core';
+import { AuthRepositoryPort } from 'lib-ruby-core';
 import { TokenStorageService } from '../services/token-storage.service';
 
 const AUTH_PASSTHROUGH_PATTERNS = [
@@ -31,7 +31,7 @@ function handle401(
   req: HttpRequest<unknown>,
   next: Parameters<HttpInterceptorFn>[1],
   tokenStorage: TokenStorageService,
-  authApiAdapter: AuthApiAdapter,
+  authRepo: AuthRepositoryPort,
   router: Router,
 ): Observable<unknown> {
   // Another request already kicked off a refresh — queue behind it
@@ -55,7 +55,7 @@ function handle401(
     return throwError(() => new Error('No refresh token available'));
   }
 
-  return authApiAdapter.refreshToken(storedRefreshToken).pipe(
+  return authRepo.refreshToken(storedRefreshToken).pipe(
     switchMap(authToken => {
       isRefreshing = false;
       tokenStorage.setTokens(authToken.accessToken, authToken.refreshToken);
@@ -73,7 +73,7 @@ function handle401(
 
 export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   const tokenStorage = inject(TokenStorageService);
-  const authApiAdapter = inject(AuthApiAdapter);
+  const authRepo = inject(AuthRepositoryPort);
   const router = inject(Router);
 
   const skipAuth = isAuthEndpoint(req.url);
@@ -87,7 +87,7 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
         return throwError(() => error);
       }
 
-      return handle401(req, next, tokenStorage, authApiAdapter, router) as Observable<HttpEvent<unknown>>;
+      return handle401(req, next, tokenStorage, authRepo, router) as Observable<HttpEvent<unknown>>;
     }),
   );
 };
