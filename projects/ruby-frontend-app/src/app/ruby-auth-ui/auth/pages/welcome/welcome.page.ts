@@ -101,11 +101,14 @@ export class WelcomePage {
 
         window.location.href = '/user/home';
       },
-      error: (err: { status?: number; error?: { message?: string; blockReason?: string } }) => {
-        console.error('[WelcomePage] Login ERROR:', err);
-        const msg = (err?.error?.message ?? '').toLowerCase();
-        if (err?.status === 403 || msg.includes('blocked') || msg.includes('bloqueado')) {
-          this.blockedAccountReason.set(err?.error?.blockReason ?? 'Sin motivo especificado');
+      error: (err: unknown) => {
+        console.error('[WelcomePage] Login ERROR full:', err);
+        console.error('[WelcomePage] Login ERROR message:', (err as Error)?.message);
+        console.error('[WelcomePage] Login ERROR stack:', (err as Error)?.stack);
+        const httpErr = err as { status?: number; error?: { message?: string; blockReason?: string } };
+        const msg = (httpErr?.error?.message ?? '').toLowerCase();
+        if (httpErr?.status === 403 || msg.includes('blocked') || msg.includes('bloqueado')) {
+          this.blockedAccountReason.set(httpErr?.error?.blockReason ?? 'Sin motivo especificado');
           this.isBlockedAccountModalOpen.set(true);
         }
         this.isLoading.set(false);
