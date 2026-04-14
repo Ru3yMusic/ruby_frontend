@@ -8,8 +8,9 @@ RUN npm install --ignore-scripts
 
 COPY . .
 
-# Generate SDK clients from OpenAPI specs, then build Angular for production
-RUN npm run sdk:generate && npx ng build ruby-frontend --configuration=production
+# SDK clients are pre-generated and committed (openapi-generator requires Java).
+# To regenerate locally: npm run sdk:generate
+RUN npx ng build ruby-frontend --configuration=production
 
 # ── Stage 2: Runtime (Nginx) ─────────────────────────────────────────────────
 FROM nginx:alpine
