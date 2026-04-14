@@ -15,6 +15,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RealtimePort, WsCommentPayload } from 'lib-ruby-core';
 import { SongResponse, StationResponse, ArtistResponse } from 'lib-ruby-sdks/catalog-service';
+import { ReportsApi, ReportTargetType } from 'lib-ruby-sdks/social-service';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { PlayerState, PlayerSong } from '../../state/player.state';
 import { LibraryState } from '../../state/library.state';
@@ -40,6 +41,7 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
   private readonly friendsState = inject(FriendsState);
   private readonly playerState = inject(PlayerState);
   private readonly realtimePort = inject(RealtimePort);
+  private readonly reportsApi = inject(ReportsApi);
 
   private readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
   private readonly defaultCover = '/assets/icons/playlist-cover-placeholder.png';
@@ -77,6 +79,11 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
   readonly selectedCommentForAction = signal<WsCommentPayload | null>(null);
   readonly replyTargetComment = signal<WsCommentPayload | null>(null);
   readonly selectedReportReason = signal('');
+  readonly reportLoading = signal(false);
+
+  // ─── Station songs (loaded from backend per stationId) ───────────────────
+
+  private readonly _stationSongs = signal<SongResponse[]>([]);
 
   // ─── Catalog computed ─────────────────────────────────────────────────────
 
@@ -92,19 +99,8 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
     return this.libraryState.stations().findIndex(s => s['id'] === stationId);
   });
 
-  /**
-   * Station songs filtered from library songs by matching genreId.
-   * DEVIATION: Ideally StationsApi.getStationSongs(stationId) would be used,
-   * but no such endpoint is in the current catalog-service SDK. Genre-based
-   * filtering is the current approximation.
-   */
-  readonly stationSongs = computed<SongResponse[]>(() => {
-    const station = this.currentStation();
-    if (!station) return [];
-    const genreId = station['genreId'] as string | undefined;
-    if (!genreId) return this.libraryState.songs();
-    return this.libraryState.songs().filter(s => s.genres?.some(g => g.id === genreId) ?? false);
-  });
+  /** Station songs loaded from the backend via getSongsByStation(stationId). */
+  readonly stationSongs = this._stationSongs.asReadonly();
 
   readonly currentSong = computed<SongResponse | null>(() => {
     const songs = this.stationSongs();
@@ -185,6 +181,7 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
       this.selectedReportReason.set('');
       this.stationComments.set([]);
       this.liveListenersCount.set(0);
+      this.loadStationSongs(nextStationId);
 
       // Join station room via Socket.IO
       const song = this.currentSong();
@@ -233,6 +230,18 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
         if (payload.stationId === this.currentStationId()) {
           this.liveListenersCount.set(payload.count);
         }
+      });
+  }
+
+  // ─── Station Songs ────────────────────────────────────────────────────────
+
+  private loadStationSongs(stationId: string): void {
+    this._stationSongs.set([]);
+    this.libraryState.getSongsByStation(stationId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (songs) => this._stationSongs.set(songs),
+        error: () => this._stationSongs.set([]),
       });
   }
 
@@ -423,9 +432,26 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   submitReport(): void {
-    // TODO: Wire to a Reports API when available (no SDK endpoint defined yet).
-    // The selectedCommentForAction() holds the comment data for the report.
-    this.closeReportModal();
+    if (this.reportLoading()) return;
+    const comment = this.selectedCommentForAction();
+    if (!comment) return;
+
+    const reason = this.selectedReportReason() || undefined;
+    this.reportLoading.set(true);
+    this.reportsApi.createReport({
+      targetType: ReportTargetType.COMMENT,
+      targetId: comment.commentId,
+      reason,
+    }).subscribe({
+      next: () => {
+        this.reportLoading.set(false);
+        this.closeReportModal();
+      },
+      error: (err: { message?: string }) => {
+        this.reportLoading.set(false);
+        // Modal stays open so user sees the error state
+      },
+    });
   }
 
   // ─── Likes ────────────────────────────────────────────────────────────────

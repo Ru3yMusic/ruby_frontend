@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   AlertTriangle,
   Eye,
@@ -9,9 +9,16 @@ import {
   Search,
   Trash2,
 } from 'lucide-angular';
+import { forkJoin } from 'rxjs';
 
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
+import {
+  AlbumResponse,
+  AlbumsApi,
+  ArtistResponse,
+  ArtistsApi,
+} from 'lib-ruby-sdks/catalog-service';
 
 /* =========================
    MODELOS BASE
@@ -56,12 +63,12 @@ interface AlbumView extends Album {
   templateUrl: './gestion-albumes.page.html',
   styleUrl: './gestion-albumes.page.scss',
 })
-export class GestionAlbumesPage {
+export class GestionAlbumesPage implements OnInit {
   /* =========================
-     STORAGE KEYS
+     SERVICIOS
   ========================== */
-  private readonly ALBUMS_KEY = 'ruby_albums';
-  private readonly ARTISTS_KEY = 'ruby_artists';
+  private readonly artistsApi = inject(ArtistsApi);
+  private readonly albumsApi = inject(AlbumsApi);
 
   /* =========================
      ICONOS
@@ -80,6 +87,8 @@ export class GestionAlbumesPage {
   readonly sidebarOpen = signal(false);
   readonly searchQuery = signal('');
   readonly minAlbumReleaseDate = this.getTodayInputDate();
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
 
   /* =========================
      MODALES
@@ -113,8 +122,15 @@ export class GestionAlbumesPage {
   /* =========================
      DATA BASE
   ========================== */
-  readonly artists = signal<Artist[]>(this.loadArtists());
-  readonly albums = signal<Album[]>(this.loadAlbums());
+  readonly artists = signal<Artist[]>([]);
+  readonly albums = signal<Album[]>([]);
+
+  /* =========================
+     LIFECYCLE
+  ========================== */
+  ngOnInit(): void {
+    this.reloadData();
+  }
 
   /* =========================
      COMPUTED
@@ -169,104 +185,83 @@ export class GestionAlbumesPage {
   });
 
   /* =========================
-     STORAGE
+     MAPPERS SDK → LOCAL
   ========================== */
-  private loadArtists(): Artist[] {
-    const storedArtists = localStorage.getItem(this.ARTISTS_KEY);
-
-    if (!storedArtists) return [];
-
-    try {
-      return JSON.parse(storedArtists) as Artist[];
-    } catch {
-      localStorage.removeItem(this.ARTISTS_KEY);
-      return [];
-    }
+  private mapArtists(sdkArtists: ArtistResponse[]): Artist[] {
+    return sdkArtists.map((a) => ({
+      id: a.id ?? '',
+      name: a.name ?? '',
+      photoUrl: a.photoUrl ?? '',
+      bio: a.bio ?? '',
+      isTop: a.isTop ?? false,
+      followersCount: `${a.followersCount ?? 0} seguidores`,
+      monthlyListeners: `${a.monthlyListeners ?? 0} oyentes`,
+      createdAt: a.createdAt ?? '',
+    }));
   }
 
-  private loadAlbums(): Album[] {
-    const storedAlbums = localStorage.getItem(this.ALBUMS_KEY);
-
-    if (storedAlbums) {
-      try {
-        return JSON.parse(storedAlbums) as Album[];
-      } catch {
-        localStorage.removeItem(this.ALBUMS_KEY);
-      }
-    }
-
-    const artists = this.loadArtists();
-
-    if (artists.length === 0) {
-      return [];
-    }
-
-    const getArtistIdByNameOrFallback = (
-      preferredName: string,
-      fallbackIndex = 0
-    ): string => {
-      const preferredArtist = artists.find(
-        (artist) => this.normalize(artist.name) === this.normalize(preferredName)
-      );
-
-      if (preferredArtist) return preferredArtist.id;
-      return artists[fallbackIndex]?.id ?? artists[0].id;
-    };
-
-    const baseAlbums: Album[] = [
-      {
-        id: crypto.randomUUID(),
-        title: '808s & Heartbreak',
-        artistId: getArtistIdByNameOrFallback('Kanye West', 0),
-        coverUrl:
-          'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=1200&auto=format&fit=crop',
-        releaseDate: '23/02/2027',
-        songsCount: 15,
-        totalStreams: '1.9 M streams',
-        createdAt: '23/02/2026',
-      },
-      {
-        id: crypto.randomUUID(),
-        title: 'Nectar',
-        artistId: getArtistIdByNameOrFallback('Joji', 1),
-        coverUrl:
-          'https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1200&auto=format&fit=crop',
-        releaseDate: '10/07/2026',
-        songsCount: 9,
-        totalStreams: '3 M streams',
-        createdAt: '10/07/2026',
-      },
-      {
-        id: crypto.randomUUID(),
-        title: 'Ten Summoner’s Tales',
-        artistId: getArtistIdByNameOrFallback('Sting', 2),
-        coverUrl:
-          'https://images.unsplash.com/photo-1501612780327-45045538702b?q=80&w=1200&auto=format&fit=crop',
-        releaseDate: '15/09/2026',
-        songsCount: 7,
-        totalStreams: '1.3 M streams',
-        createdAt: '15/09/2026',
-      },
-      {
-        id: crypto.randomUUID(),
-        title: 'GARAGEB&',
-        artistId: getArtistIdByNameOrFallback('Jesse Rutherford', 3),
-        coverUrl:
-          'https://images.unsplash.com/photo-1487180144351-b8472da7d491?q=80&w=1200&auto=format&fit=crop',
-        releaseDate: '22/04/2026',
-        songsCount: 12,
-        totalStreams: '980 K streams',
-        createdAt: '22/04/2026',
-      },
-    ];
-
-    localStorage.setItem(this.ALBUMS_KEY, JSON.stringify(baseAlbums));
-    return baseAlbums;
+  private mapAlbums(sdkAlbums: AlbumResponse[]): Album[] {
+    return sdkAlbums.map((a) => ({
+      id: a.id ?? '',
+      title: a.title ?? '',
+      artistId: a.artist?.id ?? '',
+      coverUrl: a.coverUrl ?? '',
+      releaseDate: this.mapDate(a.releaseDate),
+      songsCount: a.songCount ?? 0,
+      totalStreams: `${a.totalStreams ?? 0} streams`,
+      createdAt: this.mapDate(a.releaseDate),
+    }));
   }
 
-  private persistAlbums(albums: Album[]): void {
-    localStorage.setItem(this.ALBUMS_KEY, JSON.stringify(albums));
-    this.albums.set(albums);
+  private mapDate(isoDate?: string): string {
+    if (!isoDate) return '';
+    const d = new Date(isoDate);
+    if (!Number.isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    return isoDate;
+  }
+
+  /* =========================
+     CARGA / RECARGA
+  ========================== */
+  private reloadData(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      artists: this.artistsApi.listArtists(),
+      albums: this.albumsApi.listAlbums(),
+    }).subscribe({
+      next: ({ artists, albums }) => {
+        this.artists.set(this.mapArtists(artists.content ?? []));
+        this.albums.set(this.mapAlbums(albums.content ?? []));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cargar los álbumes');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  private reloadAlbums(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.albumsApi.listAlbums().subscribe({
+      next: (albums) => {
+        this.albums.set(this.mapAlbums(albums.content ?? []));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al recargar los álbumes');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -274,17 +269,6 @@ export class GestionAlbumesPage {
   ========================== */
   private normalize(value: string): string {
     return value.trim().toLowerCase();
-  }
-
-
-
-  private getTodayFormatted(): string {
-    const date = new Date();
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-
-    return `${day}/${month}/${year}`;
   }
 
   private getTodayInputDate(): string {
@@ -317,15 +301,23 @@ export class GestionAlbumesPage {
   }
 
   private parseDateToTime(value: string): number {
+    if (!value) return 0;
+
+    const isoDate = new Date(value);
+    if (!Number.isNaN(isoDate.getTime())) {
+      return isoDate.getTime();
+    }
+
     const parts = value.split('/').map(Number);
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return new Date(year, month - 1, day).getTime();
+    }
 
-    if (parts.length !== 3) return 0;
-
-    const [day, month, year] = parts;
-    return new Date(year, month - 1, day).getTime();
+    return 0;
   }
 
-    private isPastDisplayDate(value: string): boolean {
+  private isPastDisplayDate(value: string): boolean {
     const inputDate = this.formatDisplayDateToInput(value);
 
     if (!inputDate) {
@@ -334,7 +326,6 @@ export class GestionAlbumesPage {
 
     return inputDate < this.minAlbumReleaseDate;
   }
-
 
   isEditReleaseDateLocked(): boolean {
     const current = this.selectedAlbum();
@@ -345,8 +336,6 @@ export class GestionAlbumesPage {
 
     return this.isPastDisplayDate(current.releaseDate);
   }
-
-
 
   private existsAlbumTitle(
     title: string,
@@ -415,111 +404,101 @@ export class GestionAlbumesPage {
     const coverUrl = this.createAlbumCoverUrl().trim();
     const releaseDateInput = this.createAlbumReleaseDate().trim();
 
-    if (!title || !artistId || !coverUrl || !releaseDateInput) {
-      return;
-    }
-
-    if (releaseDateInput < this.minAlbumReleaseDate) {
-      return;
-    }
+    if (!title || !artistId || !coverUrl || !releaseDateInput) return;
+    if (releaseDateInput < this.minAlbumReleaseDate) return;
 
     const artistExists = this.artists().some((artist) => artist.id === artistId);
-    if (!artistExists) {
-      return;
-    }
+    if (!artistExists) return;
 
-    if (this.existsAlbumTitle(title, artistId)) {
-      return;
-    }
+    if (this.existsAlbumTitle(title, artistId)) return;
 
-    const newAlbum: Album = {
-      id: crypto.randomUUID(),
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.albumsApi.createAlbum({
       title,
       artistId,
       coverUrl,
-      releaseDate: this.formatInputDateToDisplay(releaseDateInput),
-      songsCount: 0,
-      totalStreams: '0 streams',
-      createdAt: this.getTodayFormatted(),
-    };
-
-    this.persistAlbums([newAlbum, ...this.albums()]);
-    this.closeAllModals();
+      releaseDate: releaseDateInput,
+    }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadAlbums();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al crear el álbum');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
      EDIT
   ========================== */
-saveAlbumEdit(): void {
-  const current = this.selectedAlbum();
+  saveAlbumEdit(): void {
+    const current = this.selectedAlbum();
+    if (!current) return;
 
-  if (!current) {
-    return;
+    const title = this.editAlbumTitle().trim();
+    const artistId = this.editAlbumArtistId().trim();
+    const coverUrl = this.editAlbumCoverUrl().trim();
+
+    if (!title || !artistId || !coverUrl) return;
+
+    const artistExists = this.artists().some((artist) => artist.id === artistId);
+    if (!artistExists) return;
+
+    if (this.existsAlbumTitle(title, artistId, current.id)) return;
+
+    const isReleaseDateLocked = this.isEditReleaseDateLocked();
+
+    const finalReleaseDate = isReleaseDateLocked
+      ? this.formatDisplayDateToInput(current.releaseDate)
+      : this.editAlbumReleaseDate().trim();
+
+    if (!isReleaseDateLocked && !finalReleaseDate) return;
+    if (!isReleaseDateLocked && finalReleaseDate < this.minAlbumReleaseDate) return;
+
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.albumsApi.updateAlbum(current.id, {
+      title,
+      artistId,
+      coverUrl,
+      releaseDate: finalReleaseDate,
+    }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadAlbums();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al actualizar el álbum');
+        this.loading.set(false);
+      },
+    });
   }
-
-  const title = this.editAlbumTitle().trim();
-  const artistId = this.editAlbumArtistId().trim();
-  const coverUrl = this.editAlbumCoverUrl().trim();
-
-  if (!title || !artistId || !coverUrl) {
-    return;
-  }
-
-  const artistExists = this.artists().some((artist) => artist.id === artistId);
-  if (!artistExists) {
-    return;
-  }
-
-  if (this.existsAlbumTitle(title, artistId, current.id)) {
-    return;
-  }
-
-  const isReleaseDateLocked = this.isEditReleaseDateLocked();
-
-  const finalReleaseDate = isReleaseDateLocked
-    ? current.releaseDate
-    : this.formatInputDateToDisplay(this.editAlbumReleaseDate().trim());
-
-  if (!isReleaseDateLocked && !this.editAlbumReleaseDate().trim()) {
-    return;
-  }
-
-  if (!isReleaseDateLocked && this.editAlbumReleaseDate().trim() < this.minAlbumReleaseDate) {
-    return;
-  }
-
-  const updatedAlbums = this.albums().map((album) =>
-    album.id === current.id
-      ? {
-          ...album,
-          title,
-          artistId,
-          coverUrl,
-          releaseDate: finalReleaseDate,
-        }
-      : album
-  );
-
-  this.persistAlbums(updatedAlbums);
-  this.closeAllModals();
-}
 
   /* =========================
      DELETE
   ========================== */
   confirmDeleteAlbum(): void {
     const current = this.selectedAlbum();
+    if (!current) return;
 
-    if (!current) {
-      return;
-    }
+    this.loading.set(true);
+    this.error.set(null);
 
-    const updatedAlbums = this.albums().filter(
-      (album) => album.id !== current.id
-    );
-
-    this.persistAlbums(updatedAlbums);
-    this.closeAllModals();
+    this.albumsApi.deleteAlbum(current.id).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadAlbums();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al eliminar el álbum');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================

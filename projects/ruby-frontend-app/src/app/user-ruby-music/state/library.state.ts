@@ -1,4 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import {
   AlbumsApi,
   AlbumResponse,
@@ -176,6 +178,30 @@ export class LibraryState {
         this._loading.set(false);
       },
     });
+  }
+
+  /* ===================== */
+  /* DETAIL FETCHERS */
+  /* These return Observables directly and do NOT mutate shared signals. */
+  /* Detail pages subscribe independently. */
+  /* ===================== */
+
+  getArtistSongs(artistId: string): Observable<SongResponse[]> {
+    return this.artistsApi.getArtistSongs(artistId).pipe(
+      map(page => page.content ?? [])
+    );
+  }
+
+  getAlbumSongs(albumId: string): Observable<SongResponse[]> {
+    return this.albumsApi.getAlbumSongs(albumId).pipe(
+      map(page => page.content ?? [])
+    );
+  }
+
+  getSongsByStation(stationId: string): Observable<SongResponse[]> {
+    return this.stationsApi.getSongsByStation(stationId).pipe(
+      map(page => page.content ?? [])
+    );
   }
 
   /* ===================== */

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   AlertTriangle,
   Eye,
@@ -11,9 +11,20 @@ import {
   Search,
   Trash2,
 } from 'lucide-angular';
+import { forkJoin } from 'rxjs';
 
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
+import {
+  AlbumResponse,
+  AlbumsApi,
+  ArtistResponse,
+  ArtistsApi,
+  GenreResponse,
+  GenresApi,
+  SongResponse,
+  SongsApi,
+} from 'lib-ruby-sdks/catalog-service';
 
 /* =========================
    MODELOS BASE
@@ -89,14 +100,14 @@ interface SongView extends Song {
   templateUrl: './gestion-canciones.page.html',
   styleUrl: './gestion-canciones.page.scss',
 })
-export class GestionCancionesPage {
+export class GestionCancionesPage implements OnInit {
   /* =========================
-     STORAGE KEYS
+     SERVICIOS
   ========================== */
-  private readonly SONGS_KEY = 'ruby_songs';
-  private readonly ARTISTS_KEY = 'ruby_artists';
-  private readonly ALBUMS_KEY = 'ruby_albums';
-  private readonly GENRES_KEY = 'ruby_genres';
+  private readonly songsApi = inject(SongsApi);
+  private readonly artistsApi = inject(ArtistsApi);
+  private readonly albumsApi = inject(AlbumsApi);
+  private readonly genresApi = inject(GenresApi);
 
   /* =========================
      ICONOS
@@ -116,6 +127,8 @@ export class GestionCancionesPage {
   ========================== */
   readonly sidebarOpen = signal(false);
   readonly searchQuery = signal('');
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
 
   /* =========================
      MODALES
@@ -157,13 +170,16 @@ export class GestionCancionesPage {
   /* =========================
      DATA BASE
   ========================== */
-  readonly artists = signal<Artist[]>(this.loadArtists());
-  readonly albums = signal<Album[]>(this.loadAlbums());
-  readonly genres = signal<Genre[]>(this.loadGenres());
-  readonly songs = signal<Song[]>(this.loadSongs());
+  readonly artists = signal<Artist[]>([]);
+  readonly albums = signal<Album[]>([]);
+  readonly genres = signal<Genre[]>([]);
+  readonly songs = signal<Song[]>([]);
 
-  constructor() {
-    this.syncRelatedCountsFromSongs(this.songs());
+  /* =========================
+     LIFECYCLE
+  ========================== */
+  ngOnInit(): void {
+    this.reloadData();
   }
 
   /* =========================
@@ -267,147 +283,103 @@ export class GestionCancionesPage {
   });
 
   /* =========================
-     STORAGE
+     MAPPERS SDK → LOCAL
   ========================== */
-  private loadArtists(): Artist[] {
-    const stored = localStorage.getItem(this.ARTISTS_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Artist[];
-    } catch {
-      localStorage.removeItem(this.ARTISTS_KEY);
-      return [];
-    }
+  private mapArtists(sdkArtists: ArtistResponse[]): Artist[] {
+    return sdkArtists.map((a) => ({
+      id: a.id ?? '',
+      name: a.name ?? '',
+      photoUrl: a.photoUrl ?? '',
+      bio: a.bio ?? '',
+      isTop: a.isTop ?? false,
+      followersCount: `${a.followersCount ?? 0} seguidores`,
+      monthlyListeners: `${a.monthlyListeners ?? 0} oyentes`,
+      createdAt: a.createdAt ?? '',
+    }));
   }
 
-  private loadAlbums(): Album[] {
-    const stored = localStorage.getItem(this.ALBUMS_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Album[];
-    } catch {
-      localStorage.removeItem(this.ALBUMS_KEY);
-      return [];
-    }
+  private mapAlbums(sdkAlbums: AlbumResponse[]): Album[] {
+    return sdkAlbums.map((a) => ({
+      id: a.id ?? '',
+      title: a.title ?? '',
+      artistId: a.artist?.id ?? '',
+      coverUrl: a.coverUrl ?? '',
+      releaseDate: a.releaseDate ?? '',
+      songsCount: a.songCount ?? 0,
+      totalStreams: `${a.totalStreams ?? 0} streams`,
+      createdAt: a.releaseDate ?? '',
+    }));
   }
 
-  private loadGenres(): Genre[] {
-    const stored = localStorage.getItem(this.GENRES_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Genre[];
-    } catch {
-      localStorage.removeItem(this.GENRES_KEY);
-      return [];
-    }
+  private mapGenres(sdkGenres: GenreResponse[]): Genre[] {
+    return sdkGenres.map((g) => ({
+      id: g.id ?? '',
+      name: g.name ?? '',
+      count: g.songCount ?? 0,
+      createdAt: g.createdAt ?? '',
+      gradientStart: g.gradientStart ?? '#111111',
+      gradientEnd: g.gradientEnd ?? '#4b4b4b',
+    }));
   }
 
-  private loadSongs(): Song[] {
-    const storedSongs = localStorage.getItem(this.SONGS_KEY);
-
-    if (storedSongs) {
-      try {
-        return JSON.parse(storedSongs) as Song[];
-      } catch {
-        localStorage.removeItem(this.SONGS_KEY);
-      }
-    }
-
-    const artists = this.loadArtists();
-    const albums = this.loadAlbums();
-    const genres = this.loadGenres();
-
-    if (artists.length === 0 || genres.length === 0) {
-      return [];
-    }
-
-    const getArtistIdByNameOrFallback = (
-      preferredName: string,
-      fallbackIndex = 0
-    ): string => {
-      const preferredArtist = artists.find(
-        (artist) => this.normalize(artist.name) === this.normalize(preferredName)
-      );
-
-      if (preferredArtist) return preferredArtist.id;
-      return artists[fallbackIndex]?.id ?? artists[0].id;
-    };
-
-    const getAlbumIdByTitleOrNull = (preferredTitle: string): string | null => {
-      const album = albums.find(
-        (item) => this.normalize(item.title) === this.normalize(preferredTitle)
-      );
-
-      return album?.id ?? null;
-    };
-
-    const getGenreIdByNameOrFallback = (
-      preferredName: string,
-      fallbackIndex = 0
-    ): string => {
-      const preferredGenre = genres.find(
-        (genre) => this.normalize(genre.name) === this.normalize(preferredName)
-      );
-
-      if (preferredGenre) return preferredGenre.id;
-      return genres[fallbackIndex]?.id ?? genres[0].id;
-    };
-
-    const baseSongs: Song[] = [
-
-    ];
-
-    localStorage.setItem(this.SONGS_KEY, JSON.stringify(baseSongs));
-    return baseSongs;
+  private mapSongs(sdkSongs: SongResponse[]): Song[] {
+    return sdkSongs.map((s) => ({
+      id: s.id ?? '',
+      title: s.title ?? '',
+      artistId: s.artist?.id ?? '',
+      albumId: s.album?.id ?? null,
+      genreId: s.genres?.[0]?.id ?? '',
+      coverUrl: s.coverUrl ?? '',
+      audioUrl: s.audioUrl ?? '',
+      durationSeconds: s.duration ?? 0,
+      lyrics: s.lyrics ?? null,
+      playCount: s.playCount ?? 0,
+      likesCount: s.likesCount ?? 0,
+      createdAt: '',
+    }));
   }
 
-  private persistSongs(songs: Song[]): void {
-    localStorage.setItem(this.SONGS_KEY, JSON.stringify(songs));
-    this.songs.set(songs);
-  }
+  /* =========================
+     CARGA / RECARGA
+  ========================== */
+  private reloadData(): void {
+    this.loading.set(true);
+    this.error.set(null);
 
-  private persistAlbums(albums: Album[]): void {
-    localStorage.setItem(this.ALBUMS_KEY, JSON.stringify(albums));
-    this.albums.set(albums);
-  }
-
-  private persistGenres(genres: Genre[]): void {
-    localStorage.setItem(this.GENRES_KEY, JSON.stringify(genres));
-    this.genres.set(genres);
-  }
-
-  private syncRelatedCountsFromSongs(songs: Song[]): void {
-    const updatedGenres = this.genres().map((genre) => {
-      const count = songs.filter((song) => song.genreId === genre.id).length;
-
-      return {
-        ...genre,
-        count,
-      };
+    forkJoin({
+      songs: this.songsApi.listSongs(),
+      artists: this.artistsApi.listArtists(),
+      albums: this.albumsApi.listAlbums(),
+      genres: this.genresApi.listGenres(),
+    }).subscribe({
+      next: ({ songs, artists, albums, genres }) => {
+        this.artists.set(this.mapArtists(artists.content ?? []));
+        this.albums.set(this.mapAlbums(albums.content ?? []));
+        this.genres.set(this.mapGenres(genres));
+        this.songs.set(this.mapSongs(songs.content ?? []));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cargar las canciones');
+        this.loading.set(false);
+      },
     });
-
-    const updatedAlbums = this.albums().map((album) => {
-      const songsCount = songs.filter((song) => song.albumId === album.id).length;
-
-      return {
-        ...album,
-        songsCount,
-      };
-    });
-
-    this.persistGenres(updatedGenres);
-    this.persistAlbums(updatedAlbums);
   }
 
-  private applySongChanges(songs: Song[]): void {
-    this.persistSongs(songs);
-    this.syncRelatedCountsFromSongs(songs);
+  private reloadSongs(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.songsApi.listSongs().subscribe({
+      next: (page) => {
+        this.songs.set(this.mapSongs(page.content ?? []));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al recargar las canciones');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -417,22 +389,21 @@ export class GestionCancionesPage {
     return value.trim().toLowerCase();
   }
 
-  private getTodayFormatted(): string {
-    const date = new Date();
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-
-    return `${day}/${month}/${year}`;
-  }
-
   private parseDateToTime(value: string): number {
+    if (!value) return 0;
+
+    const isoDate = new Date(value);
+    if (!Number.isNaN(isoDate.getTime())) {
+      return isoDate.getTime();
+    }
+
     const parts = value.split('/').map(Number);
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return new Date(year, month - 1, day).getTime();
+    }
 
-    if (parts.length !== 3) return 0;
-
-    const [day, month, year] = parts;
-    return new Date(year, month - 1, day).getTime();
+    return 0;
   }
 
   private formatSecondsToMinutes(totalSeconds: number): string {
@@ -546,64 +517,47 @@ export class GestionCancionesPage {
     const genreId = this.createSongGenreId().trim();
     const lyrics = this.createSongLyrics().trim();
 
-    if (
-      !title ||
-      !artistId ||
-      !coverUrl ||
-      !audioUrl ||
-      !durationValue ||
-      !genreId
-    ) {
-      return;
-    }
+    if (!title || !artistId || !coverUrl || !audioUrl || !durationValue || !genreId) return;
 
     const durationSeconds = Number(durationValue);
-
-    if (!Number.isInteger(durationSeconds) || durationSeconds <= 0) {
-      return;
-    }
+    if (!Number.isInteger(durationSeconds) || durationSeconds <= 0) return;
 
     const artistExists = this.artists().some((artist) => artist.id === artistId);
-    if (!artistExists) {
-      return;
-    }
+    if (!artistExists) return;
 
     const genreExists = this.genres().some((genre) => genre.id === genreId);
-    if (!genreExists) {
-      return;
-    }
+    if (!genreExists) return;
 
     const albumId = albumIdValue || null;
-
     if (albumId) {
       const album = this.albums().find((item) => item.id === albumId);
-
-      if (!album || album.artistId !== artistId) {
-        return;
-      }
+      if (!album || album.artistId !== artistId) return;
     }
 
-    if (this.existsSongTitle(title, artistId)) {
-      return;
-    }
+    if (this.existsSongTitle(title, artistId)) return;
 
-    const newSong: Song = {
-      id: crypto.randomUUID(),
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.songsApi.createSong({
       title,
       artistId,
-      albumId,
-      genreId,
+      albumId: albumId ?? undefined,
       coverUrl,
       audioUrl,
-      durationSeconds,
-      lyrics: lyrics || null,
-      playCount: 0,
-      likesCount: 0,
-      createdAt: this.getTodayFormatted(),
-    };
-
-    this.applySongChanges([newSong, ...this.songs()]);
-    this.closeAllModals();
+      duration: durationSeconds,
+      lyrics: lyrics || undefined,
+      genreIds: [genreId],
+    }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadSongs();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al crear la canción');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -611,10 +565,7 @@ export class GestionCancionesPage {
   ========================== */
   saveSongEdit(): void {
     const current = this.selectedSong();
-
-    if (!current) {
-      return;
-    }
+    if (!current) return;
 
     const title = this.editSongTitle().trim();
     const coverUrl = this.editSongCoverUrl().trim();
@@ -623,41 +574,36 @@ export class GestionCancionesPage {
     const genreId = this.editSongGenreId().trim();
     const lyrics = this.editSongLyrics().trim();
 
-    if (!title || !coverUrl || !audioUrl || !durationValue || !genreId) {
-      return;
-    }
+    if (!title || !coverUrl || !audioUrl || !durationValue || !genreId) return;
 
     const durationSeconds = Number(durationValue);
-
-    if (!Number.isInteger(durationSeconds) || durationSeconds <= 0) {
-      return;
-    }
+    if (!Number.isInteger(durationSeconds) || durationSeconds <= 0) return;
 
     const genreExists = this.genres().some((genre) => genre.id === genreId);
-    if (!genreExists) {
-      return;
-    }
+    if (!genreExists) return;
 
-    if (this.existsSongTitle(title, current.artistId, current.id)) {
-      return;
-    }
+    if (this.existsSongTitle(title, current.artistId, current.id)) return;
 
-    const updatedSongs = this.songs().map((song) =>
-      song.id === current.id
-        ? {
-            ...song,
-            title,
-            coverUrl,
-            audioUrl,
-            durationSeconds,
-            lyrics: lyrics || null,
-            genreId,
-          }
-        : song
-    );
+    this.loading.set(true);
+    this.error.set(null);
 
-    this.applySongChanges(updatedSongs);
-    this.closeAllModals();
+    this.songsApi.updateSong(current.id, {
+      title,
+      coverUrl,
+      audioUrl,
+      duration: durationSeconds,
+      lyrics: lyrics || undefined,
+      genreIds: [genreId],
+    }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadSongs();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al actualizar la canción');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -665,15 +611,21 @@ export class GestionCancionesPage {
   ========================== */
   confirmDeleteSong(): void {
     const current = this.selectedSong();
+    if (!current) return;
 
-    if (!current) {
-      return;
-    }
+    this.loading.set(true);
+    this.error.set(null);
 
-    const updatedSongs = this.songs().filter((song) => song.id !== current.id);
-
-    this.applySongChanges(updatedSongs);
-    this.closeAllModals();
+    this.songsApi.deleteSong(current.id).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadSongs();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al eliminar la canción');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================

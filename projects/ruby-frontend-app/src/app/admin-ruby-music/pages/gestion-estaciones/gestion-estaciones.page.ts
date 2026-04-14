@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   AlertTriangle,
   Eye,
@@ -10,9 +10,22 @@ import {
   Search,
   Trash2,
 } from 'lucide-angular';
+import { forkJoin } from 'rxjs';
 
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
+import {
+  AlbumResponse,
+  AlbumsApi,
+  ArtistResponse,
+  ArtistsApi,
+  GenreResponse,
+  GenresApi,
+  SongResponse,
+  SongsApi,
+  StationResponse,
+  StationsApi,
+} from 'lib-ruby-sdks/catalog-service';
 
 /* =========================
    MODELOS BASE
@@ -98,15 +111,15 @@ interface StationView extends Station {
   templateUrl: './gestion-estaciones.page.html',
   styleUrl: './gestion-estaciones.page.scss',
 })
-export class GestionEstacionesPage {
+export class GestionEstacionesPage implements OnInit {
   /* =========================
-     STORAGE KEYS
+     SERVICIOS
   ========================== */
-  private readonly STATIONS_KEY = 'ruby_stations';
-  private readonly GENRES_KEY = 'ruby_genres';
-  private readonly SONGS_KEY = 'ruby_songs';
-  private readonly ARTISTS_KEY = 'ruby_artists';
-  private readonly ALBUMS_KEY = 'ruby_albums';
+  private readonly stationsApi = inject(StationsApi);
+  private readonly genresApi = inject(GenresApi);
+  private readonly songsApi = inject(SongsApi);
+  private readonly artistsApi = inject(ArtistsApi);
+  private readonly albumsApi = inject(AlbumsApi);
 
   /* =========================
      ICONOS
@@ -125,6 +138,8 @@ export class GestionEstacionesPage {
   ========================== */
   readonly sidebarOpen = signal(false);
   readonly searchQuery = signal('');
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
 
   /* =========================
      MODALES
@@ -167,11 +182,18 @@ export class GestionEstacionesPage {
   /* =========================
      DATA BASE
   ========================== */
-  readonly genres = signal<Genre[]>(this.loadGenres());
-  readonly songs = signal<Song[]>(this.loadSongs());
-  readonly artists = signal<Artist[]>(this.loadArtists());
-  readonly albums = signal<Album[]>(this.loadAlbums());
-  readonly stations = signal<Station[]>(this.loadStations());
+  readonly genres = signal<Genre[]>([]);
+  readonly songs = signal<Song[]>([]);
+  readonly artists = signal<Artist[]>([]);
+  readonly albums = signal<Album[]>([]);
+  readonly stations = signal<Station[]>([]);
+
+  /* =========================
+     LIFECYCLE
+  ========================== */
+  ngOnInit(): void {
+    this.reloadData();
+  }
 
   /* =========================
      COMPUTED BASE
@@ -328,107 +350,118 @@ export class GestionEstacionesPage {
   });
 
   /* =========================
-     STORAGE
+     MAPPERS SDK → LOCAL
   ========================== */
-  private loadGenres(): Genre[] {
-    const stored = localStorage.getItem(this.GENRES_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Genre[];
-    } catch {
-      localStorage.removeItem(this.GENRES_KEY);
-      return [];
-    }
+  private mapGenres(sdkGenres: GenreResponse[]): Genre[] {
+    return sdkGenres.map((g) => ({
+      id: g.id ?? '',
+      name: g.name ?? '',
+      count: g.songCount ?? 0,
+      createdAt: g.createdAt ?? '',
+      gradientStart: g.gradientStart ?? '#FF8A00',
+      gradientEnd: g.gradientEnd ?? '#111111',
+    }));
   }
 
-  private loadSongs(): Song[] {
-    const stored = localStorage.getItem(this.SONGS_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Song[];
-    } catch {
-      localStorage.removeItem(this.SONGS_KEY);
-      return [];
-    }
+  private mapSongs(sdkSongs: SongResponse[]): Song[] {
+    return sdkSongs.map((s) => ({
+      id: s.id ?? '',
+      title: s.title ?? '',
+      artistId: s.artist?.id ?? '',
+      albumId: s.album?.id ?? null,
+      genreId: s.genres?.[0]?.id ?? '',
+      coverUrl: s.coverUrl ?? '',
+      audioUrl: s.audioUrl ?? '',
+      durationSeconds: s.duration ?? 0,
+      lyrics: s.lyrics ?? null,
+      playCount: s.playCount ?? 0,
+      likesCount: s.likesCount ?? 0,
+      createdAt: '',
+    }));
   }
 
-  private loadArtists(): Artist[] {
-    const stored = localStorage.getItem(this.ARTISTS_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Artist[];
-    } catch {
-      localStorage.removeItem(this.ARTISTS_KEY);
-      return [];
-    }
+  private mapArtists(sdkArtists: ArtistResponse[]): Artist[] {
+    return sdkArtists.map((a) => ({
+      id: a.id ?? '',
+      name: a.name ?? '',
+      photoUrl: a.photoUrl ?? '',
+      bio: a.bio ?? '',
+      isTop: a.isTop ?? false,
+      followersCount: `${a.followersCount ?? 0} seguidores`,
+      monthlyListeners: `${a.monthlyListeners ?? 0} oyentes`,
+      createdAt: a.createdAt ?? '',
+    }));
   }
 
-  private loadAlbums(): Album[] {
-    const stored = localStorage.getItem(this.ALBUMS_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Album[];
-    } catch {
-      localStorage.removeItem(this.ALBUMS_KEY);
-      return [];
-    }
+  private mapAlbums(sdkAlbums: AlbumResponse[]): Album[] {
+    return sdkAlbums.map((a) => ({
+      id: a.id ?? '',
+      title: a.title ?? '',
+      artistId: a.artist?.id ?? '',
+      coverUrl: a.coverUrl ?? '',
+      releaseDate: a.releaseDate ?? '',
+      songsCount: a.songCount ?? 0,
+      totalStreams: `${a.totalStreams ?? 0} streams`,
+      createdAt: a.releaseDate ?? '',
+    }));
   }
 
-  private loadStations(): Station[] {
-    const stored = localStorage.getItem(this.STATIONS_KEY);
-
-    if (stored) {
-      try {
-        return JSON.parse(stored) as Station[];
-      } catch {
-        localStorage.removeItem(this.STATIONS_KEY);
-      }
-    }
-
-    const genres = this.loadGenres();
-    const songs = this.loadSongs();
-
-    if (genres.length === 0) {
-      return [];
-    }
-
-    const indieGenre = genres.find(
-      (genre) => this.normalize(genre.name) === 'indie'
-    ) ?? genres[0];
-
-    const jazzGenre = genres.find(
-      (genre) => this.normalize(genre.name) === 'jazz'
-    ) ?? genres[0];
-
-    const indieSongs = songs
-      .filter((song) => song.genreId === indieGenre.id)
-      .slice(0, Math.max(2, Math.min(25, songs.length)))
-      .map((song) => song.id);
-
-    const jazzSongs = songs
-      .filter((song) => song.genreId === jazzGenre.id)
-      .slice(0, Math.max(2, Math.min(10, songs.length)))
-      .map((song) => song.id);
-
-    const baseStations: Station[] = [
-
-    ];
-
-    localStorage.setItem(this.STATIONS_KEY, JSON.stringify(baseStations));
-    return baseStations;
+  private mapStations(sdkStations: StationResponse[]): Station[] {
+    return sdkStations.map((s) => ({
+      id: s.id ?? '',
+      name: s.name ?? '',
+      genreId: s.genreId ?? '',
+      songIds: new Array(s.songCount ?? 0).fill('') as string[],
+      gradientStart: s.gradientStart ?? '#FF8A00',
+      gradientEnd: s.gradientEnd ?? '#111111',
+      liveListeners: 0,
+      createdAt: s.createdAt ?? '',
+    }));
   }
 
-  private persistStations(stations: Station[]): void {
-    localStorage.setItem(this.STATIONS_KEY, JSON.stringify(stations));
-    this.stations.set(stations);
+  /* =========================
+     CARGA / RECARGA
+  ========================== */
+  private reloadData(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      stations: this.stationsApi.listStations(),
+      genres: this.genresApi.listGenres(),
+      songs: this.songsApi.listSongs(),
+      artists: this.artistsApi.listArtists(),
+      albums: this.albumsApi.listAlbums(),
+    }).subscribe({
+      next: ({ stations, genres, songs, artists, albums }) => {
+        this.genres.set(this.mapGenres(genres));
+        this.songs.set(this.mapSongs(songs.content ?? []));
+        this.artists.set(this.mapArtists(artists.content ?? []));
+        this.albums.set(this.mapAlbums(albums.content ?? []));
+        this.stations.set(this.mapStations(stations.content ?? []));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cargar las estaciones');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  private reloadStations(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.stationsApi.listStations().subscribe({
+      next: (page) => {
+        this.stations.set(this.mapStations(page.content ?? []));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al recargar las estaciones');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -438,22 +471,21 @@ export class GestionEstacionesPage {
     return value.trim().toLowerCase();
   }
 
-  private getTodayFormatted(): string {
-    const date = new Date();
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-
-    return `${day}/${month}/${year}`;
-  }
-
   private parseDateToTime(value: string): number {
+    if (!value) return 0;
+
+    const isoDate = new Date(value);
+    if (!Number.isNaN(isoDate.getTime())) {
+      return isoDate.getTime();
+    }
+
     const parts = value.split('/').map(Number);
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return new Date(year, month - 1, day).getTime();
+    }
 
-    if (parts.length !== 3) return 0;
-
-    const [day, month, year] = parts;
-    return new Date(year, month - 1, day).getTime();
+    return 0;
   }
 
   private formatCompactCount(value: number): string {
@@ -611,45 +643,38 @@ export class GestionEstacionesPage {
     const gradientEnd = this.createGradientEnd();
     const selectedSongIds = this.createSelectedSongIds();
 
-    if (!name || !genreId || !gradientStart || !gradientEnd) {
-      return;
-    }
-
-    if (this.existsStationName(name)) {
-      return;
-    }
-
-    if (selectedSongIds.length < 2) {
-      return;
-    }
+    if (!name || !genreId || !gradientStart || !gradientEnd) return;
+    if (this.existsStationName(name)) return;
+    if (selectedSongIds.length < 2) return;
 
     const genre = this.genres().find((item) => item.id === genreId);
-    if (!genre) {
-      return;
-    }
+    if (!genre) return;
 
     const validSongs = this.songs().filter((song) => selectedSongIds.includes(song.id));
-
     if (
       validSongs.length !== selectedSongIds.length ||
       validSongs.some((song) => song.genreId !== genreId)
-    ) {
-      return;
-    }
+    ) return;
 
-    const newStation: Station = {
-      id: crypto.randomUUID(),
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.stationsApi.createStation({
       name,
       genreId,
-      songIds: [...selectedSongIds],
       gradientStart,
       gradientEnd,
-      liveListeners: 0,
-      createdAt: this.getTodayFormatted(),
-    };
-
-    this.persistStations([newStation, ...this.stations()]);
-    this.closeAllModals();
+      songIds: [...selectedSongIds],
+    }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadStations();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al crear la estación');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -657,51 +682,42 @@ export class GestionEstacionesPage {
   ========================== */
   saveStationEdit(): void {
     const current = this.selectedStation();
-
-    if (!current) {
-      return;
-    }
+    if (!current) return;
 
     const name = this.editStationName().trim();
     const gradientStart = this.editGradientStart();
     const gradientEnd = this.editGradientEnd();
     const selectedSongIds = this.editSelectedSongIds();
 
-    if (!name || !gradientStart || !gradientEnd) {
-      return;
-    }
-
-    if (this.existsStationName(name, current.id)) {
-      return;
-    }
-
-    if (selectedSongIds.length < 2) {
-      return;
-    }
+    if (!name || !gradientStart || !gradientEnd) return;
+    if (this.existsStationName(name, current.id)) return;
+    if (selectedSongIds.length < 2) return;
 
     const validSongs = this.songs().filter((song) => selectedSongIds.includes(song.id));
-
     if (
       validSongs.length !== selectedSongIds.length ||
       validSongs.some((song) => song.genreId !== current.genreId)
-    ) {
-      return;
-    }
+    ) return;
 
-    const updatedStations = this.stations().map((station) =>
-      station.id === current.id
-        ? {
-            ...station,
-            name,
-            gradientStart,
-            gradientEnd,
-            songIds: [...selectedSongIds],
-          }
-        : station
-    );
+    this.loading.set(true);
+    this.error.set(null);
 
-    this.persistStations(updatedStations);
-    this.closeAllModals();
+    this.stationsApi.updateStation(current.id, {
+      name,
+      genreId: current.genreId,
+      gradientStart,
+      gradientEnd,
+      songIds: [...selectedSongIds],
+    }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadStations();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al actualizar la estación');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -709,17 +725,21 @@ export class GestionEstacionesPage {
   ========================== */
   confirmDeleteStation(): void {
     const current = this.selectedStation();
+    if (!current) return;
 
-    if (!current) {
-      return;
-    }
+    this.loading.set(true);
+    this.error.set(null);
 
-    const updatedStations = this.stations().filter(
-      (station) => station.id !== current.id
-    );
-
-    this.persistStations(updatedStations);
-    this.closeAllModals();
+    this.stationsApi.deleteStation(current.id).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadStations();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al eliminar la estación');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================

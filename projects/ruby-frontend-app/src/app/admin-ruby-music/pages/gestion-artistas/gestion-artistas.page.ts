@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   Eye,
   Menu,
@@ -11,6 +11,7 @@ import {
 
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
+import { ArtistResponse, ArtistsApi } from 'lib-ruby-sdks/catalog-service';
 
 /* =========================
    MODELO ARTISTA
@@ -36,12 +37,12 @@ interface Artist {
   templateUrl: './gestion-artistas.page.html',
   styleUrl: './gestion-artistas.page.scss',
 })
-export class GestionArtistasPage {
+export class GestionArtistasPage implements OnInit {
 
   /* =========================
-     STORAGE
+     SERVICIOS
   ========================== */
-  private readonly ARTISTS_KEY = 'ruby_artists';
+  private readonly artistsApi = inject(ArtistsApi);
 
   /* =========================
      ICONOS
@@ -59,6 +60,8 @@ export class GestionArtistasPage {
   readonly sidebarOpen = signal(false);
   readonly searchQuery = signal('');
   readonly topFilter = signal('');
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
 
   /* =========================
      MODALES
@@ -92,7 +95,14 @@ export class GestionArtistasPage {
   /* =========================
      DATA
   ========================== */
-  readonly artists = signal<Artist[]>(this.loadArtists());
+  readonly artists = signal<Artist[]>([]);
+
+  /* =========================
+     LIFECYCLE
+  ========================== */
+  ngOnInit(): void {
+    this.reloadArtists();
+  }
 
   /* =========================
      COMPUTED
@@ -126,43 +136,43 @@ export class GestionArtistasPage {
   });
 
   /* =========================
-     STORAGE LOGIC
+     MAPPER SDK → LOCAL
   ========================== */
-  private loadArtists(): Artist[] {
-    const stored = localStorage.getItem(this.ARTISTS_KEY);
-
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        localStorage.removeItem(this.ARTISTS_KEY);
-      }
-    }
-
-    const base: Artist[] = [
-     
-    ];
-
-    localStorage.setItem(this.ARTISTS_KEY, JSON.stringify(base));
-    return base;
+  private mapArtists(sdkArtists: ArtistResponse[]): Artist[] {
+    return sdkArtists.map((a) => ({
+      id: a.id ?? '',
+      name: a.name ?? '',
+      photoUrl: a.photoUrl ?? '',
+      bio: a.bio ?? '',
+      isTop: a.isTop ?? false,
+      followersCount: `${a.followersCount ?? 0} seguidores`,
+      monthlyListeners: `${a.monthlyListeners ?? 0} oyentes`,
+      createdAt: a.createdAt ?? '',
+    }));
   }
 
-  private persistArtists(artists: Artist[]): void {
-    localStorage.setItem(this.ARTISTS_KEY, JSON.stringify(artists));
-    this.artists.set(artists);
+  /* =========================
+     CARGA / RECARGA
+  ========================== */
+  private reloadArtists(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.artistsApi.listArtists().subscribe({
+      next: (page) => {
+        this.artists.set(this.mapArtists(page.content ?? []));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cargar los artistas');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
      HELPERS
   ========================== */
-  private getToday(): string {
-    const d = new Date();
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-
   private normalize(text: string): string {
     return text.trim().toLowerCase();
   }
@@ -223,24 +233,29 @@ export class GestionArtistasPage {
   ========================== */
   createArtist(): void {
     const name = this.createArtistName().trim();
-    const photo = this.createArtistPhotoUrl().trim();
+    const photoUrl = this.createArtistPhotoUrl().trim();
 
-    if (!name || !photo) return;
+    if (!name || !photoUrl) return;
     if (this.existsName(name)) return;
 
-    const newArtist: Artist = {
-      id: crypto.randomUUID(),
-      name,
-      photoUrl: photo,
-      bio: this.createArtistBio(),
-      isTop: this.createArtistIsTop(),
-      followersCount: '0 seguidores',
-      monthlyListeners: '0 oyentes / mes',
-      createdAt: this.getToday(),
-    };
+    this.loading.set(true);
+    this.error.set(null);
 
-    this.persistArtists([newArtist, ...this.artists()]);
-    this.closeAllModals();
+    this.artistsApi.createArtist({
+      name,
+      photoUrl,
+      bio: this.createArtistBio().trim() || undefined,
+      isTop: this.createArtistIsTop(),
+    }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadArtists();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al crear el artista');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -254,20 +269,24 @@ export class GestionArtistasPage {
     if (!name) return;
     if (this.existsName(name, current.id)) return;
 
-    const updated = this.artists().map((a) =>
-      a.id === current.id
-        ? {
-            ...a,
-            name,
-            photoUrl: this.editArtistPhotoUrl(),
-            bio: this.editArtistBio(),
-            isTop: this.editArtistIsTop(),
-          }
-        : a
-    );
+    this.loading.set(true);
+    this.error.set(null);
 
-    this.persistArtists(updated);
-    this.closeAllModals();
+    this.artistsApi.updateArtist(current.id, {
+      name,
+      photoUrl: this.editArtistPhotoUrl().trim() || undefined,
+      bio: this.editArtistBio().trim() || undefined,
+      isTop: this.editArtistIsTop(),
+    }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadArtists();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al actualizar el artista');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -277,9 +296,19 @@ export class GestionArtistasPage {
     const current = this.selectedArtist();
     if (!current) return;
 
-    const updated = this.artists().filter((a) => a.id !== current.id);
-    this.persistArtists(updated);
-    this.closeAllModals();
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.artistsApi.deleteArtist(current.id).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadArtists();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al eliminar el artista');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================

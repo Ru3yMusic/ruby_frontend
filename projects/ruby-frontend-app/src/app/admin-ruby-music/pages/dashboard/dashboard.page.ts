@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   Menu,
   MicVocal,
@@ -8,9 +8,20 @@ import {
   TriangleAlert,
   Users,
 } from 'lucide-angular';
+import { forkJoin } from 'rxjs';
 
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
+import {
+  ArtistResponse,
+  ArtistsApi,
+  GenreResponse,
+  GenresApi,
+  SongResponse,
+  SongsApi,
+} from 'lib-ruby-sdks/catalog-service';
+import { UserResponse, UsersApi } from 'lib-ruby-sdks/auth-service';
+import { ReportTargetSummary, ReportsApi } from 'lib-ruby-sdks/social-service';
 
 /* =========================
    MODELOS BASE
@@ -123,15 +134,15 @@ interface LatestSongItem {
   templateUrl: './dashboard.page.html',
   styleUrl: './dashboard.page.scss',
 })
-export class DashboardPage {
+export class DashboardPage implements OnInit {
   /* =========================
-     STORAGE KEYS
+     SERVICIOS
   ========================== */
-  private readonly USERS_KEY = 'ruby_users';
-  private readonly REPORTS_KEY = 'ruby_reports';
-  private readonly SONGS_KEY = 'ruby_songs';
-  private readonly ARTISTS_KEY = 'ruby_artists';
-  private readonly GENRES_KEY = 'ruby_genres';
+  private readonly usersApi = inject(UsersApi);
+  private readonly songsApi = inject(SongsApi);
+  private readonly artistsApi = inject(ArtistsApi);
+  private readonly genresApi = inject(GenresApi);
+  private readonly reportsApi = inject(ReportsApi);
 
   /* =========================
      ICONOS
@@ -147,15 +158,46 @@ export class DashboardPage {
      UI STATE
   ========================== */
   readonly sidebarOpen = signal(false);
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
 
   /* =========================
      DATA
   ========================== */
-  readonly users = signal<AdminUser[]>(this.loadUsers());
-  readonly reports = signal<ReportItem[]>(this.loadReports());
-  readonly songs = signal<Song[]>(this.loadSongs());
-  readonly artists = signal<Artist[]>(this.loadArtists());
-  readonly genres = signal<Genre[]>(this.loadGenres());
+  readonly users = signal<AdminUser[]>([]);
+  readonly reports = signal<ReportItem[]>([]);
+  readonly songs = signal<Song[]>([]);
+  readonly artists = signal<Artist[]>([]);
+  readonly genres = signal<Genre[]>([]);
+
+  /* =========================
+     LIFECYCLE
+  ========================== */
+  ngOnInit(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    forkJoin({
+      users: this.usersApi.listUsers(),
+      songs: this.songsApi.listSongs(),
+      artists: this.artistsApi.listArtists(),
+      genres: this.genresApi.listGenres(),
+      reports: this.reportsApi.listGroupedReports(),
+    }).subscribe({
+      next: ({ users, songs, artists, genres, reports }) => {
+        this.users.set(this.mapUsers(users.content ?? []));
+        this.songs.set(this.mapSongs(songs.content ?? []));
+        this.artists.set(this.mapArtists(artists.content ?? []));
+        this.genres.set(this.mapGenres(genres));
+        this.reports.set(this.mapGroupedReports(reports));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cargar los datos del dashboard');
+        this.loading.set(false);
+      },
+    });
+  }
 
   /* =========================
      KPI CARDS
@@ -335,71 +377,79 @@ export class DashboardPage {
   });
 
   /* =========================
-     STORAGE
+     MAPPERS SDK → LOCAL
   ========================== */
-  private loadUsers(): AdminUser[] {
-    const stored = localStorage.getItem(this.USERS_KEY);
+  private mapUsers(sdkUsers: UserResponse[]): AdminUser[] {
+    return sdkUsers.map((u) => ({
+      id: u.id ?? '',
+      name: u.displayName ?? u.email ?? '',
+      email: u.email ?? '',
+      avatarUrl: u.profilePhotoUrl ?? '',
+      status: this.mapUserStatus(u.status),
+      createdAt: u.createdAt ?? '',
+      reportCount: 0,
+      blockReason: u.blockReason ?? null,
+      blockedAt: null,
+    }));
+  }
 
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as AdminUser[];
-    } catch {
-      localStorage.removeItem(this.USERS_KEY);
-      return [];
+  private mapUserStatus(status?: string): UserStatus {
+    switch (status) {
+      case 'ACTIVE': return 'ACTIVO';
+      case 'INACTIVE': return 'INACTIVO';
+      case 'BLOCKED': return 'BLOQUEADO';
+      default: return 'ACTIVO';
     }
   }
 
-  private loadReports(): ReportItem[] {
-    const stored = localStorage.getItem(this.REPORTS_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as ReportItem[];
-    } catch {
-      localStorage.removeItem(this.REPORTS_KEY);
-      return [];
-    }
+  private mapSongs(sdkSongs: SongResponse[]): Song[] {
+    return sdkSongs.map((s) => ({
+      id: s.id ?? '',
+      title: s.title ?? '',
+      artistId: s.artist?.id ?? '',
+      albumId: s.album?.id ?? null,
+      genreId: s.genres?.[0]?.id ?? '',
+      coverUrl: s.coverUrl ?? '',
+      audioUrl: s.audioUrl ?? '',
+      durationSeconds: s.duration ?? 0,
+      lyrics: s.lyrics ?? null,
+      playCount: s.playCount ?? 0,
+      likesCount: s.likesCount ?? 0,
+      createdAt: '',
+    }));
   }
 
-  private loadSongs(): Song[] {
-    const stored = localStorage.getItem(this.SONGS_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Song[];
-    } catch {
-      localStorage.removeItem(this.SONGS_KEY);
-      return [];
-    }
+  private mapArtists(sdkArtists: ArtistResponse[]): Artist[] {
+    return sdkArtists.map((a) => ({
+      id: a.id ?? '',
+      name: a.name ?? '',
+      photoUrl: a.photoUrl ?? '',
+      bio: a.bio ?? '',
+      isTop: a.isTop ?? false,
+      followersCount: `${a.followersCount ?? 0} seguidores`,
+      monthlyListeners: `${a.monthlyListeners ?? 0} oyentes`,
+      createdAt: a.createdAt ?? '',
+    }));
   }
 
-  private loadArtists(): Artist[] {
-    const stored = localStorage.getItem(this.ARTISTS_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Artist[];
-    } catch {
-      localStorage.removeItem(this.ARTISTS_KEY);
-      return [];
-    }
+  private mapGenres(sdkGenres: GenreResponse[]): Genre[] {
+    return sdkGenres.map((g) => ({
+      id: g.id ?? '',
+      name: g.name ?? '',
+      count: g.songCount ?? 0,
+      createdAt: g.createdAt ?? '',
+      gradientStart: g.gradientStart ?? '#000000',
+      gradientEnd: g.gradientEnd ?? '#000000',
+    }));
   }
 
-  private loadGenres(): Genre[] {
-    const stored = localStorage.getItem(this.GENRES_KEY);
-
-    if (!stored) return [];
-
-    try {
-      return JSON.parse(stored) as Genre[];
-    } catch {
-      localStorage.removeItem(this.GENRES_KEY);
-      return [];
-    }
+  private mapGroupedReports(sdkReports: ReportTargetSummary[]): ReportItem[] {
+    return sdkReports.map((r) => ({
+      id: r.targetId ?? '',
+      reportedUserId: r.targetId ?? '',
+      reason: r.targetType ?? '',
+      createdAt: r.latestReportAt ?? '',
+    }));
   }
 
   /* =========================

@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Menu, Music4, Pencil, Plus, Search, Trash2 } from 'lucide-angular';
 
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
+import { GenreResponse, GenresApi } from 'lib-ruby-sdks/catalog-service';
 
 /* =========================
    MODELO DE GÉNERO
@@ -24,11 +25,11 @@ interface Genre {
   templateUrl: './gestion-generos.page.html',
   styleUrl: './gestion-generos.page.scss',
 })
-export class GestionGenerosPage {
+export class GestionGenerosPage implements OnInit {
   /* =========================
-     STORAGE KEY
+     SERVICIOS
   ========================== */
-  private readonly GENRES_KEY = 'ruby_genres';
+  private readonly genresApi = inject(GenresApi);
 
   /* =========================
      ICONOS
@@ -45,6 +46,8 @@ export class GestionGenerosPage {
   ========================== */
   readonly sidebarOpen = signal(false);
   readonly searchQuery = signal('');
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
 
   /* =========================
      MODALES
@@ -73,9 +76,16 @@ export class GestionGenerosPage {
   readonly editGradientEnd = signal('#0C3C4C');
 
   /* =========================
-     DATA PERSISTIDA
+     DATA
   ========================== */
-  readonly genres = signal<Genre[]>(this.loadGenres());
+  readonly genres = signal<Genre[]>([]);
+
+  /* =========================
+     LIFECYCLE
+  ========================== */
+  ngOnInit(): void {
+    this.reloadGenres();
+  }
 
   /* =========================
      COMPUTED: FILTRADO
@@ -104,42 +114,41 @@ export class GestionGenerosPage {
   });
 
   /* =========================
-     STORAGE
+     MAPPER SDK → LOCAL
   ========================== */
-  private loadGenres(): Genre[] {
-    const storedGenres = localStorage.getItem(this.GENRES_KEY);
-
-    if (storedGenres) {
-      try {
-        return JSON.parse(storedGenres) as Genre[];
-      } catch {
-        localStorage.removeItem(this.GENRES_KEY);
-      }
-    }
-
-    const baseGenres: Genre[] = [
-      
-    ];
-
-    localStorage.setItem(this.GENRES_KEY, JSON.stringify(baseGenres));
-    return baseGenres;
+  private mapGenres(sdkGenres: GenreResponse[]): Genre[] {
+    return sdkGenres.map((g) => ({
+      id: g.id ?? '',
+      name: g.name ?? '',
+      count: g.songCount ?? 0,
+      createdAt: g.createdAt ?? '',
+      gradientStart: g.gradientStart ?? '#FF8A8A',
+      gradientEnd: g.gradientEnd ?? '#0C3C4C',
+    }));
   }
 
-  private persistGenres(genres: Genre[]): void {
-    localStorage.setItem(this.GENRES_KEY, JSON.stringify(genres));
-    this.genres.set(genres);
+  /* =========================
+     CARGA / RECARGA
+  ========================== */
+  private reloadGenres(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.genresApi.listGenres().subscribe({
+      next: (sdkGenres) => {
+        this.genres.set(this.mapGenres(sdkGenres));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cargar los géneros');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
      HELPERS
   ========================== */
-  private formatDate(date: Date): string {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-
   private resetCreateForm(): void {
     this.createGenreName.set('');
     this.createGradientStart.set('#FF8A8A');
@@ -179,31 +188,22 @@ export class GestionGenerosPage {
     const gradientStart = this.createGradientStart();
     const gradientEnd = this.createGradientEnd();
 
-    if (!name) {
-      return;
-    }
+    if (!name || name.length > 100) return;
+    if (this.existsGenreName(name)) return;
 
-    if (name.length > 100) {
-      return;
-    }
+    this.loading.set(true);
+    this.error.set(null);
 
-    if (this.existsGenreName(name)) {
-      return;
-    }
-
-    const newGenre: Genre = {
-      id: crypto.randomUUID(),
-      name,
-      count: 0,
-      createdAt: this.formatDate(new Date()),
-      gradientStart,
-      gradientEnd,
-    };
-
-    const updatedGenres = [newGenre, ...this.genres()];
-    this.persistGenres(updatedGenres);
-
-    this.closeAllModals();
+    this.genresApi.createGenre({ name, gradientStart, gradientEnd }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadGenres();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al crear el género');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -221,40 +221,28 @@ export class GestionGenerosPage {
 
   saveGenreEdit(): void {
     const currentGenre = this.selectedGenre();
-
-    if (!currentGenre) {
-      return;
-    }
+    if (!currentGenre) return;
 
     const name = this.editGenreName().trim();
     const gradientStart = this.editGradientStart();
     const gradientEnd = this.editGradientEnd();
 
-    if (!name) {
-      return;
-    }
+    if (!name || name.length > 100) return;
+    if (this.existsGenreName(name, currentGenre.id)) return;
 
-    if (name.length > 100) {
-      return;
-    }
+    this.loading.set(true);
+    this.error.set(null);
 
-    if (this.existsGenreName(name, currentGenre.id)) {
-      return;
-    }
-
-    const updatedGenres = this.genres().map((genre) =>
-      genre.id === currentGenre.id
-        ? {
-            ...genre,
-            name,
-            gradientStart,
-            gradientEnd,
-          }
-        : genre
-    );
-
-    this.persistGenres(updatedGenres);
-    this.closeAllModals();
+    this.genresApi.updateGenre(currentGenre.id, { name, gradientStart, gradientEnd }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadGenres();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al actualizar el género');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================
@@ -267,17 +255,21 @@ export class GestionGenerosPage {
 
   confirmDeleteGenre(): void {
     const currentGenre = this.selectedGenre();
+    if (!currentGenre) return;
 
-    if (!currentGenre) {
-      return;
-    }
+    this.loading.set(true);
+    this.error.set(null);
 
-    const updatedGenres = this.genres().filter(
-      (genre) => genre.id !== currentGenre.id
-    );
-
-    this.persistGenres(updatedGenres);
-    this.closeAllModals();
+    this.genresApi.deleteGenre(currentGenre.id).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadGenres();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al eliminar el género');
+        this.loading.set(false);
+      },
+    });
   }
 
   /* =========================

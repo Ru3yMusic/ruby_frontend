@@ -6,6 +6,7 @@ import {
   PlayHistoryResponse,
   SongInteractionsApi,
 } from 'lib-ruby-sdks/interaction-service';
+import { ArtistFollowsApi } from 'lib-ruby-sdks/social-service';
 
 @Injectable({
   providedIn: 'root',
@@ -14,6 +15,7 @@ export class InteractionState {
   private readonly songInteractionsApi = inject(SongInteractionsApi);
   private readonly playHistoryApi = inject(PlayHistoryApi);
   private readonly libraryApi = inject(LibraryApi);
+  private readonly artistFollowsApi = inject(ArtistFollowsApi);
 
   /* ===================== */
   /* SIGNALS */
@@ -30,6 +32,9 @@ export class InteractionState {
 
   private readonly _libraryArtistIds = signal<string[]>([]);
   readonly libraryArtistIds = this._libraryArtistIds.asReadonly();
+
+  private readonly _followedArtistIds = signal<string[]>([]);
+  readonly followedArtistIds = this._followedArtistIds.asReadonly();
 
   private readonly _loading = signal(false);
   readonly loading = this._loading.asReadonly();
@@ -211,6 +216,54 @@ export class InteractionState {
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error removing artist from library');
+      },
+    });
+  }
+
+  /* ===================== */
+  /* ARTIST FOLLOWS */
+  /* ===================== */
+
+  isArtistFollowed(artistId: string): boolean {
+    return this._followedArtistIds().includes(artistId);
+  }
+
+  loadFollowedArtists(): void {
+    this._loading.set(true);
+    this._error.set(null);
+    this.artistFollowsApi.getFollowedArtists().subscribe({
+      next: (ids) => {
+        this._followedArtistIds.set(ids);
+        this._loading.set(false);
+      },
+      error: (err: { message?: string }) => {
+        this._error.set(err?.message ?? 'Error loading followed artists');
+        this._loading.set(false);
+      },
+    });
+  }
+
+  followArtist(artistId: string): void {
+    // Optimistic update — add immediately, revert on error
+    this._followedArtistIds.update(ids =>
+      ids.includes(artistId) ? ids : [...ids, artistId]
+    );
+    this.artistFollowsApi.followArtist(artistId).subscribe({
+      error: (err: { message?: string }) => {
+        this._followedArtistIds.update(ids => ids.filter(id => id !== artistId));
+        this._error.set(err?.message ?? 'Error following artist');
+      },
+    });
+  }
+
+  unfollowArtist(artistId: string): void {
+    // Optimistic update — remove immediately, revert on error
+    const previous = this._followedArtistIds();
+    this._followedArtistIds.update(ids => ids.filter(id => id !== artistId));
+    this.artistFollowsApi.unfollowArtist(artistId).subscribe({
+      error: (err: { message?: string }) => {
+        this._followedArtistIds.set(previous);
+        this._error.set(err?.message ?? 'Error unfollowing artist');
       },
     });
   }

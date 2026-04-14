@@ -1,11 +1,11 @@
 import { Observable } from 'rxjs';
 import {
+  BulkPresenceResult,
   WsChatMessagePayload,
   WsCommentLikesUpdatedPayload,
   WsCommentPayload,
   WsJoinedStationPayload,
   WsListenerCountPayload,
-  WsLikeCommentPayload,
   WsNotificationPayload,
   WsSendChatMessagePayload,
   WsSendCommentPayload,
@@ -79,14 +79,31 @@ export abstract class RealtimePort {
   // ─── Comment Likes ────────────────────────────────────────────────────────
 
   /**
-   * Emit like_comment — sends a like/unlike intent to the server.
-   * Matches backend LikeCommentDto (commentId, commentAuthorId, songId, stationId).
+   * Like a comment via HTTP POST /comments/:id/like.
+   * Returns an Observable that completes when the request succeeds.
+   * The server broadcasts a `comment_likes_updated` WS event after processing.
    */
-  abstract likeComment(payload: WsLikeCommentPayload): void;
+  abstract likeComment(commentId: string): Observable<void>;
+
+  /**
+   * Unlike a comment via HTTP DELETE /comments/:id/like.
+   * Returns an Observable that completes when the request succeeds.
+   * The server broadcasts a `comment_likes_updated` WS event after processing.
+   */
+  abstract unlikeComment(commentId: string): Observable<void>;
 
   /**
    * Cold Observable — emits comment_likes_updated events broadcast by the server
    * after a like/unlike is processed. Use to apply optimistic UI updates.
    */
   abstract onCommentLikesUpdated(): Observable<WsCommentLikesUpdatedPayload>;
+
+  // ─── Presence (REST) ─────────────────────────────────────────────────────
+
+  /**
+   * Fetch presence info for multiple users in one HTTP POST.
+   * Calls POST /presence/users/bulk with { userIds: string[] }.
+   * Returns a map of userId → UserPresenceInfo.
+   */
+  abstract getBulkPresence(userIds: string[]): Observable<BulkPresenceResult>;
 }

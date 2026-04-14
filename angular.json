@@ -69,7 +69,7 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "16kB",
+                  "maximumWarning": "20kB",
                   "maximumError": "32kB"
                 }
               ],
@@ -94,6 +94,12 @@
             }
           },
           "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/ruby-frontend-app/tsconfig.spec.json"
+          }
         }
       }
     },
@@ -145,6 +151,8 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/lib-ruby-core-ui/tsconfig.spec.json"
+          }
+        }
       }
     },
     "lib-ruby-sdks": {
@@ -173,7 +181,5 @@
         }
       }
     }
-  }
-}
   }
 }

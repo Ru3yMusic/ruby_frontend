@@ -125,7 +125,7 @@ export class StationComponent {
       gradientStart: station.gradientStart ?? this.defaultGradientStart,
       gradientEnd: station.gradientEnd ?? this.defaultGradientEnd,
       imageUrl: station.imageUrl ?? (firstSong as any)?.coverUrl ?? null,
-      songCount: 0,
+      songCount: station.songCount ?? 0,
       liveListeners: station.listenerCount ?? 0,
     };
   }

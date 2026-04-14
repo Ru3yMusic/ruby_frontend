@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { SongResponse } from 'lib-ruby-sdks/catalog-service';
 import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { PlayerState } from '../../state/player.state';
@@ -75,6 +76,12 @@ export class ArtistDetailComponent {
 
   readonly headerAccentColor = signal(this.defaultTopColor);
 
+  private readonly _detailSongs = signal<SongResponse[]>([]);
+  private readonly _detailLoading = signal(false);
+  private readonly _detailError = signal<string | null>(null);
+  readonly detailLoading = this._detailLoading.asReadonly();
+  readonly detailError = this._detailError.asReadonly();
+
   readonly currentArtist = computed<any>(() => {
     const id = this.artistId();
     if (!id) return null;
@@ -101,11 +108,8 @@ export class ArtistDetailComponent {
   });
 
   readonly allArtistSongs = computed<any[]>(() => {
-    const artist = this.currentArtist();
-    if (!artist) return [];
-
-    return (this.libraryState.songs() as any[])
-      .filter(song => song.artistId === artist.id)
+    return (this._detailSongs() as any[])
+      .slice()
       .sort((a, b) => {
         const diff = (b.playCount ?? 0) - (a.playCount ?? 0);
         if (diff !== 0) return diff;
@@ -192,7 +196,7 @@ export class ArtistDetailComponent {
   readonly isArtistFollowed = computed(() => {
     const artist = this.currentArtist();
     if (!artist?.id) return false;
-    return this.interactionState.isArtistInLibrary(artist.id);
+    return this.interactionState.isArtistFollowed(artist.id);
   });
 
   constructor() {
@@ -208,6 +212,8 @@ export class ArtistDetailComponent {
         this.closeAlbumMenu();
         this.closeRelatedArtistMenu();
         this.bootstrapArtistDetail();
+        this.loadArtistSongs(nextArtistId);
+        this.interactionState.loadFollowedArtists();
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
@@ -216,6 +222,27 @@ export class ArtistDetailComponent {
   /* ===================== */
   /* INIT */
   /* ===================== */
+  private loadArtistSongs(artistId: string): void {
+    if (!artistId) {
+      this._detailSongs.set([]);
+      return;
+    }
+    this._detailLoading.set(true);
+    this._detailError.set(null);
+    this.libraryState.getArtistSongs(artistId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (songs) => {
+          this._detailSongs.set(songs);
+          this._detailLoading.set(false);
+        },
+        error: (err: { message?: string }) => {
+          this._detailError.set(err?.message ?? 'Error al cargar canciones del artista');
+          this._detailLoading.set(false);
+        },
+      });
+  }
+
   private bootstrapArtistDetail(): void {
     const artist = this.currentArtist();
 
@@ -239,17 +266,17 @@ export class ArtistDetailComponent {
     if (!artist?.id) return;
 
     if (this.isArtistFollowed()) {
-      this.interactionState.removeArtistFromLibrary(artist.id);
+      this.interactionState.unfollowArtist(artist.id);
       this.isArtistMenuOpen.set(false);
       return;
     }
 
-    this.interactionState.addArtistToLibrary(artist.id);
+    this.interactionState.followArtist(artist.id);
     this.isArtistMenuOpen.set(false);
   }
 
   isRelatedArtistFollowed(artistId: string): boolean {
-    return this.interactionState.isArtistInLibrary(artistId);
+    return this.interactionState.isArtistFollowed(artistId);
   }
 
   toggleFollowRelatedArtist(artistId: string, event?: MouseEvent): void {
@@ -257,12 +284,12 @@ export class ArtistDetailComponent {
     if (!artistId) return;
 
     if (this.isRelatedArtistFollowed(artistId)) {
-      this.interactionState.removeArtistFromLibrary(artistId);
+      this.interactionState.unfollowArtist(artistId);
       this.closeRelatedArtistMenu();
       return;
     }
 
-    this.interactionState.addArtistToLibrary(artistId);
+    this.interactionState.followArtist(artistId);
     this.closeRelatedArtistMenu();
   }
 
@@ -297,7 +324,8 @@ export class ArtistDetailComponent {
   }
 
   playSong(songRow: PopularSongRow): void {
-    const storedSong = (this.libraryState.songs() as any[]).find(song => song.id === songRow.songId);
+    const storedSong = (this._detailSongs() as any[]).find(song => song.id === songRow.songId)
+      ?? (this.libraryState.songs() as any[]).find(song => song.id === songRow.songId);
     if (!storedSong) return;
 
     if (this.isSongPlaying(songRow.songId)) {
@@ -430,7 +458,8 @@ export class ArtistDetailComponent {
       { name: `Mi playlist n.° ${nextNumber}`, description: null, isPublic: true },
       (created) => {
         this.playlistState.addSongToPlaylist(created.id!, songId);
-        const storedSong = (this.libraryState.songs() as any[]).find(s => s.id === songId);
+        const storedSong = (this._detailSongs() as any[]).find(s => s.id === songId)
+          ?? (this.libraryState.songs() as any[]).find(s => s.id === songId);
         if (storedSong?.coverUrl) {
           this.playlistState.updatePlaylist(created.id!, { coverUrl: storedSong.coverUrl });
         }
@@ -447,7 +476,8 @@ export class ArtistDetailComponent {
     this.playlistState.addSongToPlaylist(playlistId, songId);
 
     const playlist = this.playlistState.playlists().find(item => item.id === playlistId);
-    const storedSong = (this.libraryState.songs() as any[]).find(song => song.id === songId);
+    const storedSong = (this._detailSongs() as any[]).find(song => song.id === songId)
+      ?? (this.libraryState.songs() as any[]).find(song => song.id === songId);
 
     if (playlist && !playlist.coverUrl && storedSong?.coverUrl) {
       this.playlistState.updatePlaylist(playlistId, { coverUrl: storedSong.coverUrl });
@@ -534,13 +564,16 @@ export class ArtistDetailComponent {
     this.playlistState.createPlaylist(
       { name: `Mi playlist n.° ${nextNumber}`, description: null, isPublic: true },
       (created) => {
-        const albumSongs = (this.libraryState.songs() as any[]).filter(s => s.albumId === albumId);
-        albumSongs.forEach(s => this.playlistState.addSongToPlaylist(created.id!, s.id));
-        const firstSong = albumSongs[0];
-        if (firstSong?.coverUrl) {
-          this.playlistState.updatePlaylist(created.id!, { coverUrl: firstSong.coverUrl });
-        }
-        this.closeAlbumMenu();
+        this.libraryState.getAlbumSongs(albumId)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe(albumSongs => {
+            albumSongs.forEach(s => this.playlistState.addSongToPlaylist(created.id!, s.id!));
+            const firstSong = albumSongs[0];
+            if (firstSong?.coverUrl) {
+              this.playlistState.updatePlaylist(created.id!, { coverUrl: firstSong.coverUrl });
+            }
+            this.closeAlbumMenu();
+          });
       }
     );
   }
@@ -550,20 +583,22 @@ export class ArtistDetailComponent {
 
     if (!playlistId || !albumId) return;
 
-    const albumSongs = (this.libraryState.songs() as any[]).filter(song => song.albumId === albumId);
+    this.libraryState.getAlbumSongs(albumId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(albumSongs => {
+        albumSongs.forEach(song => {
+          this.playlistState.addSongToPlaylist(playlistId, song.id!);
+        });
 
-    albumSongs.forEach(song => {
-      this.playlistState.addSongToPlaylist(playlistId, song.id);
-    });
+        const playlist = this.playlistState.playlists().find(item => item.id === playlistId);
+        const firstSong = albumSongs[0];
 
-    const playlist = this.playlistState.playlists().find(item => item.id === playlistId);
-    const firstSong = albumSongs[0];
+        if (playlist && !playlist.coverUrl && firstSong?.coverUrl) {
+          this.playlistState.updatePlaylist(playlistId, { coverUrl: firstSong.coverUrl });
+        }
 
-    if (playlist && !playlist.coverUrl && firstSong?.coverUrl) {
-      this.playlistState.updatePlaylist(playlistId, { coverUrl: firstSong.coverUrl });
-    }
-
-    this.closeAlbumMenu();
+        this.closeAlbumMenu();
+      });
   }
 
   goToAlbumDetail(albumId: string, event?: MouseEvent): void {

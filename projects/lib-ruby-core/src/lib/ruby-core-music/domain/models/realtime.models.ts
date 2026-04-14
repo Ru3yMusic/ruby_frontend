@@ -129,3 +129,42 @@ export interface WsCommentLikesUpdatedPayload {
   /** userId of the liker (to prevent duplicate-like on the client side). */
   userId: string;
 }
+
+// ─── Presence (REST) ─────────────────────────────────────────────────────────
+
+/**
+ * POST /presence/users/bulk — request body.
+ */
+export interface BulkPresenceRequest {
+  userIds: string[];
+}
+
+/**
+ * Presence record for a single user, returned by POST /presence/users/bulk.
+ */
+export interface UserPresenceInfo {
+  online: boolean;
+  station_id?: string;
+  song_id?: string;
+}
+
+/**
+ * Response shape of POST /presence/users/bulk.
+ * Keyed by userId.
+ */
+export interface BulkPresenceResult {
+  [userId: string]: UserPresenceInfo;
+}
+
+/**
+ * Enriched friend presence info — produced by ChatStationComponent after
+ * merging presence data (BulkPresenceResult), UsersApi data, and station names.
+ */
+export interface FriendPresenceInfo {
+  userId: string;
+  friendName: string;
+  avatarUrl?: string;
+  online: boolean;
+  stationId?: string;
+  stationName?: string;
+}

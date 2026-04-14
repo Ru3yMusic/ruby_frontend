@@ -18,9 +18,20 @@
     </div>
   </div>
 
+  <!-- ERROR BANNER -->
+  @if (error()) {
+    <div class="chat-station-error">
+      <p>{{ error() }}</p>
+    </div>
+  }
+
   <!-- LISTA -->
   <div class="chat-station-list">
-    @if (filteredActiveFriends().length === 0) {
+    @if (loading()) {
+      <div class="chat-station-loading">
+        <p>Cargando amigos...</p>
+      </div>
+    } @else if (filteredActiveFriends().length === 0) {
       <div class="chat-station-empty">
         <p>No hay amigos conectados ahora mismo.</p>
       </div>
@@ -31,19 +42,19 @@
             <img
               class="chat-station-avatar"
               [src]="getFriendAvatar(item)"
-              [alt]="item.friendName ?? 'Amigo'"
+              [alt]="item.friendName"
             />
 
             <p class="chat-station-text">
-              @if (item.friendName) {
-                <strong>@{{ item.friendName }}</strong>
-              } @else {
-                <strong>Amigo</strong>
-              }
+              <strong>@{{ item.friendName }}</strong>
 
               @if (item.stationId && item.stationName) {
                 está escuchando la estación
                 <strong>{{ item.stationName }}</strong>
+              } @else if (item.stationName) {
+                {{ item.stationName }}
+              } @else if (item.isOnline) {
+                está en línea
               } @else {
                 está en tu lista de amigos
               }

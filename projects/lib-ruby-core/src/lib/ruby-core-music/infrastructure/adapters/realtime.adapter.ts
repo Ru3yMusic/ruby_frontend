@@ -2,17 +2,19 @@
 // This file will not compile until socket.io-client is installed.
 
 import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { io, Socket } from 'socket.io-client';
 import { API_GATEWAY_URL } from '../../../config/api-gateway-url.token';
 import { RealtimePort } from '../../domain/ports/realtime.port';
 import {
+  BulkPresenceResult,
   WsChatMessagePayload,
   WsCommentLikesUpdatedPayload,
   WsCommentPayload,
   WsJoinedStationPayload,
   WsListenerCountPayload,
-  WsLikeCommentPayload,
   WsNotificationPayload,
   WsSendChatMessagePayload,
   WsSendCommentPayload,
@@ -31,6 +33,7 @@ import {
 @Injectable()
 export class RealtimeAdapter extends RealtimePort {
   private readonly gatewayUrl = inject(API_GATEWAY_URL);
+  private readonly http = inject(HttpClient);
   private socket: Socket | null = null;
 
   // ─── Connection Lifecycle ─────────────────────────────────────────────────
@@ -114,12 +117,30 @@ export class RealtimeAdapter extends RealtimePort {
   // ─── Comment Likes ────────────────────────────────────────────────────────
 
   /**
-   * Emits `like_comment` to the server.
-   * Payload matches backend LikeCommentDto:
-   *   commentId, commentAuthorId, songId, stationId.
+   * Like a comment via HTTP POST /comments/:id/like.
+   * The backend processes the like via Kafka and broadcasts `comment_likes_updated`
+   * to the station room — no WS emit needed here.
    */
-  likeComment(payload: WsLikeCommentPayload): void {
-    this.socket?.emit('like_comment', payload);
+  likeComment(commentId: string): Observable<void> {
+    return this.http
+      .post<void>(
+        `${this.gatewayUrl}/api/v1/realtime/comments/${commentId}/like`,
+        {}
+      )
+      .pipe(map(() => undefined));
+  }
+
+  /**
+   * Unlike a comment via HTTP DELETE /comments/:id/like.
+   * The backend processes the unlike via Kafka and broadcasts `comment_likes_updated`
+   * to the station room.
+   */
+  unlikeComment(commentId: string): Observable<void> {
+    return this.http
+      .delete<void>(
+        `${this.gatewayUrl}/api/v1/realtime/comments/${commentId}/like`
+      )
+      .pipe(map(() => undefined));
   }
 
   /**
@@ -128,6 +149,24 @@ export class RealtimeAdapter extends RealtimePort {
    */
   onCommentLikesUpdated(): Observable<WsCommentLikesUpdatedPayload> {
     return this.fromSocketEvent<WsCommentLikesUpdatedPayload>('comment_likes_updated');
+  }
+
+  // ─── Presence (REST) ─────────────────────────────────────────────────────
+
+  /**
+   * Fetch presence info for multiple users via HTTP POST /presence/users/bulk.
+   * Body: { userIds: string[] }
+   * Returns: { [userId]: { online, station_id?, song_id? } }
+   *
+   * NOTE: Gateway routing open question — /api/v1/realtime/** may route to
+   * realtime-api-ms:3002 instead of realtime-ws-ms:3001 where presence lives.
+   * Verify gateway config if this endpoint returns 404.
+   */
+  getBulkPresence(userIds: string[]): Observable<BulkPresenceResult> {
+    return this.http.post<BulkPresenceResult>(
+      `${this.gatewayUrl}/api/v1/realtime/presence/users/bulk`,
+      { userIds }
+    );
   }
 
   // ─── Internal Helpers ─────────────────────────────────────────────────────

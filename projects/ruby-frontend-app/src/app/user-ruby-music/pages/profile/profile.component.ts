@@ -7,6 +7,7 @@ import { InteractionState } from '../../state/interaction.state';
 import { LibraryState } from '../../state/library.state';
 import { PlaylistState } from '../../state/playlist.state';
 import { PlayerState } from '../../state/player.state';
+import { UserProfileState } from '../../state/user-profile.state';
 
 interface ProfilePlaylistCard {
   id: string;
@@ -40,6 +41,7 @@ export class ProfileComponent {
   private readonly router = inject(Router);
   private readonly libraryState = inject(LibraryState);
   private readonly interactionState = inject(InteractionState);
+  readonly userProfileState = inject(UserProfileState);
 
   private readonly defaultTopColor = '#5b5b5b';
   private readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
@@ -120,6 +122,7 @@ export class ProfileComponent {
 
     if (user?.id) {
       this.playlistState.loadPlaylists();
+      this.userProfileState.loadProfile(user.id);
     }
 
     if (user?.avatarUrl) {
@@ -267,21 +270,35 @@ export class ProfileComponent {
     const nextName = trimmedName || user.name;
     const nextAvatarUrl = this.tempAvatarUrl();
 
-    const updatedCurrentUser: CurrentUser = {
-      ...user,
-      name: nextName,
-      avatarUrl: nextAvatarUrl,
-    };
+    this.userProfileState
+      .updateProfile(user.id, {
+        displayName: nextName,
+        profilePhotoUrl: nextAvatarUrl ?? undefined,
+      })
+      .subscribe({
+        next: (updatedUser) => {
+          // Sync AuthState so the nav avatar and display name update immediately
+          const syncedUser: CurrentUser = {
+            ...user,
+            name: updatedUser.displayName ?? nextName,
+            avatarUrl: updatedUser.profilePhotoUrl ?? nextAvatarUrl,
+          };
+          this.authState.setCurrentUser(syncedUser);
 
-    this.authState.setCurrentUser(updatedCurrentUser);
+          const avatarToShow = syncedUser.avatarUrl;
+          if (avatarToShow) {
+            this.updateAccentFromImage(avatarToShow);
+          } else {
+            this.headerAccentColor.set(this.defaultTopColor);
+          }
 
-    if (nextAvatarUrl) {
-      this.updateAccentFromImage(nextAvatarUrl);
-    } else {
-      this.headerAccentColor.set(this.defaultTopColor);
-    }
-
-    this.isEditModalOpen.set(false);
+          this.isEditModalOpen.set(false);
+        },
+        error: () => {
+          // Error is already set on userProfileState.error — template can display it.
+          // Do NOT close the modal so the user can retry.
+        },
+      });
   }
 
   /* ===================== */

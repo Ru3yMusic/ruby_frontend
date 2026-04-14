@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   Ban,
   CalendarDays,
@@ -10,52 +10,15 @@ import {
   UserRound,
   X,
 } from 'lucide-angular';
+import { switchMap } from 'rxjs';
 
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
-
-/* =========================
-   INTERFACES BASE
-========================== */
-type UserStatus = 'ACTIVO' | 'INACTIVO' | 'BLOQUEADO';
-type AuthUserStatus = 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
-
-interface AdminUser {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl: string;
-  status: UserStatus;
-  createdAt: string;
-  reportCount: number;
-  blockReason: string | null;
-  blockedAt: string | null;
-}
-
-interface AuthUser {
-  id: string;
-  email: string;
-  password: string;
-  authProvider: 'EMAIL';
-  name: string;
-  birthDate: string;
-  gender: string;
-  avatarUrl: string | null;
-  role: 'ADMIN' | 'USER';
-  status: AuthUserStatus;
-  blockReason: string | null;
-  blockedAt: string | null;
-  onboardingCompleted: boolean;
-  selectedStationIds: string[];
-  createdAt: string;
-}
-
-interface ReportItem {
-  id: string;
-  reportedUserId: string;
-  reason: string;
-  createdAt: string;
-}
+import { ReportTargetSummary, ReportsApi } from 'lib-ruby-sdks/social-service';
+import {
+  ChangeUserStatusRequest,
+  UsersApi,
+} from 'lib-ruby-sdks/auth-service';
 
 /* =========================
    INTERFACES UI
@@ -90,7 +53,7 @@ interface Report {
   templateUrl: './gestion-reportes.page.html',
   styleUrl: './gestion-reportes.page.scss',
 })
-export class GestionReportesPage {
+export class GestionReportesPage implements OnInit {
   /* =========================
      ICONOS
   ========================== */
@@ -104,17 +67,18 @@ export class GestionReportesPage {
   readonly UserRound = UserRound;
 
   /* =========================
-     STORAGE KEYS
+     SERVICIOS
   ========================== */
-  private readonly REPORTS_KEY = 'ruby_reports';
-  private readonly USERS_KEY = 'ruby_users';
-  private readonly AUTH_USERS_KEY = 'ruby_auth_users';
+  private readonly reportsApi = inject(ReportsApi);
+  private readonly usersApi = inject(UsersApi);
 
   /* =========================
      STATE
   ========================== */
   readonly sidebarOpen = signal(false);
   readonly searchQuery = signal('');
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
 
   readonly isDetailModalOpen = signal(false);
   readonly isBlockModalOpen = signal(false);
@@ -126,7 +90,14 @@ export class GestionReportesPage {
   /* =========================
      DATA
   ========================== */
-  readonly reports = signal<Report[]>(this.loadReports());
+  readonly reports = signal<Report[]>([]);
+
+  /* =========================
+     LIFECYCLE
+  ========================== */
+  ngOnInit(): void {
+    this.loadReports();
+  }
 
   /* =========================
      COMPUTED
@@ -150,102 +121,49 @@ export class GestionReportesPage {
   });
 
   /* =========================
-     STORAGE / BUILDERS
+     CARGA / RECARGA
   ========================== */
-  private loadReports(): Report[] {
-    const authUsersRaw = localStorage.getItem(this.AUTH_USERS_KEY);
-    const reportsRaw = localStorage.getItem(this.REPORTS_KEY);
+  private loadReports(): void {
+    this.loading.set(true);
+    this.error.set(null);
 
-    const authUsers: AuthUser[] = authUsersRaw ? JSON.parse(authUsersRaw) : [];
-    const reportItems: ReportItem[] = reportsRaw ? JSON.parse(reportsRaw) : [];
-
-    return this.buildReportsFromStorage(authUsers, reportItems);
+    this.reportsApi.listGroupedReports().subscribe({
+      next: (sdkReports) => {
+        this.reports.set(this.mapGroupedReports(sdkReports));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cargar los reportes');
+        this.loading.set(false);
+      },
+    });
   }
 
-  private saveReportItems(reportItems: ReportItem[]): void {
-    localStorage.setItem(this.REPORTS_KEY, JSON.stringify(reportItems));
+  /* =========================
+     MAPPER SDK → LOCAL
+  ========================== */
+  private mapGroupedReports(sdkReports: ReportTargetSummary[]): Report[] {
+    return sdkReports
+      .map((r) => ({
+        reportedUserId: r.targetId ?? '',
+        reportedUserName: r.targetId ?? '',
+        reportedUserAvatarUrl: '',
+        totalReports: r.reportCount ?? 0,
+        lastReportAt: r.latestReportAt ?? '',
+        mostFrequentReason: r.targetType ?? '',
+        mostFrequentReasonCount: r.reportCount ?? 1,
+        reportHistory: [] as ReportHistory[],
+      }))
+      .filter((r) => r.totalReports > 0)
+      .sort(
+        (a, b) =>
+          this.parseReportDate(b.lastReportAt) - this.parseReportDate(a.lastReportAt)
+      );
   }
 
-  private loadAdminUsers(): AdminUser[] {
-    const raw = localStorage.getItem(this.USERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }
-
-  private saveAdminUsers(users: AdminUser[]): void {
-    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-  }
-
-  private loadAuthUsers(): AuthUser[] {
-    const raw = localStorage.getItem(this.AUTH_USERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }
-
-  private saveAuthUsers(users: AuthUser[]): void {
-    localStorage.setItem(this.AUTH_USERS_KEY, JSON.stringify(users));
-  }
-
-  private buildReportsFromStorage(
-    authUsers: AuthUser[],
-    reportItems: ReportItem[]
-  ): Report[] {
-    const validUsers = authUsers.filter(
-      (user) => user.role === 'USER' && user.status !== 'BLOCKED'
-    );
-
-    const grouped = validUsers
-      .map((user) => {
-        const userReports = reportItems
-          .filter((report) => report.reportedUserId === user.id)
-          .sort(
-            (a, b) =>
-              this.parseReportDate(b.createdAt) - this.parseReportDate(a.createdAt)
-          );
-
-        if (userReports.length === 0) {
-          return null;
-        }
-
-        const reasonFrequency = new Map<string, number>();
-
-        for (const report of userReports) {
-          reasonFrequency.set(
-            report.reason,
-            (reasonFrequency.get(report.reason) ?? 0) + 1
-          );
-        }
-
-        let mostFrequentReason = '';
-        let mostFrequentReasonCount = 0;
-
-        for (const [reason, count] of reasonFrequency.entries()) {
-          if (count > mostFrequentReasonCount) {
-            mostFrequentReason = reason;
-            mostFrequentReasonCount = count;
-          }
-        }
-
-        return {
-          reportedUserId: user.id,
-          reportedUserName: user.name,
-          reportedUserAvatarUrl: user.avatarUrl ?? '',
-          totalReports: userReports.length,
-          lastReportAt: userReports[0].createdAt,
-          mostFrequentReason,
-          mostFrequentReasonCount,
-          reportHistory: userReports.map((report) => ({
-            id: report.id,
-            reason: report.reason,
-            createdAt: report.createdAt,
-          })),
-        } satisfies Report;
-      })
-      .filter((report): report is Report => report !== null);
-
-    return grouped.sort(
-      (a, b) => this.parseReportDate(b.lastReportAt) - this.parseReportDate(a.lastReportAt)
-    );
-  }
-
+  /* =========================
+     HELPERS
+  ========================== */
   private parseReportDate(value: string): number {
     if (!value) return 0;
 
@@ -266,49 +184,6 @@ export class GestionReportesPage {
 
     const [hours, minutes] = timePart.split(':').map(Number);
     return new Date(year, month - 1, day, hours, minutes).getTime();
-  }
-
-  private syncAdminUsersReportCount(reportItems: ReportItem[]): void {
-    const users = this.loadAdminUsers();
-
-    const updatedUsers = users.map((user) => {
-      const reportCount = reportItems.filter(
-        (report) => report.reportedUserId === user.id
-      ).length;
-
-      return {
-        ...user,
-        reportCount,
-      };
-    });
-
-    this.saveAdminUsers(updatedUsers);
-  }
-
-  private syncBlockedUserToAdmin(
-    userId: string,
-    reason: string,
-    blockedAt: string
-  ): void {
-    const users = this.loadAdminUsers();
-
-    const updatedUsers = users.map((user) => {
-      if (user.id !== userId) return user;
-
-      return {
-        ...user,
-        status: 'BLOQUEADO' as UserStatus,
-        blockReason: reason,
-        blockedAt,
-        reportCount: 0,
-      };
-    });
-
-    this.saveAdminUsers(updatedUsers);
-  }
-
-  private reloadReports(): void {
-    this.reports.set(this.loadReports());
   }
 
   /* =========================
@@ -359,75 +234,44 @@ export class GestionReportesPage {
 
     if (!report || !reason) return;
 
-    const authUsers = this.loadAuthUsers();
-    const reportItems = this.loadReportItems();
+    const request: ChangeUserStatusRequest = {
+      status: 'BLOCKED',
+      blockReason: reason as ChangeUserStatusRequest['blockReason'],
+    };
 
-    const blockedAt = this.getTodayFormatted();
+    this.loading.set(true);
+    this.error.set(null);
 
-    // 1. Bloquear en auth_users
-    const updatedAuthUsers = authUsers.map((user) => {
-      if (user.id !== report.reportedUserId) return user;
-
-      return {
-        ...user,
-        status: 'BLOCKED' as AuthUserStatus,
-        blockReason: reason,
-        blockedAt,
-      };
+    this.usersApi.changeUserStatus(report.reportedUserId, request).pipe(
+      switchMap(() => this.reportsApi.dismissReportsByTarget(report.reportedUserId))
+    ).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.loadReports();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al bloquear el usuario');
+        this.loading.set(false);
+      },
     });
-
-    // 2. Eliminar todos los reportes de ese usuario
-    const updatedReportItems = reportItems.filter(
-      (item) => item.reportedUserId !== report.reportedUserId
-    );
-
-    this.saveAuthUsers(updatedAuthUsers);
-    this.saveReportItems(updatedReportItems);
-
-    // 3. Sincronizar admin
-    this.syncBlockedUserToAdmin(report.reportedUserId, reason, blockedAt);
-    this.syncAdminUsersReportCount(updatedReportItems);
-
-    // 4. Recargar UI
-    this.reloadReports();
-    this.closeAllModals();
   }
 
   confirmDiscardReport(): void {
     const report = this.selectedReport();
     if (!report) return;
 
-    const reportItems = this.loadReportItems();
+    this.loading.set(true);
+    this.error.set(null);
 
-    // Descarta todos los reportes agrupados del usuario en esta tabla
-    const updatedReportItems = reportItems.filter(
-      (item) => item.reportedUserId !== report.reportedUserId
-    );
-
-    this.saveReportItems(updatedReportItems);
-    this.syncAdminUsersReportCount(updatedReportItems);
-    this.reloadReports();
-    this.closeAllModals();
-  }
-
-  /* =========================
-     HELPERS
-  ========================== */
-  private loadReportItems(): ReportItem[] {
-    const raw = localStorage.getItem(this.REPORTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }
-
-  private getTodayFormatted(): string {
-    const date = new Date();
-
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-
-    return `${day}/${month}/${year}, ${hours}:${minutes}`;
+    this.reportsApi.dismissReportsByTarget(report.reportedUserId).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.loadReports();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al descartar los reportes');
+        this.loading.set(false);
+      },
+    });
   }
 }

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   Check,
   Eye,
@@ -10,6 +10,12 @@ import {
 } from 'lucide-angular';
 
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
+import {
+  ChangeUserStatusRequest,
+  UserResponse,
+  UserStatus as SdkUserStatus,
+  UsersApi,
+} from 'lib-ruby-sdks/auth-service';
 
 /* =========================
    TIPOS / MODELOS
@@ -28,24 +34,6 @@ interface AdminUser {
   blockedAt: string | null;
 }
 
-interface AuthUser {
-  id: string;
-  email: string;
-  password: string;
-  authProvider: 'EMAIL';
-  name: string;
-  birthDate: string;
-  gender: string;
-  avatarUrl: string | null;
-  role: 'ADMIN' | 'USER';
-  status: 'ACTIVE' | 'BLOCKED' | 'INACTIVE';
-  blockReason: string | null;
-  blockedAt: string | null;
-  onboardingCompleted: boolean;
-  selectedStationIds: string[];
-  createdAt: string;
-}
-
 /* =========================
    COMPONENTE
 ========================= */
@@ -56,12 +44,11 @@ interface AuthUser {
   templateUrl: './gestion-usuarios.page.html',
   styleUrl: './gestion-usuarios.page.scss',
 })
-export class GestionUsuariosPage {
+export class GestionUsuariosPage implements OnInit {
   /* =========================
-     STORAGE KEYS
+     SERVICIOS
   ========================= */
-  private readonly USERS_KEY = 'ruby_users';
-  private readonly AUTH_USERS_KEY = 'ruby_auth_users';
+  private readonly usersApi = inject(UsersApi);
 
   /* =========================
      ICONOS
@@ -79,6 +66,8 @@ export class GestionUsuariosPage {
   readonly searchQuery = signal('');
   readonly statusFilter = signal('');
   readonly reportFilter = signal('');
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
 
   /* =========================
      MODALES
@@ -101,7 +90,14 @@ export class GestionUsuariosPage {
   /* =========================
      DATA
   ========================= */
-  readonly users = signal<AdminUser[]>(this.loadUsers());
+  readonly users = signal<AdminUser[]>([]);
+
+  /* =========================
+     LIFECYCLE
+  ========================= */
+  ngOnInit(): void {
+    this.reloadUsers();
+  }
 
   /* =========================
      COMPUTED: OVERLAY
@@ -152,40 +148,54 @@ export class GestionUsuariosPage {
   });
 
   /* =========================
-     PERSISTENCIA BASE
+     CARGA / RECARGA
   ========================= */
-  private loadUsers(): AdminUser[] {
-    const storedUsers = localStorage.getItem(this.USERS_KEY);
+  private reloadUsers(): void {
+    this.loading.set(true);
+    this.error.set(null);
 
-    if (!storedUsers) {
-      return [];
-    }
+    this.usersApi.listUsers().subscribe({
+      next: (page) => {
+        this.users.set(this.mapUsers(page.content ?? []));
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cargar los usuarios');
+        this.loading.set(false);
+      },
+    });
+  }
 
-    try {
-      const users = JSON.parse(storedUsers) as AdminUser[];
-      return users.map((user) => this.normalizeUserForView(user));
-    } catch {
-      localStorage.removeItem(this.USERS_KEY);
-      return [];
+  /* =========================
+     MAPPER SDK → LOCAL
+  ========================= */
+  private mapUsers(sdkUsers: UserResponse[]): AdminUser[] {
+    return sdkUsers.map((u) => this.normalizeUserForView({
+      id: u.id ?? '',
+      name: u.displayName ?? u.email ?? '',
+      email: u.email ?? '',
+      avatarUrl: u.profilePhotoUrl ?? '',
+      status: this.mapUserStatus(u.status),
+      createdAt: u.createdAt ?? '',
+      reportCount: 0,
+      blockReason: u.blockReason ?? null,
+      blockedAt: null,
+    }));
+  }
+
+  private mapUserStatus(status?: string): UserStatus {
+    switch (status) {
+      case 'ACTIVE': return 'ACTIVO';
+      case 'INACTIVE': return 'INACTIVO';
+      case 'BLOCKED': return 'BLOQUEADO';
+      default: return 'ACTIVO';
     }
   }
 
-  private persistUsers(users: AdminUser[]): void {
-    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-    this.users.set(users.map((user) => this.normalizeUserForView(user)));
-  }
-
-  private loadAuthUsers(): AuthUser[] {
-    try {
-      const raw = localStorage.getItem(this.AUTH_USERS_KEY);
-      return raw ? (JSON.parse(raw) as AuthUser[]) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private persistAuthUsers(users: AuthUser[]): void {
-    localStorage.setItem(this.AUTH_USERS_KEY, JSON.stringify(users));
+  private mapToSdkStatus(status: UserStatus): SdkUserStatus {
+    if (status === 'BLOQUEADO') return 'BLOCKED';
+    if (status === 'INACTIVO') return 'INACTIVE';
+    return 'ACTIVE';
   }
 
   private normalizeUserForView(user: AdminUser): AdminUser {
@@ -201,10 +211,6 @@ export class GestionUsuariosPage {
   /* =========================
      HELPERS
   ========================= */
-  private getTodayFormatted(): string {
-    return new Date().toISOString();
-  }
-
   formatDateForView(value: string | null): string {
     if (!value) return '';
 
@@ -253,34 +259,6 @@ export class GestionUsuariosPage {
     this.blockReason.set('');
   }
 
-  private mapAdminStatusToAuthStatus(status: UserStatus): AuthUser['status'] {
-    if (status === 'BLOQUEADO') return 'BLOCKED';
-    if (status === 'INACTIVO') return 'INACTIVE';
-    return 'ACTIVE';
-  }
-
-  private syncStatusToAuthUsers(
-    userId: string,
-    status: UserStatus,
-    reason: string | null,
-    blockedAt: string | null
-  ): void {
-    const authUsers = this.loadAuthUsers();
-
-    const updatedAuthUsers = authUsers.map((user) => {
-      if (user.id !== userId) return user;
-
-      return {
-        ...user,
-        status: this.mapAdminStatusToAuthStatus(status),
-        blockReason: status === 'BLOQUEADO' ? reason : null,
-        blockedAt: status === 'BLOQUEADO' ? blockedAt : null,
-      };
-    });
-
-    this.persistAuthUsers(updatedAuthUsers);
-  }
-
   /* =========================
      MODAL DETALLE
   ========================= */
@@ -305,32 +283,27 @@ export class GestionUsuariosPage {
 
     const nextStatus = this.newStatus();
     const reason = this.blockReason().trim();
-    const blockedAt = nextStatus === 'BLOQUEADO' ? this.getTodayFormatted() : null;
 
-    if (nextStatus === 'BLOQUEADO' && !reason) {
-      return;
-    }
+    if (nextStatus === 'BLOQUEADO' && !reason) return;
 
-    const updatedUsers = this.users().map((user) => {
-      if (user.id !== current.id) return user;
+    const request: ChangeUserStatusRequest = {
+      status: this.mapToSdkStatus(nextStatus),
+      ...(nextStatus === 'BLOQUEADO' ? { blockReason: reason as ChangeUserStatusRequest['blockReason'] } : {}),
+    };
 
-      return {
-        ...user,
-        status: nextStatus,
-        blockReason: nextStatus === 'BLOQUEADO' ? reason : null,
-        blockedAt,
-      };
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.usersApi.changeUserStatus(current.id, request).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadUsers();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cambiar el estado del usuario');
+        this.loading.set(false);
+      },
     });
-
-    this.persistUsers(updatedUsers);
-    this.syncStatusToAuthUsers(
-      current.id,
-      nextStatus,
-      nextStatus === 'BLOQUEADO' ? reason : null,
-      blockedAt
-    );
-
-    this.closeAllModals();
   }
 
   /* =========================
@@ -345,21 +318,19 @@ export class GestionUsuariosPage {
     const current = this.selectedUser();
     if (!current) return;
 
-    const updatedUsers = this.users().map((user) => {
-      if (user.id !== current.id) return user;
+    this.loading.set(true);
+    this.error.set(null);
 
-      return {
-        ...user,
-        status: 'ACTIVO' as UserStatus,
-        blockReason: null,
-        blockedAt: null,
-      };
+    this.usersApi.changeUserStatus(current.id, { status: 'ACTIVE' }).subscribe({
+      next: () => {
+        this.closeAllModals();
+        this.reloadUsers();
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al reactivar el usuario');
+        this.loading.set(false);
+      },
     });
-
-    this.persistUsers(updatedUsers);
-    this.syncStatusToAuthUsers(current.id, 'ACTIVO', null, null);
-
-    this.closeAllModals();
   }
 
   /* =========================

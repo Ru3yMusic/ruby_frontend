@@ -302,7 +302,7 @@
           <button
             class="station-report-submit-button"
             type="button"
-            [disabled]="!selectedReportReason()"
+            [disabled]="!selectedReportReason() || reportLoading()"
             (click)="submitReport()"
           >
             Reportar
