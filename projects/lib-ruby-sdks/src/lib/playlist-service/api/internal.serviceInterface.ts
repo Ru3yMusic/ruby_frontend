@@ -29,4 +29,12 @@ export interface InternalApiInterface {
      */
     addSongToSystemPlaylistInternal(systemSongRequest: SystemSongRequest, extraHttpRequestParams?: any): Observable<{}>;
 
+    /**
+     * Remove a song from the user\&#39;s \&quot;Tus me gusta\&quot; system playlist
+     * Called by interaction-service when a user unlikes a song. Idempotent: no-op if the song is not in the system playlist. Requires a SERVICE JWT (ROLE_SERVICE). 
+     * @param userId 
+     * @param songId 
+     */
+    removeSongFromSystemPlaylistInternal(userId: string, songId: string, extraHttpRequestParams?: any): Observable<{}>;
+
 }
