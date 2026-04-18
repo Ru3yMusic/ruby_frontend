@@ -20,7 +20,6 @@ tags:
   - name: Playlist Songs
 
 paths:
-
   /api/v1/playlists:
     post:
       tags: [Playlists]
@@ -199,6 +198,38 @@ paths:
         '403':
           description: Insufficient role (USER token used on SERVICE endpoint)
 
+  /api/internal/v1/playlists/system/{userId}/songs/{songId}:
+    delete:
+      tags: [Internal]
+      operationId: removeSongFromSystemPlaylistInternal
+      summary: Remove a song from the user's "Tus me gusta" system playlist
+      description: |
+        Called by interaction-service when a user unlikes a song.
+        Idempotent: no-op if the song is not in the system playlist.
+        Requires a SERVICE JWT (ROLE_SERVICE).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: songId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Song removed from system playlist (or was not present)
+        '401':
+          description: Missing or invalid JWT
+        '403':
+          description: Insufficient role (USER token used on SERVICE endpoint)
+
 # ── Components ────────────────────────────────────────────────────────────────
 
 components:
@@ -218,7 +249,6 @@ components:
         format: uuid
 
   schemas:
-
     CreatePlaylistRequest:
       type: object
       required: [name]
