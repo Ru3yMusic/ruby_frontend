@@ -701,6 +701,33 @@ export class PlaylistDetailComponent {
   }
 
   /**
+   * Reproduce una canción de la sección de recomendaciones (tanto "Canciones
+   * que te pueden gustar" en Tus me gusta como "Canciones recomendadas" en
+   * playlists normales). Estas filas están explícitamente excluidas de la
+   * playlist actual (ver visibleRecommendedSongs), por lo que NO pueden
+   * reutilizar playSong/buildPlaylistPlayerQueue — la cola de la playlist
+   * no las contiene y el findIndex daría -1. Reproducimos como canción suelta
+   * vía PlayerState.playSong, que normaliza audioUrl/artistName/etc desde el
+   * SongResponse crudo de libraryState.
+   */
+  playRecommendedSong(song: RecommendedSongRow): void {
+    const currentSong = this.playerState.currentSong();
+
+    if (currentSong?.id === song.songId && this.playerState.isPlaying()) {
+      this.playerState.pause();
+      return;
+    }
+    if (currentSong?.id === song.songId && !this.playerState.isPlaying()) {
+      this.playerState.resume();
+      return;
+    }
+
+    const songRes = (this.libraryState.songs() as any[]).find((s: any) => s.id === song.songId);
+    if (!songRes) return;
+    this.playerState.playSong(songRes as any);
+  }
+
+  /**
    * Resolves every PlaylistSongRow into its underlying SongResponse so the
    * whole playlist (or "Tus me gusta") becomes the playback queue — prev/next
    * in the footer and the shuffle toggle both operate on this list.

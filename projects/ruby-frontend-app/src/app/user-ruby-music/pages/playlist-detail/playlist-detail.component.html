@@ -458,16 +458,7 @@
             <button
               class="playlist-recommendation-play-button"
               type="button"
-              (click)="playSong({
-                id: song.id,
-                songId: song.songId,
-                title: song.title,
-                artistName: song.artistName,
-                albumTitle: song.albumTitle,
-                coverUrl: song.coverUrl,
-                durationLabel: '3:00',
-                addedAgoLabel: 'hace 1 minuto'
-              })"
+              (click)="playRecommendedSong(song)"
             >
               <img
                 class="playlist-recommendation-play-icon"
