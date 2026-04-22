@@ -64,13 +64,25 @@ export class RightPanelComponent {
   readonly currentArtist = computed<ArtistResponse | null>(() => {
     const song = this.currentSong();
     if (!song) return null;
-    return this.libraryState.artists().find((a: ArtistResponse) => a.id === song.artistId) ?? null;
+    // Si currentSong se construyó como PlayerSong trae artistId plano;
+    // si entró como SongResponse cruda (cast as any) trae artist embebido.
+    const embedded = (song as any).artist as ArtistResponse | undefined;
+    const artistId = song.artistId || embedded?.id;
+    if (!artistId) return embedded ?? null;
+    return this.libraryState.artists().find((a: ArtistResponse) => a.id === artistId)
+      ?? embedded
+      ?? null;
   });
 
   readonly currentAlbum = computed<AlbumResponse | null>(() => {
     const song = this.currentSong();
-    if (!song?.albumId) return null;
-    return this.libraryState.albums().find((a: AlbumResponse) => a.id === song.albumId) ?? null;
+    if (!song) return null;
+    const embedded = (song as any).album as AlbumResponse | undefined;
+    const albumId = song.albumId || embedded?.id;
+    if (!albumId) return embedded ?? null;
+    return this.libraryState.albums().find((a: AlbumResponse) => a.id === albumId)
+      ?? embedded
+      ?? null;
   });
 
   readonly displayArtistName = computed(() => {
@@ -102,7 +114,7 @@ export class RightPanelComponent {
       .songs()
       .filter((s: SongResponse) => s.genres?.[0]?.id === song.genreId && s.id !== song.id)
       .sort((a: SongResponse, b: SongResponse) => (b.playCount ?? 0) - (a.playCount ?? 0))
-      .slice(0, 12)
+      .slice(0, 10)
       .map((s: SongResponse) => {
         const artist = this.libraryState.artists().find((a: ArtistResponse) => a.id === s.artist?.id);
         const album = s.album?.id
@@ -131,8 +143,13 @@ export class RightPanelComponent {
 
   readonly canMoveRelatedLeft = computed(() => this.relatedCarouselIndex() > 0);
 
+  /**
+   * Enabled whenever there's another item past the current index — same
+   * relaxed rule used in Home so the carousel stops being locked out just
+   * because the list is shorter than the visible window.
+   */
   readonly canMoveRelatedRight = computed(() => {
-    return this.relatedCarouselIndex() + 7 < this.relatedSongs().length;
+    return this.relatedCarouselIndex() + 1 < this.relatedSongs().length;
   });
 
   readonly isCurrentSongLiked = computed(() => {
@@ -150,12 +167,17 @@ export class RightPanelComponent {
   /* ===================== */
   /* RELATED CAROUSEL */
   /* ===================== */
-  moveRelatedLeft(): void {
+  // stopPropagation keeps the click from ever reaching the related-song card
+  // below — otherwise the card's click handler would open the song detail,
+  // which gave users the impression the arrow click "wasn't registered".
+  moveRelatedLeft(event?: Event): void {
+    event?.stopPropagation();
     if (!this.canMoveRelatedLeft()) return;
     this.relatedCarouselIndex.update(v => Math.max(0, v - 1));
   }
 
-  moveRelatedRight(): void {
+  moveRelatedRight(event?: Event): void {
+    event?.stopPropagation();
     if (!this.canMoveRelatedRight()) return;
     this.relatedCarouselIndex.update(v => v + 1);
   }
@@ -181,6 +203,11 @@ export class RightPanelComponent {
   isSongPlaying(songId: string): boolean {
     const current = this.currentSong();
     return !!current && current.id === songId && this.isPlaying();
+  }
+
+  /** True cuando la canción dada es la current del PlayerState (independiente de pause). */
+  isCurrentPlayerSong(songId: string): boolean {
+    return this.currentSong()?.id === songId;
   }
 
   /* ===================== */
@@ -260,7 +287,9 @@ export class RightPanelComponent {
       id: song.id ?? '',
       title: song.title ?? '',
       artistId: song.artist?.id ?? '',
+      artistName: song.artist?.name ?? '',
       albumId: song.album?.id ?? null,
+      albumTitle: song.album?.title ?? null,
       genreId: song.genres?.[0]?.id ?? '',
       coverUrl: song.coverUrl ?? '',
       audioUrl: song.audioUrl ?? '',

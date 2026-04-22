@@ -57,7 +57,14 @@
     <section class="kpi-grid">
 
       <!-- Usuarios activos -->
-      <article class="kpi-card kpi-card--users">
+      <article
+        class="kpi-card kpi-card--users"
+        role="link"
+        tabindex="0"
+        style="cursor: pointer"
+        (click)="goToUsers()"
+        (keydown.enter)="goToUsers()"
+      >
         <div class="kpi-card__icon">
           <lucide-icon [img]="Users" [size]="34" [strokeWidth]="2.1" />
         </div>
@@ -73,7 +80,14 @@
       </article>
 
       <!-- Reportes pendientes -->
-      <article class="kpi-card kpi-card--reports">
+      <article
+        class="kpi-card kpi-card--reports"
+        role="link"
+        tabindex="0"
+        style="cursor: pointer"
+        (click)="goToReports()"
+        (keydown.enter)="goToReports()"
+      >
         <div class="kpi-card__icon">
           <lucide-icon [img]="TriangleAlert" [size]="34" [strokeWidth]="2.1" />
         </div>
@@ -89,7 +103,14 @@
       </article>
 
       <!-- Canciones totales -->
-      <article class="kpi-card kpi-card--songs">
+      <article
+        class="kpi-card kpi-card--songs"
+        role="link"
+        tabindex="0"
+        style="cursor: pointer"
+        (click)="goToSongs()"
+        (keydown.enter)="goToSongs()"
+      >
         <div class="kpi-card__icon">
           <lucide-icon [img]="Music4" [size]="34" [strokeWidth]="2.1" />
         </div>
@@ -105,7 +126,14 @@
       </article>
 
       <!-- Artistas registrados -->
-      <article class="kpi-card kpi-card--artists">
+      <article
+        class="kpi-card kpi-card--artists"
+        role="link"
+        tabindex="0"
+        style="cursor: pointer"
+        (click)="goToArtists()"
+        (keydown.enter)="goToArtists()"
+      >
         <div class="kpi-card__icon">
           <lucide-icon [img]="MicVocal" [size]="34" [strokeWidth]="2.1" />
         </div>

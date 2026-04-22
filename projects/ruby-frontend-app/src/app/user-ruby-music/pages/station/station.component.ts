@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { LibraryState } from '../../state/library.state';
@@ -23,10 +23,19 @@ interface StationCardView {
   templateUrl: './station.component.html',
   styleUrls: ['./station.component.scss'],
 })
-export class StationComponent {
+export class StationComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly authState = inject(AuthState);
   private readonly libraryState = inject(LibraryState);
+
+  ngOnInit(): void {
+    if (this.libraryState.stations().length === 0) {
+      this.libraryState.loadActiveStations();
+    }
+    if (this.libraryState.songs().length === 0) {
+      this.libraryState.loadRecentSongs();
+    }
+  }
 
   private readonly defaultStationImage = '/assets/icons/playlist-cover-placeholder.png';
   private readonly defaultGradientStart = '#1a1a2e';
@@ -117,7 +126,7 @@ export class StationComponent {
   private mapStationToCard(station: any): StationCardView {
     // Station songs approximated by genre match — StationResponse has no songIds[]
     const firstSong = this.libraryState.songs()
-      .find(song => (song as any).genreId === station.genreId);
+      .find(song => (song as any).genres?.some((g: any) => g?.id === station.genreId));
 
     return {
       id: station.id,

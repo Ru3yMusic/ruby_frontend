@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
@@ -65,7 +65,12 @@ export class PlaylistDetailComponent {
   readonly isMoreMenuOpen = signal(false);
   readonly isEditCoverModalOpen = signal(false);
   readonly isAddSongsModalOpen = signal(false);
-  readonly isShuffleEnabled = signal(false);
+  /**
+   * Playlist-detail's shuffle button and the footer's shuffle button share
+   * the same state — flipping either affects playback everywhere. We just
+   * delegate to PlayerState so there's a single source of truth.
+   */
+  readonly isShuffleEnabled = this.playerState.isShuffle;
 
   readonly editPlaylistName = signal('');
   readonly editPlaylistDescription = signal('');
@@ -84,8 +89,6 @@ export class PlaylistDetailComponent {
   readonly pendingSelectedSongIds = signal<string[]>([]);
 
   private readonly shuffleSeed = signal(0);
-
-  readonly initialRecommendedSongs = signal<RecommendedSongRow[]>([]);
 
   readonly currentPlaylist = computed<PlaylistResponse | null>(() => {
     const id = this.playlistId();
@@ -176,19 +179,18 @@ export class PlaylistDetailComponent {
     if (!playlist) return [];
 
     const songIds = this.playlistState.getSongIdsForCurrentPlaylist();
-    const songs = this.libraryState.songs() as any[];
     const artists = this.libraryState.artists() as any[];
     const albums = this.libraryState.albums() as any[];
 
     return songIds
       .map((songId, index) => {
-        const song = songs.find((item: any) => item.id === songId);
+        const song = this.libraryState.getSongById(songId) as any;
         if (!song) return null;
 
-        const artist = artists.find((item: any) => item.id === song.artistId);
-        const album = song.albumId
-          ? albums.find((item: any) => item.id === song.albumId)
-          : null;
+        const artist = song.artist
+          ?? artists.find((item: any) => item.id === song.artist?.id);
+        const album = song.album
+          ?? (song.albumId ? albums.find((item: any) => item.id === song.albumId) : null);
 
         return {
           id: `${playlist.id}-${song.id}-${index}`,
@@ -197,22 +199,22 @@ export class PlaylistDetailComponent {
           artistName: (artist as any)?.name ?? 'Artista desconocido',
           albumTitle: (album as any)?.title ?? 'Sencillo',
           coverUrl: song.coverUrl || this.defaultPlaylistCover,
-          durationLabel: this.formatDuration(song.durationSeconds),
+          durationLabel: this.formatDuration(song.duration ?? 0),
           addedAgoLabel: this.buildAddedAgoLabel(playlist.updatedAt || playlist.createdAt),
         };
       })
       .filter((row): row is PlaylistSongRow => !!row);
   });
 
-  readonly songsCount = computed(() => this.playlistSongs().length);
+  // Fuente de verdad para el contador: backend (playlist.songCount), no el length filtrado.
+  readonly songsCount = computed(() => this.currentPlaylist()?.songCount ?? 0);
 
   readonly totalDurationSeconds = computed(() => {
-    const songs = this.libraryState.songs() as any[];
     const songIds = this.playlistState.getSongIdsForCurrentPlaylist();
 
     return songIds.reduce((total, songId) => {
-      const song = songs.find((item: any) => item.id === songId);
-      return total + ((song as any)?.durationSeconds ?? 0);
+      const song = this.libraryState.getSongById(songId) as any;
+      return total + ((song as any)?.duration ?? 0);
     }, 0);
   });
 
@@ -265,10 +267,10 @@ export class PlaylistDetailComponent {
         .sort(() => Math.random() - 0.5)
         .slice(0, 8)
         .map((song: any) => {
-          const artist = artists.find((item: any) => item.id === song.artistId);
-          const album = song.albumId
-            ? albums.find((item: any) => item.id === song.albumId)
-            : null;
+          const artist = song.artist
+            ?? artists.find((item: any) => item.id === song.artist?.id);
+          const album = song.album
+            ?? (song.albumId ? albums.find((item: any) => item.id === song.albumId) : null);
 
           return {
             id: `rec-real-${song.id}`,
@@ -285,7 +287,9 @@ export class PlaylistDetailComponent {
       }
     }
 
-    return this.initialRecommendedSongs().slice(0, 8);
+    // No hay catálogo poblado todavía (caso poco probable tras el preload
+    // global del user-layout). Devolver vacío en vez de un fallback muerto.
+    return [];
   });
 
   readonly customPlaylists = computed<PlaylistResponse[]>(() => {
@@ -312,7 +316,8 @@ export class PlaylistDetailComponent {
       .filter((song: any) => !loadedSongIds.includes(song.id))
       .slice(0, 10)
       .map((song: any) => {
-        const artist = artists.find((item: any) => item.id === song.artistId);
+        const artist = song.artist
+          ?? artists.find((item: any) => item.id === song.artist?.id);
 
         return {
           id: `suggestion-${song.id}`,
@@ -345,8 +350,34 @@ export class PlaylistDetailComponent {
     return `linear-gradient(180deg, ${color} 0%, ${color} 38%, #171717 70%, #0d0d0d 100%)`;
   });
 
+  private bootstrappedForId: string | null = null;
+
   constructor() {
-    this.bootstrapPlaylistDetail();
+    // Dispara bootstrap cuando currentPlaylist() esté disponible.
+    // Si el usuario recarga directo en /user/playlist/:id y playlists() llega tarde,
+    // el effect lo cubre sin que dependa del orden de inicialización de otros componentes.
+    effect(() => {
+      const playlist = this.currentPlaylist();
+      if (!playlist?.id) return;
+      if (this.bootstrappedForId === playlist.id) return;
+      this.bootstrappedForId = playlist.id;
+      this.bootstrapPlaylistDetail();
+    });
+
+    // Hidrata metadata de canciones que no estén ya en libraryState (recientes/búsqueda).
+    // Esto permite que playlist-detail muestre filas para canciones likeadas desde
+    // estaciones, álbumes, etc. — sin refetch masivo, solo lo que falta.
+    effect(() => {
+      const ids = this.playlistState.getSongIdsForCurrentPlaylist();
+      if (ids.length === 0) return;
+      this.libraryState.ensureSongsLoaded(ids);
+    });
+
+    // Si las playlists todavía no se han cargado (recarga directa en URL),
+    // solicítalas. loadPlaylists es idempotente respecto a re-llamadas innecesarias.
+    if (this.playlistState.playlists().length === 0) {
+      this.playlistState.loadPlaylists();
+    }
   }
 
   /* ===================== */
@@ -393,7 +424,7 @@ export class PlaylistDetailComponent {
   }
 
   toggleShuffle(): void {
-    this.isShuffleEnabled.set(!this.isShuffleEnabled());
+    this.playerState.toggleShuffle();
   }
 
   openEditCoverModal(): void {
@@ -646,29 +677,39 @@ export class PlaylistDetailComponent {
       return;
     }
 
-    const firstStoredSong = (this.libraryState.songs() as any[]).find((item: any) => item.id === firstSongRow.songId);
-    if (!firstStoredSong) return;
-
-    this.playerState.playSong(firstStoredSong as any);
+    const queue = this.buildPlaylistPlayerQueue();
+    if (queue.length === 0) return;
+    this.playerState.playQueue(queue as any, 0);
   }
 
   playSong(song: PlaylistSongRow): void {
-    const storedSong = (this.libraryState.songs() as any[]).find((item: any) => item.id === song.songId);
     const currentSong = this.playerState.currentSong();
 
-    if (!storedSong) return;
-
-    if (currentSong?.id === (storedSong as any).id && this.playerState.isPlaying()) {
+    if (currentSong?.id === song.songId && this.playerState.isPlaying()) {
       this.playerState.pause();
       return;
     }
-
-    if (currentSong?.id === (storedSong as any).id && !this.playerState.isPlaying()) {
+    if (currentSong?.id === song.songId && !this.playerState.isPlaying()) {
       this.playerState.resume();
       return;
     }
 
-    this.playerState.playSong(storedSong as any);
+    const queue = this.buildPlaylistPlayerQueue();
+    const idx = queue.findIndex((s: any) => s.id === song.songId);
+    if (idx < 0) return;
+    this.playerState.playQueue(queue as any, idx);
+  }
+
+  /**
+   * Resolves every PlaylistSongRow into its underlying SongResponse so the
+   * whole playlist (or "Tus me gusta") becomes the playback queue — prev/next
+   * in the footer and the shuffle toggle both operate on this list.
+   */
+  private buildPlaylistPlayerQueue(): any[] {
+    const library = this.libraryState.songs() as any[];
+    return this.playlistSongs()
+      .map(row => library.find(s => s.id === row.songId))
+      .filter((s): s is any => !!s);
   }
 
   isPlaylistPlaying(): boolean {
@@ -683,6 +724,11 @@ export class PlaylistDetailComponent {
   isSongPlaying(songId: string): boolean {
     const currentSong = this.playerState.currentSong();
     return !!currentSong && currentSong.id === songId && this.playerState.isPlaying();
+  }
+
+  /** True cuando la canción dada es la current del PlayerState (independiente de pause). */
+  isCurrentPlayerSong(songId: string): boolean {
+    return this.playerState.currentSong()?.id === songId;
   }
 
   /* ===================== */
@@ -746,6 +792,25 @@ export class PlaylistDetailComponent {
     this.showFeedback('Se eliminó de Tus me gusta');
   }
 
+  /**
+   * Removes a song from the current (non-system) playlist. "Tus me gusta"
+   * is covered by removeFromLikedSongs + the `@if (!isLikedSongsPlaylist())`
+   * guard in the template, so we never reach here for the liked playlist.
+   * PlaylistState.removeSongFromPlaylist already patches the local signals
+   * (and fires DELETE /playlists/:id/songs/:songId), so the row disappears
+   * immediately and the change persists across reloads.
+   */
+  removeSongFromCurrentPlaylist(songId: string, event?: MouseEvent): void {
+    event?.stopPropagation();
+    const playlistId = this.playlistId();
+    if (!playlistId || this.isLikedSongsPlaylist()) return;
+
+    this.playlistState.removeSongFromPlaylist(playlistId, songId, () => {
+      this.showFeedback('Se eliminó de esta playlist');
+    });
+    this.closeSongMenu();
+  }
+
   /* ===================== */
   /* SONG PLAYLISTS */
   /* ===================== */
@@ -802,27 +867,29 @@ export class PlaylistDetailComponent {
   /* ===================== */
   hasAlbum(song: PlaylistSongRow): boolean {
     const storedSong = (this.libraryState.songs() as any[]).find((item: any) => item.id === song.songId);
-    return !!(storedSong as any)?.albumId;
+    return !!(storedSong as any)?.album?.id;
   }
 
   goToArtist(song: PlaylistSongRow, event?: MouseEvent): void {
     event?.stopPropagation();
 
     const storedSong = (this.libraryState.songs() as any[]).find((item: any) => item.id === song.songId);
-    if (!(storedSong as any)?.artistId) return;
+    const artistId = (storedSong as any)?.artist?.id;
+    if (!artistId) return;
 
     this.closeSongMenu();
-    this.router.navigate(['/user/artist', (storedSong as any).artistId]);
+    this.router.navigate(['/user/artist', artistId]);
   }
 
   goToAlbum(song: PlaylistSongRow, event?: MouseEvent): void {
     event?.stopPropagation();
 
     const storedSong = (this.libraryState.songs() as any[]).find((item: any) => item.id === song.songId);
-    if (!(storedSong as any)?.albumId) return;
+    const albumId = (storedSong as any)?.album?.id;
+    if (!albumId) return;
 
     this.closeSongMenu();
-    this.router.navigate(['/user/album', (storedSong as any).albumId]);
+    this.router.navigate(['/user/album', albumId]);
   }
 
   addRecommendedSong(song: RecommendedSongRow): void {
@@ -877,7 +944,8 @@ export class PlaylistDetailComponent {
         const song = songs.find((item: any) => item.id === songId);
         if (!song) return null;
 
-        const artist = artists.find((item: any) => item.id === (song as any).artistId);
+        const artist = (song as any).artist
+          ?? artists.find((item: any) => item.id === (song as any).artist?.id);
 
         return {
           id: `add-${(song as any).id}-${index}`,

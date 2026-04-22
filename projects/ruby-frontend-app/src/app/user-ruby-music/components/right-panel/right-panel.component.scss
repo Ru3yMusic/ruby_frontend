@@ -206,11 +206,69 @@
   object-fit: contain;
 }
 
+/* Side-positioned arrows for the related-songs carousel. Same pattern as
+   station-detail: hidden by default, revealed when hovering the carousel
+   wrapper, centred vertically relative to the card row. Disabled arrows
+   (when there's nothing more to paginate) show dimmed on hover so the
+   control is always discoverable. */
+.right-panel__related-carousel {
+  position: relative;
+  /* Own stacking context so the absolute-positioned arrows always win. */
+  isolation: isolate;
+}
+
+.right-panel__related-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  /* SOLID black circle — same fix as home. */
+  background: #000;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, background 0.18s ease;
+  z-index: 9999;
+}
+
+.right-panel__related-arrow--left { left: 4px; }
+.right-panel__related-arrow--right { right: 4px; }
+
+/* Only ENABLED arrows are revealed — disabled ones stay fully hidden so
+   we never end up with a dimmed-but-unclickable ghost that swallows clicks. */
+.right-panel__related-carousel:hover .right-panel__related-arrow:not(:disabled) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.right-panel__related-arrow:hover:not(:disabled) {
+  background: #1a1a1a;
+}
+
+.right-panel__related-arrow-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
 .right-panel__related-list {
   display: flex;
   gap: 12px;
   align-items: stretch;
   overflow: hidden;
+}
+
+/* Highlight card cuya canción es la current del PlayerState */
+.right-panel__related-card--active .right-panel__related-card-title {
+  color: #ff3b30;
 }
 
 .right-panel__related-card {

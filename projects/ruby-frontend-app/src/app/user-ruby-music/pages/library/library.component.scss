@@ -60,8 +60,8 @@
   outline: none;
   border-radius: 999px;
   padding: 0 18px;
-  background: rgba(28, 28, 28, 0.375);
-  color: #fffefe;
+  background: rgba(28, 28, 28, 0.54);
+  color: #ffffff;
   font-size: 0.98rem;
 }
 
@@ -71,7 +71,6 @@
   min-width: 45px;
   border: none;
   border-radius: 999px;
-  background: rgba(27, 27, 27, 0.82);
   color: #fff;
   display: inline-flex;
   align-items: center;
@@ -80,13 +79,34 @@
   transition: transform 0.18s ease, background 0.18s ease;
 }
 
+.library-search-icon{
+  width: 50px;
+  height: 50px;
+}
+
+
+
+
+
+/* Lupa: sin fondo oscuro detrás del icono, sólo un tinte sutil en hover para
+   indicar que es clickeable. Altura queda 50px igual que "Crear" para que
+   ambos botones se vean alineados. */
+.library-search-button {
+  background: transparent;
+}
+
 .library-create-button {
   padding: 0 20px 0 16px;
   gap: 10px;
   font-weight: 600;
+  background: rgba(27, 27, 27, 0.82);
 }
 
-.library-search-button:hover,
+.library-search-button:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .library-create-button:hover {
   transform: translateY(-1px);
   background: rgba(50, 50, 50, 0.92);
@@ -360,9 +380,9 @@
 }
 
 .library-modal {
-  width: min(720px, 96vw);
-  height: min(880px, 92vh);
-  border-radius: 30px;
+  width: min(580px, 92vw);
+  height: min(720px, 88vh);
+  border-radius: 26px;
   background: linear-gradient(180deg, #6c6a6a 0%, #343232 18%, #111111 55%, #050505 100%);
   color: #fff;
   display: flex;
@@ -372,11 +392,11 @@
 }
 
 .library-modal--albums {
-  width: min(780px, 96vw);
+  width: min(620px, 92vw);
 }
 
 .library-modal-header {
-  padding: 28px 28px 16px;
+  padding: 22px 24px 12px;
 }
 
 .library-modal-header--center {
@@ -385,32 +405,32 @@
 
 .library-modal-title {
   margin: 0;
-  font-size: 2.2rem;
+  font-size: 1.6rem;
   font-weight: 800;
   line-height: 1;
 }
 
 .library-modal-subtitle {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: rgba(255, 255, 255, 0.68);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .library-modal-search {
-  margin: 22px auto 0;
-  max-width: 520px;
-  height: 54px;
+  margin: 16px auto 0;
+  max-width: 460px;
+  height: 44px;
   border-radius: 999px;
   background: rgba(223, 214, 214, 0.72);
   display: flex;
   align-items: center;
-  padding: 0 18px;
+  padding: 0 16px;
   gap: 10px;
 }
 
 .library-modal-search-icon {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   opacity: 0.82;
 }
 
@@ -420,7 +440,7 @@
   outline: none;
   background: transparent;
   color: #fff;
-  font-size: 1.02rem;
+  font-size: 0.94rem;
 }
 
 .library-modal-search-input::placeholder {
@@ -428,18 +448,18 @@
 }
 
 .library-modal-fixed-top {
-  padding: 0 28px 18px;
+  padding: 0 24px 14px;
   flex-shrink: 0;
 }
 
 .library-modal-section-title {
-  margin: 0 0 16px;
-  font-size: 1.9rem;
+  margin: 0 0 12px;
+  font-size: 1.4rem;
   font-weight: 700;
 }
 
 .library-modal-section-title--big {
-  font-size: 3.2rem;
+  font-size: 2.2rem;
   line-height: 0.9;
   letter-spacing: -0.04em;
   text-transform: lowercase;
@@ -448,7 +468,7 @@
 .library-top-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  gap: 14px;
 }
 
 .library-top-item,
@@ -469,12 +489,12 @@
 }
 
 .library-top-item-image {
-  width: 118px;
-  height: 118px;
+  width: 92px;
+  height: 92px;
   object-fit: cover;
   display: block;
   margin: 0 auto;
-  border-radius: 22px;
+  border-radius: 18px;
 }
 
 .library-top-item-image--circle,
@@ -484,10 +504,10 @@
 
 .library-top-item-rank {
   position: absolute;
-  right: 8px;
+  right: 6px;
   bottom: 2px;
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: #d9d9d9;
   color: #111;
@@ -495,31 +515,42 @@
   align-items: center;
   justify-content: center;
   font-weight: 800;
+  font-size: 0.82rem;
 }
 
 .library-top-item-name,
 .library-suggestion-name {
   display: block;
-  margin-top: 10px;
+  margin-top: 8px;
   text-align: center;
-  font-size: 0.98rem;
+  font-size: 0.88rem;
 }
 
+/* Scrollable section: queda funcional (rueda / trackpad) pero la barra
+   física se oculta en todos los navegadores para que el modal se vea limpio. */
 .library-modal-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 0 28px 20px;
+  padding: 0 24px 16px;
+  scrollbar-width: none;         /* Firefox */
+  -ms-overflow-style: none;      /* IE/legacy Edge */
+}
+
+.library-modal-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;                 /* Chromium / Safari */
 }
 
 .library-suggestions-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 28px 18px;
+  gap: 22px 14px;
 }
 
 .library-suggestion-image {
-  width: 118px;
-  height: 118px;
+  width: 92px;
+  height: 92px;
   object-fit: cover;
   display: block;
   margin: 0 auto;
@@ -527,10 +558,10 @@
 
 .library-item-check {
   position: absolute;
-  right: -4px;
-  top: -4px;
-  width: 34px;
-  height: 34px;
+  right: -2px;
+  top: -2px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: #e5e5e5;
   color: #111;
@@ -538,7 +569,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 900;
-  font-size: 1rem;
+  font-size: 0.88rem;
 }
 
 .library-featured-albums-row {
@@ -553,9 +584,9 @@
 
 .library-featured-album-cover {
   width: 100%;
-  height: 138px;
+  height: 108px;
   object-fit: cover;
-  border-radius: 18px;
+  border-radius: 16px;
   display: block;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
 }
@@ -606,9 +637,9 @@
 }
 
 .library-album-row-cover {
-  width: 78px;
-  height: 78px;
-  border-radius: 16px;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -619,8 +650,8 @@
 }
 
 .library-album-row-title {
-  margin: 0 0 6px;
-  font-size: 1.08rem;
+  margin: 0 0 4px;
+  font-size: 0.98rem;
   font-weight: 700;
 }
 
@@ -631,27 +662,27 @@
   font-size: 0.84rem;
 }
 
-.library-album-row-action {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  border: 2px solid rgba(255, 255, 255, 0.82);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.18rem;
-  font-weight: 800;
+.library-album-row-save-icon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
   flex-shrink: 0;
+  display: block;
 }
 
-.library-album-row-action--selected {
-  background: #ff3939;
-  border-color: #ff3939;
-  color: #111;
+.library-featured-album-save-icon {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
 }
 
 .library-modal-footer {
-  padding: 18px 28px 28px;
+  padding: 14px 24px 22px;
   display: flex;
   justify-content: center;
   flex-shrink: 0;
@@ -659,12 +690,12 @@
 
 .library-modal-confirm-button {
   border: none;
-  min-width: 220px;
-  height: 56px;
+  min-width: 180px;
+  height: 46px;
   border-radius: 999px;
   background: #d9d9d9;
   color: #111;
-  font-size: 1.6rem;
+  font-size: 1.1rem;
   font-weight: 900;
   cursor: pointer;
   transition: transform 0.18s ease, opacity 0.18s ease;

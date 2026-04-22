@@ -128,7 +128,7 @@
             </div>
 
             @if (user.blockReason) {
-              <p class="user-card__reason">Motivo: {{ user.blockReason }}</p>
+              <p class="user-card__reason">Motivo: {{ translateBlockReason(user.blockReason) }}</p>
             }
           </div>
 
@@ -150,19 +150,14 @@
             <div class="actions">
 
               <!-- DETALLE -->
-              <button (click)="openDetailModal(user)">
+              <button class="action action--view" (click)="openDetailModal(user)">
                 <lucide-icon [img]="Eye" [size]="18" />
               </button>
 
               @if (user.status === 'BLOQUEADO') {
                 <!-- REACTIVAR -->
-                <button (click)="openReactivateModal(user)">
+                <button class="action action--unblock" (click)="openReactivateModal(user)">
                   <lucide-icon [img]="Check" [size]="18" />
-                </button>
-              } @else {
-                <!-- EDITAR / CAMBIAR ESTADO -->
-                <button (click)="openEditModal(user)">
-                  <lucide-icon [img]="Pencil" [size]="18" />
                 </button>
               }
 
@@ -226,44 +221,6 @@
 
       <!-- BOTÓN -->
       <button (click)="closeAllModals()">Cerrar</button>
-
-    </div>
-  </div>
-}
-
-<!-- =========================
-   MODAL CAMBIAR ESTADO
-========================= -->
-@if (isEditModalOpen()) {
-  <div class="modal">
-    <div class="modal-content">
-
-      <h2>Cambiar estado de usuario</h2>
-
-      <p>Estado actual: {{ selectedUser()?.status }}</p>
-
-      <select (change)="newStatus.set($any($event.target).value)">
-        <option value="ACTIVO">Activo</option>
-        <option value="INACTIVO">Inactivo</option>
-        <option value="BLOQUEADO">Bloqueado</option>
-      </select>
-
-      <!-- MOTIVO SOLO SI BLOQUEA -->
-      @if (newStatus() === 'BLOQUEADO') {
-        <select (change)="blockReason.set($any($event.target).value)">
-          <option value="">Selecciona motivo</option>
-          <option>Acoso o bullying</option>
-          <option>Incita a la violencia</option>
-          <option>Racismo o discriminación</option>
-          <option>Contenido inapropiado</option>
-          <option>Spam o publicidad</option>
-        </select>
-      }
-
-      <div class="modal-actions">
-        <button (click)="closeAllModals()">Cancelar</button>
-        <button (click)="updateUserStatus()">Aceptar</button>
-      </div>
 
     </div>
   </div>

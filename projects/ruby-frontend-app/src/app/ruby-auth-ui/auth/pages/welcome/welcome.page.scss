@@ -8,13 +8,13 @@
 .auth-container {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
+  grid-template-columns: 1.20fr 0.95fr;
   background: #000;
 }
 
 .auth-left {
   min-height: 100vh;
-  padding: 24px;
+  padding: 0px;
   box-sizing: border-box;
   background: #050505;
 }
@@ -22,19 +22,21 @@
 .auth-right {
   min-height: 100vh;
   display: flex;
-  align-items: center;
+  /* flex-start en vez de center: el panel arranca arriba en lugar de flotar
+     en el medio del viewport. Con padding-top elástico (clamp) nunca queda
+     pegado al borde ni se va demasiado abajo en pantallas chicas. */
+  align-items: flex-start;
   justify-content: center;
-  padding: 32px 24px;
+  padding: clamp(56px, 9vh, 120px) 24px 56px;
   box-sizing: border-box;
-  background: #000;
+  background: linear-gradient(120deg, #000000, #171717);
 }
 
 .auth-panel {
   width: 100%;
-  max-width: 520px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Contenedor natural (block). El flex anidado anterior sólo volvía a
+     centrar al hijo y bloqueaba su crecimiento horizontal. */
+  max-width: 560px;
 }
 
 /* Tablet */
@@ -49,7 +51,7 @@
 
   .auth-right {
     min-height: auto;
-    padding-top: 0;
+    padding: 48px 24px 56px;
   }
 }
 

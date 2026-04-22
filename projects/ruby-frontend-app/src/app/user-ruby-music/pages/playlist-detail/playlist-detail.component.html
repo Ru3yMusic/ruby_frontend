@@ -8,7 +8,10 @@
 
       <!-- PORTADA / VINILO -->
       <div class="playlist-cover-column">
-        <div class="playlist-cover-wrapper">
+        <div
+          class="playlist-cover-wrapper"
+          [class.playlist-cover-wrapper--spinning]="isPlaylistPlaying()"
+        >
           <img
             class="playlist-vinyl-image"
             src="/assets/images/vinyl.png"
@@ -235,7 +238,10 @@
   @if (hasSongs()) {
     <section class="playlist-songs-section">
       @for (song of playlistSongs(); track song.id; let i = $index) {
-        <article class="playlist-song-row">
+        <article
+          class="playlist-song-row"
+          [class.playlist-song-row--active]="isCurrentPlayerSong(song.songId)"
+        >
 
           <button
             class="playlist-song-index-button"
@@ -286,8 +292,12 @@
             >
               <img
                 class="playlist-song-liked-icon"
-                src="/assets/icons/song-liked-filled.png"
-                alt="Quitar de Tus me gusta"
+                [src]="isSongLiked(song.songId)
+                  ? '/assets/icons/song-liked-filled.png'
+                  : '/assets/icons/song-liked-outline.png'"
+                [alt]="isSongLiked(song.songId)
+                  ? 'Quitar de Tus me gusta'
+                  : 'Agregar a Tus me gusta'"
               />
             </button>
           }
@@ -396,6 +406,21 @@
                       alt="Ir al álbum"
                     />
                     <span>Ir al álbum</span>
+                  </button>
+                }
+
+                @if (!isLikedSongsPlaylist()) {
+                  <button
+                    class="playlist-song-more-menu-item"
+                    type="button"
+                    (click)="removeSongFromCurrentPlaylist(song.songId, $event)"
+                  >
+                    <img
+                      class="playlist-song-more-menu-icon"
+                      src="/assets/icons/playlist-song-menu-remove-liked.png"
+                      alt="Eliminar de esta playlist"
+                    />
+                    <span>Eliminar de esta playlist</span>
                   </button>
                 }
 

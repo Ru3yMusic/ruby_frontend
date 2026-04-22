@@ -10,11 +10,17 @@
         [routerLink]="item.route"
         routerLinkActive="active"
       >
-        <img
-          class="sidebar-icon"
-          [src]="item.icon"
-          [alt]="item.alt"
-        />
+        <span class="sidebar-icon-wrap">
+          <img
+            class="sidebar-icon"
+            [src]="item.icon"
+            [alt]="item.alt"
+          />
+
+          @if (item.route === '/user/notifications' && unseenCount() > 0) {
+            <span class="sidebar-badge">{{ unseenCount() }}</span>
+          }
+        </span>
 
         <span class="sidebar-label">
           {{ item.label }}

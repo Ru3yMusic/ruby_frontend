@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   Menu,
   MicVocal,
@@ -8,10 +10,11 @@ import {
   TriangleAlert,
   Users,
 } from 'lucide-angular';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
+import { API_GATEWAY_URL } from 'lib-ruby-core';
 import {
   ArtistResponse,
   ArtistsApi,
@@ -21,7 +24,19 @@ import {
   SongsApi,
 } from 'lib-ruby-sdks/catalog-service';
 import { UserResponse, UsersApi } from 'lib-ruby-sdks/auth-service';
-import { ReportTargetSummary, ReportsApi } from 'lib-ruby-sdks/social-service';
+import {
+  ReportTargetSummary,
+  ReportTargetType,
+  ReportsApi,
+} from 'lib-ruby-sdks/social-service';
+
+/** Narrow projection returned by realtime-api-ms GET /comments/:id. */
+interface CommentAuthorLookup {
+  user_id: string;
+  username: string;
+  profile_photo_url: string | null;
+  content: string;
+}
 
 /* =========================
    MODELOS BASE
@@ -143,6 +158,9 @@ export class DashboardPage implements OnInit {
   private readonly artistsApi = inject(ArtistsApi);
   private readonly genresApi = inject(GenresApi);
   private readonly reportsApi = inject(ReportsApi);
+  private readonly http = inject(HttpClient);
+  private readonly gatewayUrl = inject(API_GATEWAY_URL);
+  private readonly router = inject(Router);
 
   /* =========================
      ICONOS
@@ -183,20 +201,89 @@ export class DashboardPage implements OnInit {
       artists: this.artistsApi.listArtists(),
       genres: this.genresApi.listGenres(),
       reports: this.reportsApi.listGroupedReports(),
-    }).subscribe({
-      next: ({ users, songs, artists, genres, reports }) => {
-        this.users.set(this.mapUsers(users.content ?? []));
-        this.songs.set(this.mapSongs(songs.content ?? []));
-        this.artists.set(this.mapArtists(artists.content ?? []));
-        this.genres.set(this.mapGenres(genres));
-        this.reports.set(this.mapGroupedReports(reports));
-        this.loading.set(false);
-      },
-      error: (err) => {
-        this.error.set(err?.message ?? 'Error al cargar los datos del dashboard');
-        this.loading.set(false);
-      },
-    });
+    })
+      .pipe(
+        switchMap((all) =>
+          this.buildReportCountMap(all.reports).pipe(
+            map((counts) => ({ ...all, counts })),
+          ),
+        ),
+      )
+      .subscribe({
+        next: ({ users, songs, artists, genres, reports, counts }) => {
+          const mappedUsers = this.mapUsers(users.content ?? []).map((u) => ({
+            ...u,
+            reportCount: counts.get(u.id) ?? 0,
+          }));
+          this.users.set(mappedUsers);
+          this.songs.set(this.mapSongs(songs.content ?? []));
+          this.artists.set(this.mapArtists(artists.content ?? []));
+          this.genres.set(this.mapGenres(genres));
+          this.reports.set(this.mapGroupedReports(reports));
+          this.loading.set(false);
+        },
+        error: (err) => {
+          this.error.set(err?.message ?? 'Error al cargar los datos del dashboard');
+          this.loading.set(false);
+        },
+      });
+  }
+
+  /* =========================
+     NAVEGACION DE KPI CARDS
+  ========================== */
+  goToUsers(): void { this.router.navigateByUrl('/admin/usuarios'); }
+  goToReports(): void { this.router.navigateByUrl('/admin/reportes'); }
+  goToSongs(): void { this.router.navigateByUrl('/admin/canciones'); }
+  goToArtists(): void { this.router.navigateByUrl('/admin/artistas'); }
+
+  /**
+   * Resolves how many PENDING reports each user owns so the severity donut can
+   * bucket them (1=leve, 2=moderado, 3+=crítico). Same logic as gestión-usuarios:
+   *   - USER groups: targetId is the userId directly.
+   *   - COMMENT groups: resolve commentId → author via realtime-api-ms, then
+   *     attribute the reportCount to the author.
+   * SONG groups are ignored (they don't map to a specific user).
+   */
+  private buildReportCountMap(groups: ReportTargetSummary[]) {
+    const counts = new Map<string, number>();
+
+    for (const g of groups) {
+      if (g.targetType === ReportTargetType.USER && g.targetId) {
+        counts.set(g.targetId, (counts.get(g.targetId) ?? 0) + (g.reportCount ?? 0));
+      }
+    }
+
+    const commentGroups = groups.filter(
+      (g) => g.targetType === ReportTargetType.COMMENT && !!g.targetId,
+    );
+    if (!commentGroups.length) return of(counts);
+
+    return forkJoin(
+      commentGroups.map((g) =>
+        this.http
+          .get<CommentAuthorLookup>(
+            `${this.gatewayUrl}/api/v1/realtime/comments/${g.targetId}`,
+          )
+          .pipe(
+            map((comment) => ({ group: g, comment })),
+            catchError(() =>
+              of({ group: g, comment: null as CommentAuthorLookup | null }),
+            ),
+          ),
+      ),
+    ).pipe(
+      map((resolved) => {
+        for (const { group, comment } of resolved) {
+          if (!comment?.user_id) continue;
+          counts.set(
+            comment.user_id,
+            (counts.get(comment.user_id) ?? 0) + (group.reportCount ?? 0),
+          );
+        }
+        return counts;
+      }),
+    );
   }
 
   /* =========================

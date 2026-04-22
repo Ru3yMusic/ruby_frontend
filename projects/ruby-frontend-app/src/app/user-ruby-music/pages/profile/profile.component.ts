@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { AuthRepositoryPort } from 'lib-ruby-core';
 import { AuthState, CurrentUser } from '../../../ruby-auth-ui/auth/state/auth.state';
+import { TokenStorageService } from '../../../core/services/token-storage.service';
 import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
 import { InteractionState } from '../../state/interaction.state';
 import { LibraryState } from '../../state/library.state';
@@ -41,6 +43,8 @@ export class ProfileComponent {
   private readonly router = inject(Router);
   private readonly libraryState = inject(LibraryState);
   private readonly interactionState = inject(InteractionState);
+  private readonly authRepo = inject(AuthRepositoryPort);
+  private readonly tokenStorage = inject(TokenStorageService);
   readonly userProfileState = inject(UserProfileState);
 
   private readonly defaultTopColor = '#5b5b5b';
@@ -86,7 +90,7 @@ export class ProfileComponent {
   });
 
   readonly followedArtists = computed<FollowedArtistCard[]>(() => {
-    const followedArtistIds = this.interactionState.libraryArtistIds();
+    const followedArtistIds = this.interactionState.allFollowedArtistIds();
 
     return followedArtistIds
       .map(artistId => (this.libraryState.artists() as any[]).find((artist: any) => artist.id === artistId) ?? null)
@@ -264,7 +268,10 @@ export class ProfileComponent {
   /* ===================== */
   saveProfile(): void {
     const user = this.currentUser();
-    if (!user) return;
+    if (!user || !user.id) {
+      this.userProfileState.clearError();
+      return;
+    }
 
     const trimmedName = this.editName().trim();
     const nextName = trimmedName || user.name;
@@ -292,13 +299,35 @@ export class ProfileComponent {
             this.headerAccentColor.set(this.defaultTopColor);
           }
 
+          // Re-issue the JWT so the new displayName reaches realtime-ws-ms.
+          // The effect in NotificationsState watches tokenStorage.accessToken()
+          // and will reconnect the socket with the fresh token automatically,
+          // which refreshes socket.data.username on the server side. Any future
+          // comment / chat message now carries the updated name.
+          this.refreshJwtAfterProfileUpdate();
+
           this.isEditModalOpen.set(false);
         },
         error: () => {
-          // Error is already set on userProfileState.error — template can display it.
-          // Do NOT close the modal so the user can retry.
+          // El error queda en userProfileState.error() — se muestra en el modal.
+          // El modal permanece abierto para que el usuario pueda reintentar.
         },
       });
+  }
+
+  private refreshJwtAfterProfileUpdate(): void {
+    const refreshToken = this.tokenStorage.getRefreshToken();
+    if (!refreshToken) return;
+
+    this.authRepo.refreshToken(refreshToken).subscribe({
+      next: (authToken) => {
+        this.tokenStorage.setTokens(authToken.accessToken, authToken.refreshToken);
+      },
+      error: () => {
+        // Non-fatal: UI already reflects new name; WS will carry the old name
+        // until the next natural reconnect (page reload, token expiry, etc.).
+      },
+    });
   }
 
   /* ===================== */

@@ -92,6 +92,17 @@
     opacity: 0.3;
     cursor: not-allowed;
   }
+
+  /* Active state for shuffle / repeat toggles — tints the icon red. The PNG
+     is a white glyph on transparent; an invert+hue-rotate filter recolours
+     it without needing new assets. */
+  &--active {
+    opacity: 1;
+
+    .footer-player__icon {
+      filter: brightness(0) saturate(100%) invert(24%) sepia(95%) saturate(6500%) hue-rotate(355deg) brightness(95%) contrast(110%);
+    }
+  }
 }
 
 .footer-player__icon {

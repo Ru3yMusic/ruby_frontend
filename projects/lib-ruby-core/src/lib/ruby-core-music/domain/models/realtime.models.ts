@@ -168,3 +168,43 @@ export interface FriendPresenceInfo {
   stationId?: string;
   stationName?: string;
 }
+
+/** Server → Client: a comment was deleted somewhere in the station room. */
+export interface WsCommentDeletedPayload {
+  commentId: string;
+  stationId: string;
+}
+
+/** Server → Client: realtime hint for a song-like counter delta in a station. */
+export interface WsLikeDeltaPayload {
+  stationId: string;
+  songId:    string;
+  delta:     1 | -1;
+  actorId?:  string;
+}
+
+/**
+ * Server → Client: a user's presence changed. Broadcast globally whenever a
+ * socket joins or leaves a station room, or when the socket disconnects.
+ * Clients filter by their own friend list to update UI (e.g. the "Activos
+ * estación" cards and the 3 s friend-entered-station toast).
+ *
+ * `stationId` is the new station the user is in, or null when they left the
+ * station or disconnected.
+ */
+export interface WsUserPresenceChangedPayload {
+  userId:    string;
+  stationId: string | null;
+  online:    boolean;
+}
+
+/**
+ * Server → Client: a friendship was removed (soft-delete). Emitted by the
+ * `friend_removed` handler on ws-ms to BOTH the actor's `user:{id}` room and
+ * the removed friend's `user:{id}` room so every open session can drop the
+ * row from its local list without reloading.
+ */
+export interface WsFriendRemovedPayload {
+  friendshipId:    string;
+  removedByUserId?: string;
+}

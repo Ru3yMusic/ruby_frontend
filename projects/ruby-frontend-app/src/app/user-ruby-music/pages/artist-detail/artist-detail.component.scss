@@ -226,6 +226,11 @@
   gap: 2px;
 }
 
+/* Highlight fila cuya canción es la current del PlayerState */
+.artist-song-row--active .artist-song-row__title {
+  color: #ff3b30;
+}
+
 .artist-song-row {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) 150px 64px 36px;

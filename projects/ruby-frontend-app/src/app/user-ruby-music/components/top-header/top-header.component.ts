@@ -1,8 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { AuthRepositoryPort } from 'lib-ruby-core';
+import { EMPTY } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 import { SongResponse, ArtistResponse, AlbumResponse } from 'lib-ruby-sdks/catalog-service';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
+import { TokenStorageService } from '../../../core/services/token-storage.service';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
 
@@ -29,6 +33,8 @@ export class TopHeaderComponent {
   private readonly interactionState = inject(InteractionState);
   private readonly router = inject(Router);
   private readonly elementRef = inject(ElementRef);
+  private readonly tokenStorage = inject(TokenStorageService);
+  private readonly authRepo = inject(AuthRepositoryPort);
 
   readonly currentUser = this.authState.currentUser;
 
@@ -78,8 +84,24 @@ export class TopHeaderComponent {
 
   logout(): void {
     this.closeAllOverlays();
-    this.authState.clearCurrentUser();
-    this.router.navigate(['/auth/welcome']);
+
+    const refreshToken = this.tokenStorage.getRefreshToken();
+
+    const finalizeLogout = () => {
+      this.tokenStorage.clearTokens();
+      this.authState.clearSession();
+      this.router.navigateByUrl('/auth/welcome');
+    };
+
+    const request$ = refreshToken
+      ? this.authRepo.logout(refreshToken)
+      : EMPTY;
+
+    request$.pipe(finalize(finalizeLogout)).subscribe({
+      error: () => {
+        // Backend puede fallar (token expirado / red) — finalize limpia sesión igual.
+      },
+    });
   }
 
   get hasSearchTerm(): boolean {

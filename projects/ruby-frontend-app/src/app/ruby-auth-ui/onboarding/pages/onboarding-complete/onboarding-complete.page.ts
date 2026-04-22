@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { AuthState, CurrentUser } from '../../../auth/state/auth.state';
 import { LibraryState } from '../../../../user-ruby-music/state/library.state';
 
@@ -17,7 +17,7 @@ interface StationUI {
   templateUrl: './onboarding-complete.page.html',
   styleUrl: './onboarding-complete.page.scss',
 })
-export class OnboardingCompletePage {
+export class OnboardingCompletePage implements OnInit {
   private readonly authState = inject(AuthState);
   private readonly libraryState = inject(LibraryState);
 
@@ -36,6 +36,14 @@ export class OnboardingCompletePage {
     this.persistOnboardingProgress();
   }
 
+  ngOnInit(): void {
+    // Si llegamos aquí tras un full-reload, libraryState.stations() está vacío.
+    // Recargar estaciones activas para que "Escuchar ahora" encuentre IDs reales.
+    if (this.libraryState.stations().length === 0) {
+      this.libraryState.loadActiveStations();
+    }
+  }
+
   // =========================
   // PERSISTIR ONBOARDING COMPLETADO
   // =========================
@@ -43,14 +51,17 @@ export class OnboardingCompletePage {
     const currentUser = this.authState.currentUser();
     if (!currentUser) return;
 
+    const stationIds = this.selectedStationIds();
+
     const updatedCurrentUser: CurrentUser = {
       ...currentUser,
       onboardingCompleted: true,
-      selectedStationIds: this.selectedStationIds(),
+      selectedStationIds: stationIds,
     };
 
-    // Update session state — backend sync handled by auth adapter on next login
     this.authState.setCurrentUser(updatedCurrentUser);
+    // Persistir flag por userId para que sobreviva al logout.
+    this.authState.markOnboardingCompleted(currentUser.id, stationIds);
   }
 
   // =========================
@@ -58,17 +69,20 @@ export class OnboardingCompletePage {
   // Selecciona una estación random de las elegidas
   // =========================
   listenNow(): void {
-    const selected = this.selectedStations();
+    // Preferimos IDs persistidos (sobreviven a full-reload);
+    // caemos a los resueltos desde libraryState si están disponibles.
+    const persistedIds = this.selectedStationIds();
+    const pool = persistedIds.length > 0
+      ? persistedIds
+      : this.selectedStations().map(s => s.id);
 
-    if (selected.length === 0) {
+    if (pool.length === 0) {
       window.location.href = '/user/home';
       return;
     }
 
-    const randomIndex = Math.floor(Math.random() * selected.length);
-    const randomStation = selected[randomIndex];
-
-    window.location.href = `/user/station/${randomStation.id}`;
+    const randomId = pool[Math.floor(Math.random() * pool.length)];
+    window.location.href = `/user/station/${randomId}`;
   }
 
   // =========================

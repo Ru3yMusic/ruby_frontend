@@ -54,21 +54,7 @@
   <!-- ===================== -->
   <!-- ACCIONES -->
   <!-- ===================== -->
-  <section class="profile-actions">
-    <button class="profile-action-icon" type="button">
-      <img
-        src="/assets/icons/profile-settings.png"
-        alt="Configuración"
-      />
-    </button>
-
-    <button class="profile-action-icon" type="button">
-      <img
-        src="/assets/icons/profile-more.png"
-        alt="Más opciones"
-      />
-    </button>
-  </section>
+ 
 
   <!-- ===================== -->
   <!-- PLAYLISTS PÚBLICAS -->
@@ -122,24 +108,6 @@
                 [src]="artist.photoUrl"
                 [alt]="artist.name"
               />
-
-              <div class="following-card-image-fade"></div>
-
-              <button
-                class="following-card-play-button"
-                type="button"
-                (click)="playArtist(artist.id, $event)"
-              >
-                <img
-                  class="following-card-play-icon"
-                  [src]="isArtistPlaying(artist.id)
-                    ? '/assets/icons/library-pause-main.png'
-                    : '/assets/icons/playlist-play-main.png'"
-                  [alt]="isArtistPlaying(artist.id)
-                    ? 'Pausar artista'
-                    : 'Reproducir artista'"
-                />
-              </button>
             </div>
 
             <h3 class="following-card-title">{{ artist.name }}</h3>
@@ -223,15 +191,22 @@
             <button
               class="profile-save-button"
               type="button"
+              [disabled]="userProfileState.loading()"
               (click)="saveProfile()"
             >
-              Guardar
+              {{ userProfileState.loading() ? 'Guardando...' : 'Guardar' }}
             </button>
           </div>
 
-          <p class="profile-modal-note">
-            Al continuar, aceptas actualizar la foto y el nombre visibles de tu perfil dentro de RubyTune.
-          </p>
+          @if (userProfileState.error()) {
+            <p class="profile-modal-note">
+              {{ userProfileState.error() }}
+            </p>
+          } @else {
+            <p class="profile-modal-note">
+              Al continuar, aceptas actualizar la foto y el nombre visibles de tu perfil dentro de RubyTune.
+            </p>
+          }
         </div>
 
       </div>

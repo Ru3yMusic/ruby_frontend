@@ -1,3 +1,14 @@
+<!-- GLOBAL FRIEND-STATION TOAST (fires on any /user/** route) -->
+@if (isToastVisible()) {
+  <div
+    class="friend-station-toast"
+    [class.leaving]="isToastLeaving()"
+    role="status"
+  >
+    {{ toastMessage() }}
+  </div>
+}
+
 <!-- HEADER SUPERIOR GLOBAL -->
 <header class="header">
   <app-top-header></app-top-header>

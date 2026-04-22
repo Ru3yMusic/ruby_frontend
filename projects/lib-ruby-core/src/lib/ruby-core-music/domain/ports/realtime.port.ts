@@ -2,13 +2,17 @@ import { Observable } from 'rxjs';
 import {
   BulkPresenceResult,
   WsChatMessagePayload,
+  WsCommentDeletedPayload,
   WsCommentLikesUpdatedPayload,
   WsCommentPayload,
+  WsFriendRemovedPayload,
   WsJoinedStationPayload,
+  WsLikeDeltaPayload,
   WsListenerCountPayload,
   WsNotificationPayload,
   WsSendChatMessagePayload,
   WsSendCommentPayload,
+  WsUserPresenceChangedPayload,
 } from '../models/realtime.models';
 
 /**
@@ -41,6 +45,27 @@ export abstract class RealtimePort {
   abstract sendComment(payload: WsSendCommentPayload): void;
 
   /**
+   * Emit delete_comment — tells the server to broadcast a `comment_deleted`
+   * event to everyone in the station room so the card disappears in real time.
+   * Persistence is done separately via HTTP DELETE /comments/:id (owner-only).
+   */
+  abstract deleteComment(stationId: string, commentId: string): void;
+
+  /**
+   * Emit like_delta — relays a +1/-1 like-count change for a song to everyone
+   * in the station room so their counters update in real time. Persistence is
+   * handled by the usual HTTP like endpoint.
+   */
+  abstract emitLikeDelta(stationId: string, songId: string, delta: 1 | -1): void;
+
+  /**
+   * Emit friend_removed — tells the server to relay a friendship removal to
+   * both user:{actor} and user:{other} rooms so every open session drops the
+   * row instantly. Persistence is done via HTTP DELETE on social-service.
+   */
+  abstract emitFriendRemoved(friendshipId: string, otherUserId: string): void;
+
+  /**
    * Emit ping_presence — heartbeat to keep Redis TTL alive.
    * The server expects this every ~60 s; TTL resets to 300 s on receipt.
    */
@@ -57,6 +82,22 @@ export abstract class RealtimePort {
 
   /** Cold Observable — emits joined_station ack after a successful join_station emit. */
   abstract onJoinedStation(): Observable<WsJoinedStationPayload>;
+
+  /** Cold Observable — emits comment_deleted events broadcast from the station room. */
+  abstract onCommentDeleted(): Observable<WsCommentDeletedPayload>;
+
+  /** Cold Observable — emits like_delta events broadcast from the station room. */
+  abstract onLikeDelta(): Observable<WsLikeDeltaPayload>;
+
+  /**
+   * Cold Observable — emits user_presence_changed events globally whenever
+   * any user joins/leaves a station or disconnects. Consumers must filter by
+   * their own list of user IDs (e.g. friendship list).
+   */
+  abstract onUserPresenceChanged(): Observable<WsUserPresenceChangedPayload>;
+
+  /** Cold Observable — emits friend_removed events targeted at this user's room. */
+  abstract onFriendRemoved(): Observable<WsFriendRemovedPayload>;
 
   /** Returns whether the underlying socket is currently connected. */
   abstract isConnected(): boolean;

@@ -9,6 +9,8 @@
     (loadedmetadata)="onAudioLoadedMetadata()"
     (timeupdate)="onAudioTimeUpdate()"
     (ended)="onAudioEnded()"
+    (play)="onAudioPlay()"
+    (pause)="onAudioPause()"
   ></audio>
 
   <div class="station-detail-backdrop">
@@ -155,29 +157,41 @@
 
                 @if (isCommentMenuOpen(comment.commentId)) {
                   <div class="station-comment-menu">
-                    <button
-                      class="station-comment-menu-item"
-                      type="button"
-                      (click)="replyToComment(comment, $event)"
-                    >
-                      Responder
-                    </button>
+                    @if (isOwnComment(comment)) {
+                      <button
+                        class="station-comment-menu-item station-comment-menu-item--danger"
+                        type="button"
+                        (click)="deleteMyComment(comment, $event)"
+                      >
+                        Eliminar comentario
+                      </button>
+                    } @else {
+                      <button
+                        class="station-comment-menu-item"
+                        type="button"
+                        (click)="replyToComment(comment, $event)"
+                      >
+                        Responder
+                      </button>
 
-                    <button
-                      class="station-comment-menu-item"
-                      type="button"
-                      (click)="connectWithUser(comment, $event)"
-                    >
-                      Conectar
-                    </button>
+                      @if (canConnectWith(comment)) {
+                        <button
+                          class="station-comment-menu-item"
+                          type="button"
+                          (click)="connectWithUser(comment, $event)"
+                        >
+                          Conectar
+                        </button>
+                      }
 
-                    <button
-                      class="station-comment-menu-item station-comment-menu-item--danger"
-                      type="button"
-                      (click)="openReportModal(comment, $event)"
-                    >
-                      Reportar
-                    </button>
+                      <button
+                        class="station-comment-menu-item station-comment-menu-item--danger"
+                        type="button"
+                        (click)="openReportModal(comment, $event)"
+                      >
+                        Reportar
+                      </button>
+                    }
                   </div>
                 }
               </div>
@@ -309,6 +323,12 @@
           </button>
         </div>
       </div>
+    </div>
+  }
+
+  @if (isFriendshipToastVisible()) {
+    <div class="station-friendship-toast">
+      {{ friendshipToastMessage() }}
     </div>
   }
 </div>

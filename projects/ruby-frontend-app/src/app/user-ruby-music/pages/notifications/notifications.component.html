@@ -70,15 +70,24 @@
                       {{ notification.meta.actorUserName ? '@' + notification.meta.actorUserName : 'Usuario' }}
                     </strong>
                     {{ notification.message }}
+                    @if (notification.meta.stationName) {
+                      <strong>{{ notification.meta.stationName }}</strong>
+                    }
                   </p>
 
-                  <button
-                    class="notification-go-button"
-                    type="button"
-                    (click)="goToNotificationStation(notification)"
-                  >
-                    Ir
-                  </button>
+                  <!-- "Ir" only makes sense for station-scoped activity
+                       (mentions). FRIEND_ACCEPTED / other informational items
+                       carry neither stationId nor commentId in meta, so there
+                       is nothing to navigate to. -->
+                  @if (notification.meta.stationId || notification.meta.commentId) {
+                    <button
+                      class="notification-go-button"
+                      type="button"
+                      (click)="goToNotificationStation(notification)"
+                    >
+                      Ir
+                    </button>
+                  }
                 </div>
 
                 <button
@@ -140,17 +149,6 @@
                   </div>
                 </div>
 
-                <button
-                  class="notification-more-button"
-                  type="button"
-                  (click)="rejectRequest(request)"
-                >
-                  <img
-                    class="notification-more-icon"
-                    src="/assets/icons/notifications-more.png"
-                    alt="Más opciones"
-                  />
-                </button>
               </div>
             </div>
           }

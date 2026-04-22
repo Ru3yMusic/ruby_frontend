@@ -31,6 +31,7 @@
           (click)="toggleSearch($event)"
         >
           <img
+          class="library-search-icon"
             src="/assets/icons/library-search.png"
             alt="Buscar en biblioteca"
           />
@@ -212,14 +213,39 @@
       @if (showPlaylistsColumn()) {
         <div class="library-column">
           @for (playlist of customPlaylists(); track playlist.id) {
-            <rm-playlist-card
-              [title]="playlist.title"
-              [subtitle]="playlist.subtitle"
-              [coverUrl]="playlist.coverUrl"
-              [isPlaying]="isPlaylistPlaying(playlist.id)"
-              (played)="playPlaylistFromLibrary(playlist.id)"
-              (selected)="goToPlaylistDetail(playlist.id)"
-            />
+            <article
+              class="library-item-card"
+              role="button"
+              tabindex="0"
+              (click)="goToPlaylistDetail(playlist.id)"
+            >
+              <div class="library-item-image-wrapper">
+                <img
+                  class="library-item-image"
+                  [src]="playlist.coverUrl"
+                  [alt]="playlist.title"
+                />
+
+                <button
+                  class="library-card-play-button"
+                  type="button"
+                  (click)="playPlaylistFromLibrary(playlist.id, $event)"
+                >
+                  <img
+                    class="library-card-play-icon"
+                    [src]="isPlaylistPlaying(playlist.id)
+                      ? '/assets/icons/library-pause.png'
+                      : '/assets/icons/library-play.png'"
+                    [alt]="isPlaylistPlaying(playlist.id) ? 'Pausar' : 'Reproducir'"
+                  />
+                </button>
+              </div>
+
+              <div class="library-item-info">
+                <h3 class="library-item-title">{{ playlist.title }}</h3>
+                <p class="library-item-subtitle">{{ playlist.subtitle }}</p>
+              </div>
+            </article>
           }
         </div>
       }
@@ -403,9 +429,13 @@
                     [alt]="album.title"
                   />
 
-                  @if (isAlbumSelected(album.id!)) {
-                    <div class="library-item-check">✓</div>
-                  }
+                  <img
+                    class="library-featured-album-save-icon"
+                    [src]="isAlbumSelected(album.id!)
+                      ? '/assets/icons/top-header-saved-filled.png'
+                      : '/assets/icons/top-header-save-outline.png'"
+                    [alt]="isAlbumSelected(album.id!) ? 'Quitar de biblioteca' : 'Guardar álbum'"
+                  />
                 </div>
 
                 <div class="library-featured-album-info">
@@ -443,16 +473,13 @@
                    <p class="library-album-row-meta">{{ album.releaseDate }} · {{ album.songCount }} canciones</p>
                 </div>
 
-                <div
-                  class="library-album-row-action"
-                  [class.library-album-row-action--selected]="isAlbumSelected(album.id!)"
-                >
-                  @if (isAlbumSelected(album.id!)) {
-                    ✓
-                  } @else {
-                    +
-                  }
-                </div>
+                <img
+                  class="library-album-row-save-icon"
+                  [src]="isAlbumSelected(album.id!)
+                    ? '/assets/icons/top-header-saved-filled.png'
+                    : '/assets/icons/top-header-save-outline.png'"
+                  [alt]="isAlbumSelected(album.id!) ? 'Quitar de biblioteca' : 'Guardar álbum'"
+                />
               </button>
             }
           </div>

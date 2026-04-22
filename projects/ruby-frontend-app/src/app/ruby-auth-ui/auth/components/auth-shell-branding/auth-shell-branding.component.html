@@ -1,35 +1,100 @@
 <div class="branding-container">
 
-  <!--  LOGO -->
+  <!-- LOGO -->
   <div class="branding-header">
-    <h1 class="logo">RubyTune</h1>
+    <img
+      class="branding-logo"
+      src="/assets/icons/Logo-ruby-tune.png"
+      alt="RubyTune"
+    />
   </div>
 
+  <!-- SLIDES (stacked, cross-fade) -->
+  <div class="branding-slides" aria-hidden="true">
 
-  <!-- IMAGEN / FONDO -->
-  <div class="branding-image">
-    <!-- Aquí luego puedes poner imagen dinámica -->
-    <div class="overlay"></div>
+    <!-- SLIDE 1 — editorial impact -->
+    <div
+      class="branding-slide branding-slide--impact"
+      [class.active]="currentSlide() === 0"
+    >
+      <div
+        class="branding-slide-image"
+        style="background-image: url('/assets/images/auth-slide-1.jpeg');"
+      ></div>
+      <div class="branding-slide-overlay branding-slide-overlay--impact"></div>
+
+      <div class="branding-slide-copy branding-slide-copy--impact">
+        <span class="branding-eyebrow">RUBYTUNE</span>
+        <h2 class="branding-headline branding-headline--impact">
+          <span class="line">DESCUBRE LAS</span>
+          <span class="line"><span class="ruby-word">JOYAS</span> DE LA MÚSICA.</span>
+        </h2>
+      </div>
+    </div>
+
+    <!-- SLIDE 2 — poetic mix -->
+    <div
+      class="branding-slide branding-slide--poetic"
+      [class.active]="currentSlide() === 1"
+    >
+      <div
+        class="branding-slide-image"
+        style="background-image: url('/assets/images/auth-slide-2.jpeg');"
+      ></div>
+      <div class="branding-slide-overlay branding-slide-overlay--poetic"></div>
+
+      <div class="branding-slide-copy branding-slide-copy--poetic">
+        <span class="branding-eyebrow branding-eyebrow--soft">ritmo · momento</span>
+        <h2 class="branding-headline branding-headline--poetic">
+          <span class="line">Siente el <em class="soft-word">ritmo</em></span>
+          <span class="line">que te define.</span>
+        </h2>
+      </div>
+    </div>
+
+    <!-- SLIDE 3 — intimate minimal -->
+    <div
+      class="branding-slide branding-slide--intimate"
+      [class.active]="currentSlide() === 2"
+    >
+      <div
+        class="branding-slide-image"
+        style="background-image: url('/assets/images/auth-slide-3.jpeg');"
+      ></div>
+      <div class="branding-slide-overlay branding-slide-overlay--intimate"></div>
+
+      <div class="branding-slide-copy branding-slide-copy--intimate">
+        <span class="branding-eyebrow branding-eyebrow--wide">sonido</span>
+        <h2 class="branding-headline branding-headline--intimate">
+          <span class="line">tu sonido.</span>
+          <span class="line">tu historia.</span>
+          <span class="line">tu <span class="ruby-word">Ruby</span>.</span>
+        </h2>
+      </div>
+    </div>
+
   </div>
 
-
-  <!--  TEXTO PRINCIPAL -->
-  <div class="branding-content">
-    <h2 class="title">
-      Descubre las joyas de la música.
-    </h2>
-
-    <p class="subtitle">
-      Explora millones de canciones y encuentra tu ritmo.
-    </p>
-  </div>
-
-
-  <!--  INDICADORES (dots para futuro slider) -->
-  <div class="branding-dots">
-    <span class="dot active"></span>
-    <span class="dot"></span>
-    <span class="dot"></span>
+  <!-- INDICADORES -->
+  <div class="branding-dots" role="tablist" aria-label="Slides">
+    <span
+      class="dot"
+      [class.active]="currentSlide() === 0"
+      role="tab"
+      aria-label="Slide 1"
+    ></span>
+    <span
+      class="dot"
+      [class.active]="currentSlide() === 1"
+      role="tab"
+      aria-label="Slide 2"
+    ></span>
+    <span
+      class="dot"
+      [class.active]="currentSlide() === 2"
+      role="tab"
+      aria-label="Slide 3"
+    ></span>
   </div>
 
 </div>

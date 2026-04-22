@@ -88,7 +88,7 @@
    LISTA DE REPORTES
 ========================= -->
 <section class="reports-list">
-  @for (report of filteredReports(); track report.reportedUserId) {
+  @for (report of filteredReports(); track report.targetType + ':' + report.reportedUserId) {
     <article class="report-card">
 
       <!-- HEADER -->
@@ -116,7 +116,7 @@
 
         <!-- FECHA -->
         <span class="report-card__date">
-          {{ report.lastReportAt }}
+          {{ formatDateTime(report.lastReportAt) }}
         </span>
 
       </div>
@@ -126,7 +126,8 @@
 
         <img
           class="report-card__avatar"
-          [src]="report.reportedUserAvatarUrl"
+          [src]="report.reportedUserAvatarUrl || '/assets/icons/avatar-placeholder.png'"
+          (error)="onAvatarError($event)"
         />
 
         <div class="report-card__info">
@@ -250,7 +251,7 @@
                 </div>
 
                 <div class="history-card__content">
-                  <p class="history-card__date">{{ item.createdAt }}</p>
+                  <p class="history-card__date">{{ formatDateTime(item.createdAt) }}</p>
                   <p class="history-card__reason">{{ item.reason }}</p>
                 </div>
               </div>
@@ -318,12 +319,15 @@
             [value]="selectedBlockReason()"
             (change)="selectedBlockReason.set($any($event.target).value)"
           >
+            <!-- El `value` DEBE coincidir con el enum BlockReason del auth-service.
+                 La etiqueta visible queda en español para el admin. Cambiar uno
+                 sin el otro rompe el contrato (400/500 en changeUserStatus). -->
             <option value="">Seleccionar motivo...</option>
-            <option value="Acoso o bullying">Acoso o bullying</option>
-            <option value="Incita a la violencia">Incita a la violencia</option>
-            <option value="Racismo o discriminación">Racismo o discriminación</option>
-            <option value="Contenido inapropiado">Contenido inapropiado</option>
-            <option value="Spam o publicidad">Spam o publicidad</option>
+            <option value="HARASSMENT_OR_BULLYING">Acoso o bullying</option>
+            <option value="INCITEMENT_TO_VIOLENCE">Incita a la violencia</option>
+            <option value="RACISM_OR_DISCRIMINATION">Racismo o discriminación</option>
+            <option value="INAPPROPRIATE_CONTENT">Contenido inapropiado</option>
+            <option value="SPAM_OR_ADVERTISING">Spam o publicidad</option>
           </select>
         </div>
 

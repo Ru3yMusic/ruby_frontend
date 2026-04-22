@@ -5,6 +5,7 @@ import { Menu, Music4, Pencil, Plus, Search, Trash2 } from 'lucide-angular';
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
 import { GenreResponse, GenresApi } from 'lib-ruby-sdks/catalog-service';
+import { formatShortDate } from '../../../core/utils/date-format';
 
 /* =========================
    MODELO DE GÉNERO
@@ -30,6 +31,9 @@ export class GestionGenerosPage implements OnInit {
      SERVICIOS
   ========================== */
   private readonly genresApi = inject(GenresApi);
+
+  /** Public wrapper so the template can format ISO dates as `d/M/yyyy`. */
+  readonly formatShortDate = formatShortDate;
 
   /* =========================
      ICONOS
