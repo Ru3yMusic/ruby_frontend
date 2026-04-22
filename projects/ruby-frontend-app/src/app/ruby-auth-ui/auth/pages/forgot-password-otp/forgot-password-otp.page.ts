@@ -44,6 +44,11 @@ export class ForgotPasswordOtpPage {
   }
 
   onResend(): void {
-    this.verifyUC.resend(this.email(), 'PASSWORD_RESET').subscribe();
+    this.serverError.set('');
+    this.verifyUC.resend(this.email(), 'PASSWORD_RESET').subscribe({
+      error: () => {
+        this.serverError.set('No pudimos reenviar el código. Intenta nuevamente.');
+      },
+    });
   }
 }

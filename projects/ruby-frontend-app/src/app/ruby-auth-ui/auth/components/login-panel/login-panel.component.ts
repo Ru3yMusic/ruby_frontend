@@ -68,8 +68,6 @@ export class LoginPanelComponent {
       password: this.passwordControl.value,
     };
 
-    console.log('Login submit:', payload);
-
     this.success.emit(payload);
     this.isSubmitting.set(false);
   }

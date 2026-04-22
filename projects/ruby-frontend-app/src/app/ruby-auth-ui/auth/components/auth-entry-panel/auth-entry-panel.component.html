@@ -6,8 +6,14 @@
     <p class="subtitle">Inicia sesión o crea una cuenta para continuar</p>
   </div>
 
-  <!-- BOTÓN GOOGLE -->
-  <button class="btn google-btn" (click)="onGoogleClick()">
+  <!-- BOTÓN GOOGLE (placeholder — se habilitará al integrar OAuth) -->
+  <button
+    class="btn google-btn"
+    type="button"
+    [disabled]="isGoogleDisabled"
+    [attr.aria-disabled]="isGoogleDisabled"
+    title="Próximamente disponible"
+  >
     <img
       class="google-btn-icon"
       src="/assets/icons/icon-google.png"
@@ -15,6 +21,7 @@
       aria-hidden="true"
     />
     <span>Continuar con Google</span>
+    <span class="google-btn-soon">Próximamente</span>
   </button>
 
   <!-- DIVISOR -->

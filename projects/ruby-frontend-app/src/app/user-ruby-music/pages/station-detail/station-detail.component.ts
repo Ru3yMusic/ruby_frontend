@@ -213,6 +213,12 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
     // listener in a station appears to "leave" whenever a fresh viewer joins
     // later — looks like the count is segmented by song, but really it's
     // TTL-based pruning.
+    // Defensive: clear any previous handle in case ngOnInit ran twice (HMR /
+    // re-navigation without a prior ngOnDestroy). Without this a second init
+    // would orphan the first interval and keep pinging forever.
+    if (this.presenceHeartbeatHandle !== null) {
+      clearInterval(this.presenceHeartbeatHandle);
+    }
     this.presenceHeartbeatHandle = setInterval(() => {
       this.realtimePort.pingPresence();
     }, 60_000);
@@ -333,6 +339,9 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
           if (songId) {
             this.loadHistoricalComments(stationId, songId);
             this.realtimePort.joinStation(stationId, songId);
+            // Immediate heartbeat so the Redis ZSET score is fresh from t=0
+            // instead of waiting for the first 60 s tick of the interval.
+            this.realtimePort.pingPresence();
           }
           this.startCurrentSongIfReady();
         },

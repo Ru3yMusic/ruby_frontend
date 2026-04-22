@@ -58,6 +58,19 @@ export class InteractionState {
   private readonly _followsLoaded = signal(false);
   readonly followsLoaded = this._followsLoaded.asReadonly();
 
+  /**
+   * Same rationale as `_followsLoaded` but for liked songs and library albums.
+   * user-layout uses these flags to hydrate the whole interaction catalog on
+   * any /user/** F5 — otherwise heart icons in album-detail / artist-detail /
+   * playlist-detail / right-panel / top-header search render in "outline" state
+   * on first paint because those pages never call the loaders themselves.
+   */
+  private readonly _likedSongsLoaded = signal(false);
+  readonly likedSongsLoaded = this._likedSongsLoaded.asReadonly();
+
+  private readonly _libraryAlbumsLoaded = signal(false);
+  readonly libraryAlbumsLoaded = this._libraryAlbumsLoaded.asReadonly();
+
   private readonly _loading = signal(false);
   readonly loading = this._loading.asReadonly();
 
@@ -112,6 +125,7 @@ export class InteractionState {
     this.songInteractionsApi.getLikedSongs().subscribe({
       next: (page) => {
         this._likedSongIds.set(page.content ?? []);
+        this._likedSongsLoaded.set(true);
         this._loading.set(false);
       },
       error: (err: { message?: string }) => {
@@ -231,6 +245,7 @@ export class InteractionState {
     this.libraryApi.getLibrary(LibraryItemType.ALBUM).subscribe({
       next: (page) => {
         this._libraryAlbumIds.set(page.content ?? []);
+        this._libraryAlbumsLoaded.set(true);
         this._loading.set(false);
       },
       error: (err: { message?: string }) => {

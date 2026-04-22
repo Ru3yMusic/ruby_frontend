@@ -63,8 +63,6 @@ export class RegisterNameStepComponent {
       privacyAccepted: this.privacyAcceptedControl.value,
     };
 
-    console.log('Register name step:', payload);
-
     this.complete.emit(payload);
     this.isSubmitting.set(false);
   }

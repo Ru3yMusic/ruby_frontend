@@ -31,10 +31,9 @@ export class RegisterEmailStepComponent {
     this.back.emit();
   }
 
-  // Acción simulada para Google
-  onGoogleClick(): void {
-    console.log('Registro con Google mock');
-  }
+  // Google OAuth aún no está implementado en backend. El botón permanece
+  // visible como placeholder pero queda disabled hasta integrar el flujo.
+  readonly isGoogleDisabled = true;
 
   // Acción principal del paso
   submit(): void {
@@ -55,8 +54,6 @@ export class RegisterEmailStepComponent {
     // 1. Validar si el correo ya existe en ruby_auth_users
     // 2. Si no existe, avanzar al siguiente paso
     // 3. Si existe, mostrar mensaje de error
-
-    console.log('Register email step:', payload);
 
     this.next.emit(payload);
     this.isSubmitting.set(false);

@@ -92,8 +92,6 @@ export class RegisterGenderStepComponent {
       gender: selected,
     };
 
-    console.log('Register gender step:', payload);
-
     this.next.emit(payload);
     this.isSubmitting.set(false);
   }

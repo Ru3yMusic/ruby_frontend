@@ -13,9 +13,16 @@
     </p>
   </div>
 
-  <!-- BOTÓN GOOGLE (OPCIONAL / FUTURO) -->
-  <button class="google-btn" (click)="onGoogleClick()">
+  <!-- BOTÓN GOOGLE (placeholder — se habilitará al integrar OAuth) -->
+  <button
+    class="google-btn"
+    type="button"
+    [disabled]="isGoogleDisabled"
+    [attr.aria-disabled]="isGoogleDisabled"
+    title="Próximamente disponible"
+  >
     Continuar con Google
+    <span class="google-btn-soon">Próximamente</span>
   </button>
 
   <!-- DIVISOR -->
