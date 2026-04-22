@@ -77,14 +77,11 @@ export class WelcomePage {
   // LOGIN REAL (SDK)
   // =========================
   onLoginSuccess(payload: { email: string; password: string }): void {
-    console.log('[WelcomePage] onLoginSuccess called with:', payload);
     this.closeBlockedAccountModal();
     this.isLoading.set(true);
 
-    console.log('[WelcomePage] Calling loginUseCase.execute...');
     this.loginUseCase.execute(payload.email, payload.password).subscribe({
       next: (token) => {
-        console.log('[WelcomePage] Login SUCCESS — token received:', token);
         this.tokenStorage.setTokens(token.accessToken, token.refreshToken);
         const user = this.authState.decodeUserFromToken(token.accessToken);
         this.isLoading.set(false);
@@ -122,9 +119,7 @@ export class WelcomePage {
         this.router.navigateByUrl('/user/home');
       },
       error: (err: unknown) => {
-        console.error('[WelcomePage] Login ERROR full:', err);
-        console.error('[WelcomePage] Login ERROR message:', (err as Error)?.message);
-        console.error('[WelcomePage] Login ERROR stack:', (err as Error)?.stack);
+        console.error('[WelcomePage] Login failed:', err);
         const httpErr = err as { status?: number; error?: { message?: string; blockReason?: string } };
         const msg = (httpErr?.error?.message ?? '').toLowerCase();
         if (httpErr?.status === 403 || msg.includes('blocked') || msg.includes('bloqueado')) {

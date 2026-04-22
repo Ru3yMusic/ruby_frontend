@@ -76,6 +76,11 @@ export class VerifyEmailPage {
   }
 
   onResend(): void {
-    this.verifyUC.resend(this.email(), 'REGISTER').subscribe();
+    this.serverError.set('');
+    this.verifyUC.resend(this.email(), 'REGISTER').subscribe({
+      error: () => {
+        this.serverError.set('No pudimos reenviar el código. Intenta nuevamente.');
+      },
+    });
   }
 }

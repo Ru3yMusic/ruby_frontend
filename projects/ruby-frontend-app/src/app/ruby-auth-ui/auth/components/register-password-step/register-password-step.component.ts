@@ -67,8 +67,6 @@ export class RegisterPasswordStepComponent {
       confirmPassword: (this.confirmPasswordControl.value ?? '').trim(),
     };
 
-    console.log('Register password step:', payload);
-
     this.next.emit(payload);
     this.isSubmitting.set(false);
   }

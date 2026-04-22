@@ -20,7 +20,8 @@ export class AuthEntryPanelComponent {
     this.registerClick.emit();
   }
 
-  onGoogleClick(): void {
-    console.log('Google login mock');
-  }
+  // Google OAuth aún no está implementado en backend (auth-service devuelve
+  // UnsupportedOperationException). El botón sigue visible en UI para mantener
+  // el placeholder visual, pero queda disabled hasta que se conecte el endpoint.
+  readonly isGoogleDisabled = true;
 }

@@ -100,6 +100,20 @@ export class UserLayoutComponent implements OnInit {
       this.interactionState.loadLibraryArtists();
     }
 
+    // Liked songs + library albums: same pattern. Pages like album-detail,
+    // artist-detail, playlist-detail, song-detail, the right-panel and the
+    // top-header search all read `isSongLiked` / `isAlbumInLibrary` without
+    // ever loading the sets themselves. Preloading here guarantees heart
+    // icons and "Guardado" badges render in the correct state on any F5 into
+    // /user/**, not only when the user happens to land on home/library/
+    // station-detail first. Guards avoid re-firing on every route change.
+    if (!this.interactionState.likedSongsLoaded()) {
+      this.interactionState.loadLikedSongs();
+    }
+    if (!this.interactionState.libraryAlbumsLoaded()) {
+      this.interactionState.loadLibraryAlbums();
+    }
+
     this.realtimePort
       .onUserPresenceChanged()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -145,7 +159,10 @@ export class UserLayoutComponent implements OnInit {
 
     this.usersApi
       .getUserById(payload.userId)
-      .pipe(catchError(() => of(null)))
+      .pipe(
+        catchError(() => of(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe((user) => {
         const name = user?.displayName || payload.userId;
         this.friendNameCache.set(payload.userId, name);

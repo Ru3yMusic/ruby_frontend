@@ -106,8 +106,6 @@ export class RegisterBirthdateStepComponent implements AfterViewInit {
       birthDate: this.buildBirthDateString(),
     };
 
-    console.log('Register birthdate step:', payload);
-
     this.next.emit(payload);
     this.isSubmitting.set(false);
   }
