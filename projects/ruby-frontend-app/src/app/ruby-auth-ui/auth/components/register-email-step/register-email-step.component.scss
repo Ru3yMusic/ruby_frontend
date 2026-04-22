@@ -1,6 +1,10 @@
 .register-email-container {
   width: 100%;
   max-width: 420px;
+  /* Centra el panel dentro del .auth-panel (560px) del welcome layout —
+     mismo patrón que login-container, para que register quede alineado con
+     el login ya corregido. */
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 24px;

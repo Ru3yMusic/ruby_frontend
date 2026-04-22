@@ -1,5 +1,10 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { AuthRepositoryPort } from 'lib-ruby-core';
+import { finalize } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
+import { TokenStorageService } from '../../../core/services/token-storage.service';
+import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import {
   LucideAngularModule,
   LayoutDashboard,
@@ -13,7 +18,7 @@ import {
   ChevronDown,
   ChevronRight,
   Users,
-  Radio, 
+  Radio,
 } from 'lucide-angular';
 
 @Component({
@@ -28,6 +33,9 @@ export class AdminSidebarComponent {
   readonly closed = output<void>();
 
   private readonly router = inject(Router);
+  private readonly tokenStorage = inject(TokenStorageService);
+  private readonly authState = inject(AuthState);
+  private readonly authRepo = inject(AuthRepositoryPort);
 
   // =========================
   // ESTADO UI
@@ -68,7 +76,25 @@ export class AdminSidebarComponent {
 
   logout(): void {
     this.close();
-    this.router.navigate(['/auth']);
+
+    const refreshToken = this.tokenStorage.getRefreshToken();
+
+    const finalizeLogout = () => {
+      this.tokenStorage.clearTokens();
+      this.authState.clearSession();
+      this.router.navigateByUrl('/auth/welcome');
+    };
+
+    const request$ = refreshToken
+      ? this.authRepo.logout(refreshToken)
+      : EMPTY;
+
+    request$.pipe(finalize(finalizeLogout)).subscribe({
+      error: () => {
+        // el backend puede fallar (token expirado / red);
+        // finalize igual limpia sesión y redirige.
+      },
+    });
   }
 
   // =========================

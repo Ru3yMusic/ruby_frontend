@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { SongResponse } from 'lib-ruby-sdks/catalog-service';
+import { ArtistsApi, SongResponse } from 'lib-ruby-sdks/catalog-service';
 import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { PlayerState } from '../../state/player.state';
@@ -54,6 +54,7 @@ export class ArtistDetailComponent {
   private readonly playerState = inject(PlayerState);
   private readonly libraryState = inject(LibraryState);
   private readonly interactionState = inject(InteractionState);
+  private readonly artistsApi = inject(ArtistsApi);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly defaultTopColor = '#242424';
@@ -104,7 +105,8 @@ export class ArtistDetailComponent {
 
   readonly artistGradient = computed(() => {
     const color = this.headerAccentColor();
-    return `linear-gradient(180deg, ${color} 0%, ${color} 28%, #141414 62%, #090909 100%)`;
+    const soft = `color-mix(in srgb, ${color} 65%, #0d0d0d)`;
+    return `linear-gradient(180deg, ${soft} 0%, ${soft} 28%, #141414 62%, #090909 100%)`;
   });
 
   readonly allArtistSongs = computed<any[]>(() => {
@@ -123,23 +125,26 @@ export class ArtistDetailComponent {
     const songs = this.allArtistSongs();
 
     return songs.map((song, index) => {
-      const album = song.albumId
-        ? (this.libraryState.albums() as any[]).find(item => item.id === song.albumId)
+      const embeddedAlbumId = song.album?.id ?? null;
+      const album = embeddedAlbumId
+        ? (song.album
+          ?? (this.libraryState.albums() as any[]).find(item => item.id === embeddedAlbumId))
         : null;
+      const artistId = song.artist?.id ?? '';
 
       return {
-        id: `${song.artistId}-${song.id}`,
+        id: `${artistId}-${song.id}`,
         index: index + 1,
         songId: song.id,
         title: song.title,
-        artistId: song.artistId,
-        artistName: this.displayArtistName(),
-        albumId: song.albumId,
-        albumTitle: album?.title ?? 'Sencillo',
+        artistId,
+        artistName: song.artist?.name ?? this.displayArtistName(),
+        albumId: embeddedAlbumId,
+        albumTitle: (album as any)?.title ?? 'Sencillo',
         coverUrl: song.coverUrl || this.defaultAlbumCover,
         playCount: song.playCount ?? 0,
         playCountLabel: this.formatNumber(song.playCount ?? 0),
-        durationLabel: this.formatDuration(song.durationSeconds),
+        durationLabel: this.formatDuration(song.duration ?? 0),
         isLiked: this.interactionState.isSongLiked(song.id ?? ''),
       };
     });
@@ -158,7 +163,7 @@ export class ArtistDetailComponent {
     if (!artist) return [];
 
     return (this.libraryState.albums() as any[])
-      .filter(album => album.artistId === artist.id)
+      .filter(album => album.artist?.id === artist.id)
       .sort((a, b) => new Date(b.releaseDate || b.createdAt).getTime() - new Date(a.releaseDate || a.createdAt).getTime())
       .slice(0, 6)
       .map(album => ({
@@ -214,9 +219,51 @@ export class ArtistDetailComponent {
         this.bootstrapArtistDetail();
         this.loadArtistSongs(nextArtistId);
         this.interactionState.loadFollowedArtists();
+        this.ensureArtistInCatalog(nextArtistId);
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
+
+    // Reactivo: cuando currentArtist() se actualice (tras cargar catálogo)
+    // dispara el cálculo del color sin depender del timing del paramMap.
+    effect(() => {
+      const artist = this.currentArtist();
+      const url = artist?.photoUrl ?? null;
+      if (url) {
+        this.updateAccentFromImage(url);
+      } else {
+        this.headerAccentColor.set(this.defaultTopColor);
+      }
+    });
+  }
+
+  /**
+   * Targeted refresh-safety net: if the global artists/albums catalog doesn't
+   * contain this artist (fresh page load, paginated catalog, etc.), hit the
+   * catalog-service by id and upsert. After the layout's global preload this
+   * is usually a no-op, but it guarantees correctness regardless of the page
+   * the user refreshed on.
+   */
+  private ensureArtistInCatalog(artistId: string): void {
+    if (!artistId) return;
+    const alreadyHaveArtist = this.libraryState.artists().some((a: any) => a.id === artistId);
+    if (!alreadyHaveArtist) {
+      this.artistsApi.getArtistById(artistId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (artist) => this.libraryState.upsertArtist(artist),
+          error: () => { /* silent — existing UI fallbacks handle the empty case */ },
+        });
+    }
+    const alreadyHaveAlbums = this.libraryState.albums().some((a: any) => a.artist?.id === artistId);
+    if (!alreadyHaveAlbums) {
+      this.artistsApi.getArtistAlbums(artistId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (page) => this.libraryState.upsertAlbums(page.content ?? []),
+          error: () => { /* silent */ },
+        });
+    }
   }
 
   /* ===================== */
@@ -312,59 +359,70 @@ export class ArtistDetailComponent {
   /* PLAYBACK */
   /* ===================== */
   playArtist(): void {
-    const firstSong = this.popularSongs()[0];
-    if (!firstSong) return;
-
     if (this.isArtistPlaying()) {
       this.playerState.pause();
       return;
     }
-
-    this.playSong(firstSong);
+    const queue = this.buildArtistPopularQueue();
+    if (queue.length === 0) return;
+    this.playerState.playQueue(queue as any, 0);
   }
 
   playSong(songRow: PopularSongRow): void {
-    const storedSong = (this._detailSongs() as any[]).find(song => song.id === songRow.songId)
-      ?? (this.libraryState.songs() as any[]).find(song => song.id === songRow.songId);
-    if (!storedSong) return;
-
     if (this.isSongPlaying(songRow.songId)) {
       this.playerState.pause();
       return;
     }
-
-    this.playerState.playSong(storedSong as any);
+    const queue = this.buildArtistPopularQueue();
+    const idx = queue.findIndex((s: any) => s.id === songRow.songId);
+    if (idx < 0) return;
+    this.playerState.playQueue(queue as any, idx);
   }
 
   playAlbum(albumId: string, event?: MouseEvent): void {
     event?.stopPropagation();
 
-    const firstSong = (this.libraryState.songs() as any[]).find(song => song.albumId === albumId);
-    if (!firstSong) return;
-
     if (this.isAlbumPlaying(albumId)) {
       this.playerState.pause();
       return;
     }
-
-    this.playerState.playSong(firstSong as any);
+    // Hit the album-songs endpoint (same source album-detail and Library use)
+    // so the queue is always the album's full tracklist. The previous version
+    // filtered `libraryState.songs()` — the global "recent songs" signal —
+    // which only contained a subset of tracks for older artists (e.g. 2Pac):
+    // queue came back with 1 item and footer prev/next stayed disabled.
+    this.libraryState.getAlbumSongs(albumId).subscribe(albumSongs => {
+      if (albumSongs.length === 0) return;
+      this.playerState.playQueue(albumSongs as any, 0);
+    });
   }
 
   playRelatedArtist(artistId: string, event?: MouseEvent): void {
     event?.stopPropagation();
 
-    const firstSong = (this.libraryState.songs() as any[])
-      .filter(song => song.artistId === artistId)
-      .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0))[0];
-
-    if (!firstSong) return;
-
     if (this.isRelatedArtistPlaying(artistId)) {
       this.playerState.pause();
       return;
     }
+    const queue = (this.libraryState.songs() as any[])
+      .filter(song => song.artist?.id === artistId)
+      .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0));
+    if (queue.length === 0) return;
+    this.playerState.playQueue(queue as any, 0);
+  }
 
-    this.playerState.playSong(firstSong as any);
+  /**
+   * Resolves each popular-song row into its underlying SongResponse so the
+   * whole "Popular" list becomes the playback queue — next/previous in the
+   * footer will move through the artist's tracks.
+   */
+  private buildArtistPopularQueue(): any[] {
+    const detail = this._detailSongs() as any[];
+    const library = this.libraryState.songs() as any[];
+    return this.popularSongs()
+      .map(row => detail.find(s => s.id === row.songId)
+        ?? library.find(s => s.id === row.songId))
+      .filter((s): s is any => !!s);
   }
 
   isArtistPlaying(): boolean {
@@ -377,9 +435,19 @@ export class ArtistDetailComponent {
     return !!currentSong && (currentSong as any).id === songId && this.playerState.isPlaying();
   }
 
+  /** True cuando la canción dada es la current del PlayerState (independiente de pause). */
+  isCurrentPlayerSong(songId: string): boolean {
+    return this.playerState.currentSong()?.id === songId;
+  }
+
   isAlbumPlaying(albumId: string): boolean {
     const currentSong = this.playerState.currentSong();
-    return !!currentSong && (currentSong as any).albumId === albumId && this.playerState.isPlaying();
+    if (!currentSong || !this.playerState.isPlaying()) return false;
+    // PlayerSong now carries albumId (populated by PlayerState.normalizeInputSong
+    // from the nested album.id). Comparing directly is reliable regardless of
+    // what LibraryState happens to have cached — the old lookup missed older
+    // artists whose tracks weren't in the "recent songs" signal.
+    return currentSong.albumId === albumId;
   }
 
   isRelatedArtistPlaying(artistId: string): boolean {
@@ -675,7 +743,7 @@ export class ArtistDetailComponent {
       const context = canvas.getContext('2d');
 
       if (!context) {
-        this.headerAccentColor.set(this.defaultTopColor);
+        this.headerAccentColor.set(this.hashToAccent(imageUrl));
         return;
       }
 
@@ -687,7 +755,14 @@ export class ArtistDetailComponent {
 
       context.drawImage(image, 0, 0, sampleWidth, sampleHeight);
 
-      const { data } = context.getImageData(0, 0, sampleWidth, sampleHeight);
+      let data: Uint8ClampedArray;
+      try {
+        data = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
+      } catch {
+        // Canvas tainted (CORS). Fallback a color derivado del URL.
+        this.headerAccentColor.set(this.hashToAccent(imageUrl));
+        return;
+      }
 
       let red = 0;
       let green = 0;
@@ -705,7 +780,7 @@ export class ArtistDetailComponent {
       }
 
       if (!total) {
-        this.headerAccentColor.set(this.defaultTopColor);
+        this.headerAccentColor.set(this.hashToAccent(imageUrl));
         return;
       }
 
@@ -717,7 +792,8 @@ export class ArtistDetailComponent {
     };
 
     image.onerror = () => {
-      this.headerAccentColor.set(this.defaultTopColor);
+      // CORS bloqueado / 404 / red. Fallback a color derivado del URL.
+      this.headerAccentColor.set(this.hashToAccent(imageUrl));
     };
 
     image.src = imageUrl;
@@ -726,5 +802,19 @@ export class ArtistDetailComponent {
   private softenRgb(r: number, g: number, b: number): string {
     const soften = (value: number) => Math.min(255, Math.round(value * 0.7));
     return `rgb(${soften(r)}, ${soften(g)}, ${soften(b)})`;
+  }
+
+  /**
+   * Color accent estable derivado por hash de la URL. Se usa cuando
+   * updateAccentFromImage no puede extraer color real (CORS, load error).
+   */
+  private hashToAccent(url: string): string {
+    if (!url) return this.defaultTopColor;
+    let hash = 0;
+    for (let i = 0; i < url.length; i++) {
+      hash = (hash * 31 + url.charCodeAt(i)) | 0;
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 55%, 32%)`;
   }
 }

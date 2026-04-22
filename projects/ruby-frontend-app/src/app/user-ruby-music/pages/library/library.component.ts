@@ -1,12 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { ArtistResponse, AlbumResponse, SongResponse } from 'lib-ruby-sdks/catalog-service';
+import { forkJoin } from 'rxjs';
+import { ArtistResponse, AlbumResponse } from 'lib-ruby-sdks/catalog-service';
 import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
-import { PlaylistCardComponent } from 'lib-ruby-core-ui';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { PlaylistState } from '../../state/playlist.state';
-import { PlayerState, PlayerSong } from '../../state/player.state';
+import { PlayerState } from '../../state/player.state';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
 
@@ -38,7 +38,7 @@ interface LibraryPlaylistCard {
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, PlaylistCardComponent],
+  imports: [CommonModule],
   templateUrl: './library.component.html',
   styleUrls: ['./library.component.scss'],
 })
@@ -107,7 +107,7 @@ export class LibraryComponent {
       .map((p: PlaylistResponse) => ({
         id: p.id ?? '',
         title: p.name ?? '',
-        coverUrl: p.coverUrl ?? null,
+        coverUrl: p.coverUrl ?? this.defaultPlaylistCover,
         subtitle: `Playlist · ${user.name}`,
         songsCount: p.songCount ?? 0,
         isLikedSongs: false,
@@ -124,7 +124,7 @@ export class LibraryComponent {
     if (!user?.id) return [];
 
     const term = this.librarySearch().trim().toLowerCase();
-    const artistIds = this.interactionState.libraryArtistIds();
+    const artistIds = this.interactionState.allFollowedArtistIds();
 
     const artists = this.libraryState
       .artists()
@@ -242,7 +242,7 @@ export class LibraryComponent {
   /* INIT */
   /* ===================== */
   private bootstrapLibrary(): void {
-    this.libraryState.loadTopArtists();
+    this.libraryState.loadArtists();
     this.libraryState.loadNewReleases();
     this.libraryState.loadRecentSongs();
     this.interactionState.loadLibraryAlbums();
@@ -331,7 +331,7 @@ export class LibraryComponent {
   openArtistsModal(): void {
     const user = this.currentUser();
     if (!user?.id) return;
-    this.selectedArtistIds.set([...this.interactionState.libraryArtistIds()]);
+    this.selectedArtistIds.set([...this.interactionState.allFollowedArtistIds()]);
     this.artistModalSearch.set('');
     this.isArtistsModalOpen.set(true);
   }
@@ -359,7 +359,7 @@ export class LibraryComponent {
   }
 
   saveSelectedArtists(): void {
-    const current = this.interactionState.libraryArtistIds();
+    const current = this.interactionState.allFollowedArtistIds();
     const selected = this.selectedArtistIds();
 
     current.filter(id => !selected.includes(id))
@@ -429,18 +429,25 @@ export class LibraryComponent {
     event?.stopPropagation();
     if (!albumId) return;
 
-    const firstSongRes = this.libraryState.songs().find(s => s.album?.id === albumId);
-    if (!firstSongRes) return;
-    const firstSong = this.toPlayerSong(firstSongRes);
-    const current = this.playerState.currentSong();
+    // Fetch the album's full tracklist from catalog-service. The global
+    // `libraryState.songs()` only holds "recent" songs, so filtering it by
+    // albumId often returned a subset (often 1 track) → hasQueue() was false
+    // and footer prev/next stayed disabled. This mirrors how album-detail
+    // loads its songs.
+    // Raw SongResponse[] — PlayerState.normalizeInputSong maps nested
+    // artist/album/genres into flat PlayerSong fields, no pre-mapping needed.
+    this.libraryState.getAlbumSongs(albumId).subscribe(albumSongs => {
+      if (albumSongs.length === 0) return;
+      const current = this.playerState.currentSong();
 
-    if (current?.albumId === albumId && current.id === firstSong.id && this.playerState.isPlaying()) {
-      this.playerState.pause(); return;
-    }
-    if (current?.albumId === albumId && current.id === firstSong.id && !this.playerState.isPlaying()) {
-      this.playerState.resume(); return;
-    }
-    this.playerState.playSong(firstSong);
+      if (current && albumSongs.some(s => s.id === current.id) && this.playerState.isPlaying()) {
+        this.playerState.pause(); return;
+      }
+      if (current && albumSongs.some(s => s.id === current.id) && !this.playerState.isPlaying()) {
+        this.playerState.resume(); return;
+      }
+      this.playerState.playQueue(albumSongs, 0);
+    });
   }
 
   isAlbumPlaying(albumId: string): boolean {
@@ -452,22 +459,20 @@ export class LibraryComponent {
     event?.stopPropagation();
     if (!artistId) return;
 
-    const songs = this.libraryState.songs()
+    const artistSongs = this.libraryState.songs()
       .filter(s => s.artist?.id === artistId)
       .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0));
 
-    const firstSongRes = songs[0];
-    if (!firstSongRes) return;
-    const firstSong = this.toPlayerSong(firstSongRes);
+    if (artistSongs.length === 0) return;
     const current = this.playerState.currentSong();
 
-    if (current?.artistId === artistId && current.id === firstSong.id && this.playerState.isPlaying()) {
+    if (current && artistSongs.some(s => s.id === current.id) && this.playerState.isPlaying()) {
       this.playerState.pause(); return;
     }
-    if (current?.artistId === artistId && current.id === firstSong.id && !this.playerState.isPlaying()) {
+    if (current && artistSongs.some(s => s.id === current.id) && !this.playerState.isPlaying()) {
       this.playerState.resume(); return;
     }
-    this.playerState.playSong(firstSong);
+    this.playerState.playQueue(artistSongs, 0);
   }
 
   isArtistPlaying(artistId: string): boolean {
@@ -475,6 +480,15 @@ export class LibraryComponent {
     return !!current && current.artistId === artistId && this.playerState.isPlaying();
   }
 
+  /**
+   * Starts a playlist from a Library card without navigating.
+   *   - If this playlist is already the current one playing → pause.
+   *   - If it's the current one but paused → resume.
+   *   - Otherwise load its songs, fetch the first track, and play it.
+   * The old version fell through to router.navigate when its songs weren't
+   * preloaded, which matched no other library card's behaviour. Albums and
+   * artists never navigate on play.
+   */
   playPlaylistFromLibrary(playlistId: string, event?: MouseEvent): void {
     event?.stopPropagation();
     if (!playlistId) return;
@@ -482,27 +496,49 @@ export class LibraryComponent {
     const playlist = this.playlistState.getPlaylistById(playlistId);
     if (!playlist || (playlist.songCount ?? 0) === 0) return;
 
-    const current = this.playerState.currentSong();
-    const loadedIds = this.playlistState.getSongIdsForCurrentPlaylist();
-
-    if (current && loadedIds.includes(current.id) && this.playerState.isPlaying()) {
-      this.playerState.pause(); return;
+    // Already the currently loaded playlist → simple toggle.
+    if (this.playlistState.currentPlaylistId() === playlistId) {
+      const current = this.playerState.currentSong();
+      const loadedIds = this.playlistState.getSongIdsForCurrentPlaylist();
+      if (current && loadedIds.includes(current.id)) {
+        if (this.playerState.isPlaying()) {
+          this.playerState.pause();
+        } else {
+          this.playerState.resume();
+        }
+        return;
+      }
     }
-    if (current && loadedIds.includes(current.id) && !this.playerState.isPlaying()) {
-      this.playerState.resume(); return;
-    }
 
-    // Navigate to detail page to load and play songs
-    this.router.navigate(['/user/playlist', playlistId]);
+    // Otherwise load it and play the whole playlist as a queue so footer
+    // next/previous can move through its songs.
+    this.playlistState.loadPlaylistSongs(playlistId, (songs) => {
+      const orderedIds = [...songs]
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        .map(s => s.songId)
+        .filter((id): id is string => !!id);
+      if (orderedIds.length === 0) return;
+      // Resolve full SongResponse for every id — libraryState.loadSongById
+      // returns cached entries synchronously via of() when available so this
+      // typically resolves immediately and keeps the playback snappy.
+      forkJoin(orderedIds.map(id => this.libraryState.loadSongById(id))).subscribe(resolved => {
+        const queue = resolved.filter(Boolean) as any[];
+        if (queue.length === 0) return;
+        this.playerState.playQueue(queue as any, 0);
+      });
+    });
   }
 
+  /**
+   * Only true when the CLICKED playlist is the one currently loaded AND the
+   * player is actually running it. Tracks with the same song id in a sibling
+   * playlist no longer trigger a false "playing" indicator on every card.
+   */
   isPlaylistPlaying(playlistId: string): boolean {
+    if (this.playlistState.currentPlaylistId() !== playlistId) return false;
     const current = this.playerState.currentSong();
-    const loadedIds = this.playlistState.getSongIdsForCurrentPlaylist();
-    if (!current) return false;
-    const playlist = this.playlistState.getPlaylistById(playlistId);
-    if (!playlist) return false;
-    return loadedIds.includes(current.id) && this.playerState.isPlaying();
+    if (!current || !this.playerState.isPlaying()) return false;
+    return this.playlistState.getSongIdsForCurrentPlaylist().includes(current.id);
   }
 
   /* ===================== */
@@ -535,23 +571,4 @@ export class LibraryComponent {
     this.router.navigate(['/user/artist', artistId]);
   }
 
-  /* ===================== */
-  /* HELPERS */
-  /* ===================== */
-  private toPlayerSong(song: SongResponse): PlayerSong {
-    return {
-      id: song.id ?? '',
-      title: song.title ?? '',
-      artistId: song.artist?.id ?? '',
-      albumId: song.album?.id ?? null,
-      genreId: song.genres?.[0]?.id ?? '',
-      coverUrl: song.coverUrl ?? '',
-      audioUrl: song.audioUrl ?? '',
-      durationSeconds: song.duration ?? 0,
-      lyrics: song.lyrics ?? null,
-      playCount: song.playCount ?? 0,
-      likesCount: song.likesCount ?? 0,
-      createdAt: '',
-    };
-  }
 }

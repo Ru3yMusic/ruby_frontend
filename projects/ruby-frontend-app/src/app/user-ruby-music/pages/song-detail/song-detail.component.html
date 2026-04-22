@@ -281,14 +281,14 @@
         @for (song of albumSongs(); track song.id) {
           <article
             class="song-album-row"
-            [class.song-album-row--active]="isDetailSong(song.songId)"
+            [class.song-album-row--active]="isCurrentPlayerSong(song.songId)"
           >
             <button
               class="song-album-row__index-button"
               type="button"
               (click)="playAlbumSong(song)"
             >
-              @if (isDetailSong(song.songId)) {
+              @if (isAlbumSongPlaying(song.songId)) {
                 <img
                   class="song-album-row__equalizer"
                   src="/assets/icons/library-pause.png"

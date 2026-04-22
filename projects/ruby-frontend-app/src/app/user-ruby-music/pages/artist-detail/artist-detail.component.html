@@ -48,17 +48,7 @@
         </button>
 
         <div class="artist-hero__menu-wrapper">
-          <button
-            class="artist-hero__menu-button"
-            type="button"
-            (click)="toggleArtistMenu($event)"
-          >
-            <img
-              class="artist-hero__menu-icon"
-              src="/assets/icons/playlist-song-more.png"
-              alt="Opciones del artista"
-            />
-          </button>
+
 
           @if (isArtistMenuOpen()) {
             <div class="artist-hero__menu" (click)="$event.stopPropagation()">
@@ -90,7 +80,10 @@
         @if (hasArtistSongs()) {
           <div class="artist-popular__list">
             @for (song of visiblePopularSongs(); track song.id) {
-              <article class="artist-song-row">
+              <article
+                class="artist-song-row"
+                [class.artist-song-row--active]="isCurrentPlayerSong(song.songId)"
+              >
 
                 <!-- INDEX / PLAY -->
                 <button
@@ -272,7 +265,7 @@
     <div class="artist-main__right">
       <div class="artist-albums">
         <div class="artist-albums__header">
-          <h2 class="artist-albums__title">Selección del artista</h2>
+          <h2 class="artist-albums__title">Álbumes del artista</h2>
         </div>
 
         @if (hasArtistAlbums()) {

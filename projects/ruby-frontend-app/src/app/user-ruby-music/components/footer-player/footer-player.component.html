@@ -25,8 +25,10 @@
     <div class="footer-player__controls">
       <button
         class="footer-player__icon-button"
+        [class.footer-player__icon-button--active]="isShuffle()"
         type="button"
-        [disabled]="!hasSong()"
+        [disabled]="isStationRoute() || !hasSong()"
+        (click)="toggleShuffle()"
         aria-label="Aleatorio"
       >
         <img
@@ -39,7 +41,8 @@
       <button
         class="footer-player__icon-button"
         type="button"
-        [disabled]="!hasSong()"
+        [disabled]="isStationRoute() || !hasSong() || !hasQueue()"
+        (click)="goToPreviousSong()"
         aria-label="Anterior"
       >
         <img
@@ -52,7 +55,7 @@
       <button
         class="footer-player__play-button"
         type="button"
-        [disabled]="!hasSong()"
+        [disabled]="isStationRoute() || !hasSong()"
         (click)="togglePlayPause()"
         [attr.aria-label]="isPlaying() ? 'Pausar' : 'Reproducir'"
       >
@@ -68,7 +71,8 @@
       <button
         class="footer-player__icon-button"
         type="button"
-        [disabled]="!hasSong()"
+        [disabled]="isStationRoute() || !hasSong() || !hasQueue()"
+        (click)="goToNextSong()"
         aria-label="Siguiente"
       >
         <img
@@ -80,8 +84,10 @@
 
       <button
         class="footer-player__icon-button"
+        [class.footer-player__icon-button--active]="isRepeatOne()"
         type="button"
-        [disabled]="!hasSong()"
+        [disabled]="isStationRoute() || !hasSong()"
+        (click)="toggleRepeatOne()"
         aria-label="Repetir"
       >
         <img
@@ -101,7 +107,7 @@
         min="0"
         [max]="duration() || 0"
         [value]="currentTime()"
-        [disabled]="!hasSong()"
+        [disabled]="isStationRoute() || !hasSong()"
         (input)="onSeekInput($event)"
       />
 

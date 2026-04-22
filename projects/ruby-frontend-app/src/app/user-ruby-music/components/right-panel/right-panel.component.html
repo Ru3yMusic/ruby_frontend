@@ -61,39 +61,41 @@
   <section class="right-panel__section right-panel__section--related">
     <div class="right-panel__section-header">
       <h2 class="right-panel__section-title">Músicas relacionadas</h2>
-
-      <div class="right-panel__carousel-controls">
-        <button
-          class="right-panel__carousel-button"
-          type="button"
-          [disabled]="!canMoveRelatedLeft()"
-          (click)="moveRelatedLeft()"
-        >
-          <img
-            class="right-panel__carousel-button-icon"
-            src="/assets/icons/home-carousel-left.png"
-            alt="Mover a la izquierda"
-          />
-        </button>
-
-        <button
-          class="right-panel__carousel-button"
-          type="button"
-          [disabled]="!canMoveRelatedRight()"
-          (click)="moveRelatedRight()"
-        >
-          <img
-            class="right-panel__carousel-button-icon"
-            src="/assets/icons/home-carousel-right.png"
-            alt="Mover a la derecha"
-          />
-        </button>
-      </div>
     </div>
+
+    <div class="right-panel__related-carousel">
+      <button
+        class="right-panel__related-arrow right-panel__related-arrow--left"
+        type="button"
+        [disabled]="!canMoveRelatedLeft()"
+        (click)="moveRelatedLeft($event)"
+      >
+        <img
+          class="right-panel__related-arrow-icon"
+          src="/assets/icons/home-carousel-left.png"
+          alt="Mover a la izquierda"
+        />
+      </button>
+
+      <button
+        class="right-panel__related-arrow right-panel__related-arrow--right"
+        type="button"
+        [disabled]="!canMoveRelatedRight()"
+        (click)="moveRelatedRight($event)"
+      >
+        <img
+          class="right-panel__related-arrow-icon"
+          src="/assets/icons/home-carousel-right.png"
+          alt="Mover a la derecha"
+        />
+      </button>
 
     <div class="right-panel__related-list">
       @for (song of visibleRelatedSongs(); track song.id) {
-        <article class="right-panel__related-card">
+        <article
+          class="right-panel__related-card"
+          [class.right-panel__related-card--active]="isCurrentPlayerSong(song.songId)"
+        >
 
           <div class="right-panel__related-card-image-wrapper">
             <img
@@ -136,6 +138,7 @@
           </div>
         </article>
       }
+    </div>
     </div>
   </section>
 

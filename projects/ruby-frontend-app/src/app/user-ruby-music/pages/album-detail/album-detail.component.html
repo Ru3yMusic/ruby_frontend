@@ -64,8 +64,8 @@
           <img
             class="album-hero__save-icon"
             [src]="isAlbumSaved()
-              ? '/assets/icons/album-saved-filled.png'
-              : '/assets/icons/album-save-outline.png'"
+              ? '/assets/icons/top-header-saved-filled.png'
+              : '/assets/icons/top-header-save-outline.png'"
             [alt]="isAlbumSaved() ? 'Quitar de biblioteca' : 'Guardar álbum'"
           />
         </button>
@@ -95,7 +95,10 @@
   <!-- LISTA -->
   <section class="album-songs-list">
     @for (song of albumSongs(); track song.id) {
-      <article class="album-song-row">
+      <article
+        class="album-song-row"
+        [class.album-song-row--active]="isCurrentPlayerSong(song.songId)"
+      >
 
 
         <!-- INDEX / PLAY -->

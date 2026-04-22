@@ -35,41 +35,40 @@
   <!-- ===================== -->
   <!-- ÁLBUMES PARA TI -->
   <!-- ===================== -->
-  <section class="home-section">
+  <section class="home-section home-section--with-arrows">
     <div class="home-section__header">
       <div>
         <h2 class="home-title">Álbumes para Ti</h2>
         <p class="home-subtitle">Descubre álbumes que encajan con tu estilo.</p>
       </div>
-
-      <div class="home-carousel-controls">
-        <button
-          class="home-carousel-button"
-          type="button"
-          [disabled]="!canMoveAlbumsLeft()"
-          (click)="moveAlbumsLeft()"
-        >
-          <img
-            class="home-carousel-button__icon"
-            src="/assets/icons/home-carousel-left.png"
-            alt="Mover a la izquierda"
-          />
-        </button>
-
-        <button
-          class="home-carousel-button"
-          type="button"
-          [disabled]="!canMoveAlbumsRight()"
-          (click)="moveAlbumsRight()"
-        >
-          <img
-            class="home-carousel-button__icon"
-            src="/assets/icons/home-carousel-right.png"
-            alt="Mover a la derecha"
-          />
-        </button>
-      </div>
     </div>
+
+    <div class="home-section-carousel">
+      <button
+        class="home-section-arrow home-section-arrow--left"
+        type="button"
+        [disabled]="!canMoveAlbumsLeft()"
+        (click)="moveAlbumsLeft($event)"
+      >
+        <img
+          class="home-section-arrow-icon"
+          src="/assets/icons/home-carousel-left.png"
+          alt="Mover a la izquierda"
+        />
+      </button>
+
+      <button
+        class="home-section-arrow home-section-arrow--right"
+        type="button"
+        [disabled]="!canMoveAlbumsRight()"
+        (click)="moveAlbumsRight($event)"
+      >
+        <img
+          class="home-section-arrow-icon"
+          src="/assets/icons/home-carousel-right.png"
+          alt="Mover a la derecha"
+        />
+      </button>
 
     <div class="album-grid">
       @for (album of visibleAlbumsForYou(); track album.id) {
@@ -179,6 +178,7 @@
         </article>
       }
     </div>
+    </div>
   </section>
 
   <!-- ===================== -->
@@ -196,7 +196,10 @@
 
     <div class="listen-now-list">
       @for (song of listenNowSongs(); track song.id) {
-        <article class="listen-now-row">
+        <article
+          class="listen-now-row"
+          [class.listen-now-row--active]="isCurrentPlayerSong(song.songId)"
+        >
 
           <button
             class="listen-now-row__play-button"
@@ -365,7 +368,7 @@
   <!-- ===================== -->
   <!-- ARTISTAS RECOMENDADOS -->
   <!-- ===================== -->
-  <section class="home-section home-section--last">
+  <section class="home-section home-section--last home-section--with-arrows">
     <div class="home-section__header">
       <div>
         <h2 class="home-section-title">Artistas recomendados</h2>
@@ -373,35 +376,34 @@
           Sigue nuevos talentos según tus gustos actuales.
         </p>
       </div>
-
-      <div class="home-carousel-controls">
-        <button
-          class="home-carousel-button"
-          type="button"
-          [disabled]="!canMoveArtistsLeft()"
-          (click)="moveArtistsLeft()"
-        >
-          <img
-            class="home-carousel-button__icon"
-            src="/assets/icons/home-carousel-left.png"
-            alt="Mover a la izquierda"
-          />
-        </button>
-
-        <button
-          class="home-carousel-button"
-          type="button"
-          [disabled]="!canMoveArtistsRight()"
-          (click)="moveArtistsRight()"
-        >
-          <img
-            class="home-carousel-button__icon"
-            src="/assets/icons/home-carousel-right.png"
-            alt="Mover a la derecha"
-          />
-        </button>
-      </div>
     </div>
+
+    <div class="home-section-carousel">
+      <button
+        class="home-section-arrow home-section-arrow--left"
+        type="button"
+        [disabled]="!canMoveArtistsLeft()"
+        (click)="moveArtistsLeft($event)"
+      >
+        <img
+          class="home-section-arrow-icon"
+          src="/assets/icons/home-carousel-left.png"
+          alt="Mover a la izquierda"
+        />
+      </button>
+
+      <button
+        class="home-section-arrow home-section-arrow--right"
+        type="button"
+        [disabled]="!canMoveArtistsRight()"
+        (click)="moveArtistsRight($event)"
+      >
+        <img
+          class="home-section-arrow-icon"
+          src="/assets/icons/home-carousel-right.png"
+          alt="Mover a la derecha"
+        />
+      </button>
 
     <div class="recommended-artists-row">
       @for (artist of visibleRecommendedArtists(); track artist.id) {
@@ -446,6 +448,7 @@
           </button>
         </article>
       }
+    </div>
     </div>
   </section>
 

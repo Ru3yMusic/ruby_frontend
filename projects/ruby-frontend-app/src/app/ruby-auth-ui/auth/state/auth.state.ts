@@ -12,11 +12,17 @@ export interface CurrentUser {
   selectedStationIds: string[];
 }
 
+interface OnboardingRecord {
+  completed: boolean;
+  stationIds: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthState {
   // ── Storage keys ────────────────────────────────────────────────────────────
   private readonly SELECTED_STATIONS_KEY = 'ruby_selected_stations';
   private readonly CURRENT_USER_KEY = 'ruby_current_user';
+  private readonly ONBOARDING_MAP_KEY = 'ruby_onboarding_map';
 
   // ── Auth session ────────────────────────────────────────────────────────────
   private readonly _currentUser = signal<CurrentUser | null>(this.loadCurrentUser());
@@ -79,6 +85,73 @@ export class AuthState {
     this.clearStations();
     this.clearPendingEmail();
     this.resetDraft();
+  }
+
+  // ── Onboarding persistence per userId (survives logout) ─────────────────────
+
+  markOnboardingCompleted(userId: string, stationIds: string[]): void {
+    if (!userId) return;
+    const map = this.loadOnboardingMap();
+    map[userId] = { completed: true, stationIds: [...stationIds] };
+    localStorage.setItem(this.ONBOARDING_MAP_KEY, JSON.stringify(map));
+  }
+
+  hasCompletedOnboarding(userId: string): boolean {
+    if (!userId) return false;
+    return this.loadOnboardingMap()[userId]?.completed === true;
+  }
+
+  getOnboardingStationIds(userId: string): string[] {
+    if (!userId) return [];
+    return this.loadOnboardingMap()[userId]?.stationIds ?? [];
+  }
+
+  private loadOnboardingMap(): Record<string, OnboardingRecord> {
+    try {
+      const raw = localStorage.getItem(this.ONBOARDING_MAP_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, OnboardingRecord>) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  // ── JWT decoding (shared helper for welcome + verify-email) ─────────────────
+
+  decodeUserFromToken(token: string): CurrentUser | null {
+    try {
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload)) as {
+        sub?: string;
+        email?: string;
+        displayName?: string;
+        name?: string;
+        role?: string;
+        status?: string;
+        profilePhotoUrl?: string;
+      };
+
+      const resolvedName = decoded.displayName ?? decoded.name ?? '';
+      const resolvedAvatar =
+        decoded.profilePhotoUrl && decoded.profilePhotoUrl.length > 0
+          ? decoded.profilePhotoUrl
+          : null;
+
+      const userId = decoded.sub ?? '';
+      const completed = this.hasCompletedOnboarding(userId);
+
+      return {
+        id: userId,
+        email: decoded.email ?? '',
+        name: resolvedName,
+        role: (decoded.role as 'ADMIN' | 'USER') ?? 'USER',
+        status: (decoded.status as 'ACTIVE' | 'BLOCKED' | 'INACTIVE') ?? 'ACTIVE',
+        avatarUrl: resolvedAvatar,
+        onboardingCompleted: completed,
+        selectedStationIds: this.getOnboardingStationIds(userId),
+      };
+    } catch {
+      return null;
+    }
   }
 
   // ── Loaders ─────────────────────────────────────────────────────────────────

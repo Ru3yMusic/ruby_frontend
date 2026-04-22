@@ -4,6 +4,7 @@ import {
   FriendshipResponse,
   FriendshipStatus,
 } from 'lib-ruby-sdks/social-service';
+import { RealtimePort } from 'lib-ruby-core';
 
 export interface FriendListItem {
   id: string;
@@ -18,6 +19,23 @@ export interface FriendListItem {
 })
 export class FriendsState {
   private readonly friendshipsApi = inject(FriendshipsApi);
+  private readonly realtimePort = inject(RealtimePort);
+
+  constructor() {
+    // Sync _friends across tabs / devices: when any session emits
+    // friend_removed via WS, drop the row from our list so station-detail's
+    // "Conectar" menu reappears automatically and the friends page row
+    // disappears without reload.
+    this.realtimePort.onFriendRemoved().subscribe((payload) => {
+      if (!payload?.friendshipId) return;
+      this._friends.update((list) =>
+        list.filter((f) => f.id !== payload.friendshipId),
+      );
+      this._pendingRequests.update((list) =>
+        list.filter((r) => r.id !== payload.friendshipId),
+      );
+    });
+  }
 
   /* ===================== */
   /* SIGNALS */
@@ -82,6 +100,20 @@ export class FriendsState {
     this.loadPendingRequests();
   }
 
+  /**
+   * Adds an already-ACCEPTED friendship to the in-memory list. Used by flows
+   * that bypass this state's own accept method (e.g. NotificationsState calls
+   * the SDK directly and then tells us the result) so signals stay in sync
+   * and station-detail's "Conectar" menu hides reactively without reloading.
+   */
+  appendAcceptedFriendship(friendship: FriendshipResponse): void {
+    if (!friendship?.id) return;
+    this._friends.update(list => {
+      if (list.some(f => f.id === friendship.id)) return list;
+      return [...list, friendship];
+    });
+  }
+
   /* ===================== */
   /* GETTERS */
   /* ===================== */
@@ -129,7 +161,11 @@ export class FriendsState {
   /* FRIEND REQUEST ACTIONS */
   /* ===================== */
 
-  sendFriendRequest(addresseeId: string, onSuccess?: (response: FriendshipResponse) => void): void {
+  sendFriendRequest(
+    addresseeId: string,
+    onSuccess?: (response: FriendshipResponse) => void,
+    onError?: (err: { error?: { message?: string }; message?: string }) => void,
+  ): void {
     this._loading.set(true);
     this._error.set(null);
     this.friendshipsApi.sendFriendRequest({ addresseeId }).subscribe({
@@ -137,9 +173,12 @@ export class FriendsState {
         this._loading.set(false);
         onSuccess?.(response);
       },
-      error: (err: { message?: string }) => {
-        this._error.set(err?.message ?? 'Error sending friend request');
+      error: (err: { error?: { message?: string }; message?: string }) => {
+        // Prefer the backend's body message (e.g. "Friend request already pending")
+        // so the caller can route to the right user-facing toast.
+        this._error.set(err?.error?.message ?? err?.message ?? 'Error sending friend request');
         this._loading.set(false);
+        onError?.(err);
       },
     });
   }
@@ -178,12 +217,24 @@ export class FriendsState {
     });
   }
 
-  removeFriend(friendshipId: string, onSuccess?: () => void): void {
+  /**
+   * Removes a friendship. `otherUserId` is the counterpart user's id — when
+   * provided, a `friend_removed` WS event is relayed so the other session
+   * drops the row in real time (and any secondary tab of the caller too).
+   */
+  removeFriend(
+    friendshipId: string,
+    otherUserId?: string,
+    onSuccess?: () => void,
+  ): void {
     this._loading.set(true);
     this._error.set(null);
     this.friendshipsApi.removeFriend(friendshipId).subscribe({
       next: () => {
         this._friends.update(list => list.filter(f => f.id !== friendshipId));
+        if (otherUserId) {
+          this.realtimePort.emitFriendRemoved(friendshipId, otherUserId);
+        }
         this._loading.set(false);
         onSuccess?.();
       },

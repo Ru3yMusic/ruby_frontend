@@ -1,3 +1,8 @@
+/* Highlight fila cuya canción es la current del PlayerState */
+.playlist-song-row--active .playlist-song-title {
+  color: #ff3b30;
+}
+
 :host {
   display: block;
   min-height: 100%;
@@ -24,7 +29,7 @@
   box-sizing: border-box;
   min-height: 60px;
   position: relative;
-  z-index: 1;
+  z-index: 100;
 }
 
 .playlist-hero::after {
@@ -61,10 +66,21 @@
   padding-top: 8px;
 }
 
+@keyframes playlist-vinyl-spin {
+  to { transform: rotate(360deg); }
+}
+
 .playlist-cover-wrapper {
   position: relative;
   width: 250px;
   height: 250px;
+  animation: playlist-vinyl-spin 18s linear infinite;
+  animation-play-state: paused;
+  will-change: transform;
+}
+
+.playlist-cover-wrapper--spinning {
+  animation-play-state: running;
 }
 
 .playlist-vinyl-image {
@@ -72,7 +88,7 @@
   height: 100%;
   object-fit: contain;
   display: block;
-  filter: drop-shadow(0 23px 28px rgba(0, 0, 0, 0.868));
+  filter: drop-shadow(0 13px 13px rgba(15, 15, 15, 0.868));
 }
 
 .playlist-cover-center {
@@ -461,8 +477,13 @@
   opacity: 0.95;
 }
 
+/* Active = rojo, mismo patrón que el botón de aleatorio del footer player:
+   invert + hue-rotate sobre el PNG blanco del icono lo tiñe al tono rojo de
+   marca sin necesidad de un asset aparte. Aplica igual a playlist normal y
+   a Tus me gusta porque ambos usan el mismo componente playlist-detail. */
 .playlist-shuffle-button--active .playlist-shuffle-icon {
-  filter: brightness(1.25);
+  filter: brightness(0) saturate(100%) invert(24%) sepia(95%) saturate(6500%) hue-rotate(355deg) brightness(95%) contrast(110%);
+  opacity: 1;
 }
 
 .playlist-visibility-label {

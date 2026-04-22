@@ -42,11 +42,36 @@
 
 /* ICONO */
 
+.sidebar-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .sidebar-icon {
   width: 22px;
   height: 22px;
   object-fit: contain;
   opacity: 0.8;
+}
+
+/* BADGE rojo con número blanco sobre el icono de notificaciones */
+.sidebar-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #d70013;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #1a1a1a;
 }
 
 /* TEXTO */

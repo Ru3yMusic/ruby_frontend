@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
@@ -60,13 +60,23 @@ export class SongDetailComponent {
   readonly currentArtist = computed<any>(() => {
     const song = this.currentSong();
     if (!song) return null;
-    return (this.libraryState.artists() as any[]).find(artist => artist.id === song.artistId) ?? null;
+    const embedded = song.artist;
+    const artistId = embedded?.id;
+    if (!artistId) return embedded ?? null;
+    return (this.libraryState.artists() as any[]).find(artist => artist.id === artistId)
+      ?? embedded
+      ?? null;
   });
 
   readonly currentAlbum = computed<any>(() => {
     const song = this.currentSong();
-    if (!song?.albumId) return null;
-    return (this.libraryState.albums() as any[]).find(album => album.id === song.albumId) ?? null;
+    if (!song) return null;
+    const embedded = song.album;
+    const albumId = embedded?.id;
+    if (!albumId) return embedded ?? null;
+    return (this.libraryState.albums() as any[]).find(album => album.id === albumId)
+      ?? embedded
+      ?? null;
   });
 
   readonly displaySongTitle = computed(() => {
@@ -96,7 +106,7 @@ export class SongDetailComponent {
   });
 
   readonly displayDurationLabel = computed(() => {
-    return this.formatDuration(this.currentSong()?.durationSeconds ?? 0);
+    return this.formatDuration(this.currentSong()?.duration ?? 0);
   });
 
   readonly displayPlayCountLabel = computed(() => {
@@ -105,7 +115,8 @@ export class SongDetailComponent {
 
   readonly songGradient = computed(() => {
     const color = this.headerAccentColor();
-    return `linear-gradient(180deg, ${color} 0%, ${color} 34%, #121212 72%, #090909 100%)`;
+    const soft = `color-mix(in srgb, ${color} 65%, #0d0d0d)`;
+    return `linear-gradient(180deg, ${soft} 0%, ${soft} 34%, #121212 72%, #090909 100%)`;
   });
 
   readonly customPlaylists = computed<PlaylistResponse[]>(() => {
@@ -127,15 +138,15 @@ export class SongDetailComponent {
     if (!album) return [];
 
     return (this.libraryState.songs() as any[])
-      .filter(song => song.albumId === album.id)
+      .filter(song => song.album?.id === album.id)
       .map((song, index) => ({
         id: `${album.id}-${song.id}`,
         index: index + 1,
         songId: song.id,
         title: song.title,
-        artistId: song.artistId,
-        artistName: this.displayArtistName(),
-        durationLabel: this.formatDuration(song.durationSeconds),
+        artistId: song.artist?.id ?? '',
+        artistName: song.artist?.name ?? this.displayArtistName(),
+        durationLabel: this.formatDuration(song.duration ?? 0),
         isLiked: this.interactionState.isSongLiked(song.id ?? ''),
       }));
   });
@@ -179,6 +190,19 @@ export class SongDetailComponent {
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
+
+    // Reactivo: cuando currentSong() se actualice (tras cargar catálogo)
+    // dispara el cálculo del color sin depender del timing del paramMap.
+    effect(() => {
+      const song = this.currentSong();
+      const url = song?.coverUrl ?? null;
+      console.log('IMAGE URL:', url);
+      if (url) {
+        this.updateAccentFromImage(url);
+      } else {
+        this.headerAccentColor.set(this.defaultTopColor);
+      }
+    });
   }
 
   /* ===================== */
@@ -238,6 +262,11 @@ export class SongDetailComponent {
 
   isDetailSong(songId: string): boolean {
     return this.songId() === songId;
+  }
+
+  /** True cuando la canción dada es la current del PlayerState (independiente de pause). */
+  isCurrentPlayerSong(songId: string): boolean {
+    return this.playerState.currentSong()?.id === songId;
   }
 
   /* ===================== */
@@ -369,7 +398,7 @@ export class SongDetailComponent {
   }
 
   hasAlbum(): boolean {
-    return !!this.currentSong()?.albumId;
+    return !!this.currentSong()?.album?.id;
   }
 
   /* ===================== */
@@ -416,7 +445,7 @@ export class SongDetailComponent {
       const context = canvas.getContext('2d');
 
       if (!context) {
-        this.headerAccentColor.set(this.defaultTopColor);
+        this.headerAccentColor.set(this.hashToAccent(imageUrl));
         return;
       }
 
@@ -428,7 +457,14 @@ export class SongDetailComponent {
 
       context.drawImage(image, 0, 0, sampleWidth, sampleHeight);
 
-      const { data } = context.getImageData(0, 0, sampleWidth, sampleHeight);
+      let data: Uint8ClampedArray;
+      try {
+        data = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
+      } catch {
+        // Canvas tainted (CORS). Fallback a color derivado del URL.
+        this.headerAccentColor.set(this.hashToAccent(imageUrl));
+        return;
+      }
 
       let red = 0;
       let green = 0;
@@ -446,7 +482,7 @@ export class SongDetailComponent {
       }
 
       if (!total) {
-        this.headerAccentColor.set(this.defaultTopColor);
+        this.headerAccentColor.set(this.hashToAccent(imageUrl));
         return;
       }
 
@@ -458,7 +494,8 @@ export class SongDetailComponent {
     };
 
     image.onerror = () => {
-      this.headerAccentColor.set(this.defaultTopColor);
+      // CORS bloqueado / 404 / red. Fallback a color derivado del URL.
+      this.headerAccentColor.set(this.hashToAccent(imageUrl));
     };
 
     image.src = imageUrl;
@@ -467,5 +504,19 @@ export class SongDetailComponent {
   private softenRgb(r: number, g: number, b: number): string {
     const soften = (value: number) => Math.min(255, Math.round(value * 0.7));
     return `rgb(${soften(r)}, ${soften(g)}, ${soften(b)})`;
+  }
+
+  /**
+   * Color accent estable derivado por hash de la URL. Se usa cuando
+   * updateAccentFromImage no puede extraer color real (CORS, load error).
+   */
+  private hashToAccent(url: string): string {
+    if (!url) return this.defaultTopColor;
+    let hash = 0;
+    for (let i = 0; i < url.length; i++) {
+      hash = (hash * 31 + url.charCodeAt(i)) | 0;
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 55%, 32%)`;
   }
 }

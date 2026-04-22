@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { LoginUseCase, RegisterUseCase, Gender } from 'lib-ruby-core';
+import { UsersApi } from 'lib-ruby-sdks/auth-service';
 
 import { AuthShellBrandingComponent } from '../../components/auth-shell-branding/auth-shell-branding.component';
 import { AuthEntryPanelComponent } from '../../components/auth-entry-panel/auth-entry-panel.component';
@@ -11,8 +13,9 @@ import { RegisterPasswordStepComponent } from '../../components/register-passwor
 import { RegisterBirthdateStepComponent } from '../../components/register-birthdate-step/register-birthdate-step.component';
 import { RegisterGenderStepComponent } from '../../components/register-gender-step/register-gender-step.component';
 import { RegisterNameStepComponent } from '../../components/register-name-step/register-name-step.component';
-import { AuthState, CurrentUser } from '../../state/auth.state';
+import { AuthState } from '../../state/auth.state';
 import { TokenStorageService } from '../../../../core/services/token-storage.service';
+import { translateBlockReason } from '../../../../core/utils/block-reason-label';
 
 @Component({
   selector: 'app-welcome-page',
@@ -36,6 +39,8 @@ export class WelcomePage {
   private readonly loginUseCase = inject(LoginUseCase);
   private readonly registerUseCase = inject(RegisterUseCase);
   private readonly tokenStorage = inject(TokenStorageService);
+  private readonly router = inject(Router);
+  private readonly usersApi = inject(UsersApi);
 
   view: AuthView = 'entry';
 
@@ -46,6 +51,9 @@ export class WelcomePage {
   readonly isBlockedAccountModalOpen = signal(false);
   readonly blockedAccountReason = signal('');
   readonly blockedAccountSupportEmail = 'soporte@rubytune.com';
+
+  // Block-reason translation lives in core/utils/block-reason-label.ts and is
+  // shared with gestión de usuarios so the Spanish labels stay in one place.
 
   // =========================
   // NAVEGACIÓN BÁSICA
@@ -78,7 +86,7 @@ export class WelcomePage {
       next: (token) => {
         console.log('[WelcomePage] Login SUCCESS — token received:', token);
         this.tokenStorage.setTokens(token.accessToken, token.refreshToken);
-        const user = this.decodeUserFromToken(token.accessToken);
+        const user = this.authState.decodeUserFromToken(token.accessToken);
         this.isLoading.set(false);
 
         if (!user) {
@@ -89,17 +97,29 @@ export class WelcomePage {
         this.authState.setCurrentUser(user);
         this.authState.setPendingEmail(user.email);
 
+        // Hidratar avatarUrl desde backend: el JWT ya no trae profilePhotoUrl
+        // (fix del 431), así que lo leemos de /users/{id} tras el login.
+        this.usersApi.getUserById(user.id).subscribe({
+          next: (dto) => {
+            const avatar = dto?.profilePhotoUrl ?? null;
+            if (avatar) {
+              this.authState.setCurrentUser({ ...user, avatarUrl: avatar });
+            }
+          },
+          error: () => { /* deja currentUser como está si falla */ },
+        });
+
         if (user.role === 'ADMIN') {
-          window.location.href = '/admin/dashboard';
+          this.router.navigateByUrl('/admin/dashboard');
           return;
         }
 
         if (!user.onboardingCompleted) {
-          window.location.href = '/onboarding/stations';
+          this.router.navigateByUrl('/onboarding/stations');
           return;
         }
 
-        window.location.href = '/user/home';
+        this.router.navigateByUrl('/user/home');
       },
       error: (err: unknown) => {
         console.error('[WelcomePage] Login ERROR full:', err);
@@ -108,7 +128,7 @@ export class WelcomePage {
         const httpErr = err as { status?: number; error?: { message?: string; blockReason?: string } };
         const msg = (httpErr?.error?.message ?? '').toLowerCase();
         if (httpErr?.status === 403 || msg.includes('blocked') || msg.includes('bloqueado')) {
-          this.blockedAccountReason.set(httpErr?.error?.blockReason ?? 'Sin motivo especificado');
+          this.blockedAccountReason.set(translateBlockReason(httpErr?.error?.blockReason));
           this.isBlockedAccountModalOpen.set(true);
         }
         this.isLoading.set(false);
@@ -166,12 +186,14 @@ export class WelcomePage {
     });
 
     const draft = this.authState.draft();
+    const email = (draft.email ?? '').trim().toLowerCase();
+    const password = draft.password ?? '';
     this.isLoading.set(true);
 
     this.registerUseCase
       .execute({
-        email: (draft.email ?? '').trim().toLowerCase(),
-        password: draft.password ?? '',
+        email,
+        password,
         displayName: draft.name ?? '',
         birthDate: draft.birthDate ?? '',
         gender: this.mapGender(draft.gender ?? ''),
@@ -181,8 +203,7 @@ export class WelcomePage {
       .subscribe({
         next: (user) => {
           this.authState.setPendingEmail(user.email);
-          this.isLoading.set(false);
-          window.location.href = '/onboarding/stations';
+          this.autoLoginAfterRegister(email, password);
         },
         error: (err: { error?: { message?: string } }) => {
           console.error('Error en registro:', err?.error?.message);
@@ -191,47 +212,45 @@ export class WelcomePage {
       });
   }
 
+  private autoLoginAfterRegister(email: string, password: string): void {
+    if (!email || !password) {
+      this.isLoading.set(false);
+      this.router.navigateByUrl('/auth/welcome');
+      return;
+    }
+
+    this.loginUseCase.execute(email, password).subscribe({
+      next: (token) => {
+        this.tokenStorage.setTokens(token.accessToken, token.refreshToken);
+        const user = this.authState.decodeUserFromToken(token.accessToken);
+        if (user) {
+          this.authState.setCurrentUser(user);
+        }
+        this.authState.resetDraft();
+        this.isLoading.set(false);
+        this.router.navigateByUrl('/onboarding/stations');
+      },
+      error: (err: unknown) => {
+        console.error('Error en auto-login post-register:', err);
+        this.isLoading.set(false);
+        this.router.navigateByUrl('/auth/welcome');
+      },
+    });
+  }
+
   // =========================
   // HELPERS PRIVADOS
   // =========================
-  private decodeUserFromToken(token: string): CurrentUser | null {
-    try {
-      const payload = token.split('.')[1];
-      const decoded = JSON.parse(atob(payload)) as {
-        sub?: string;
-        email?: string;
-        name?: string;
-        role?: string;
-        status?: string;
-        onboardingCompleted?: boolean;
-        selectedStationIds?: string[];
-        profilePhotoUrl?: string;
-      };
-
-      return {
-        id: decoded.sub ?? '',
-        email: decoded.email ?? '',
-        name: decoded.name ?? '',
-        role: (decoded.role as 'ADMIN' | 'USER') ?? 'USER',
-        status: (decoded.status as 'ACTIVE' | 'BLOCKED' | 'INACTIVE') ?? 'ACTIVE',
-        avatarUrl: decoded.profilePhotoUrl ?? null,
-        onboardingCompleted: decoded.onboardingCompleted ?? false,
-        selectedStationIds: decoded.selectedStationIds ?? [],
-      };
-    } catch {
-      return null;
-    }
-  }
-
   private mapGender(gender: string): Gender {
-    const map: Record<string, Gender> = {
-      MALE: 'MALE',
-      FEMALE: 'FEMALE',
-      NON_BINARY: 'NON_BINARY',
-      OTHER: 'OTHER',
-      PREFIERO_NO_DECIR: 'PREFER_NOT_TO_SAY',
-      PREFER_NOT_TO_SAY: 'PREFER_NOT_TO_SAY',
+    // Picker emite: FEMENINO, MASCULINO, NO_BINARIO, OTRO, PREFIERO_NO_DECIR.
+    // Backend acepta: FEMENINO, MASCULINO, NO_BINARIO, OTRO, PREFER_NOT_SAY.
+    const map: Record<string, string> = {
+      FEMENINO: 'FEMENINO',
+      MASCULINO: 'MASCULINO',
+      NO_BINARIO: 'NO_BINARIO',
+      OTRO: 'OTRO',
+      PREFIERO_NO_DECIR: 'PREFER_NOT_SAY',
     };
-    return map[gender] ?? 'PREFER_NOT_TO_SAY';
+    return (map[gender] ?? 'PREFER_NOT_SAY') as unknown as Gender;
   }
 }

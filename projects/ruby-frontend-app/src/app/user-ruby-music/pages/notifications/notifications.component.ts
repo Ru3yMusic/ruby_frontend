@@ -1,6 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { catchError, of } from 'rxjs';
+import { API_GATEWAY_URL } from 'lib-ruby-core';
 import {
   FriendRequestItem,
   NotificationsState,
@@ -17,10 +20,12 @@ type NotificationsTab = 'ACTIVIDAD' | 'SOLICITUDES';
   templateUrl: './notifications.component.html',
   styleUrls: ['./notifications.component.scss'],
 })
-export class NotificationsComponent {
+export class NotificationsComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly authState = inject(AuthState);
   private readonly notificationsState = inject(NotificationsState);
+  private readonly http = inject(HttpClient);
+  private readonly gatewayUrl = inject(API_GATEWAY_URL);
 
   readonly currentUser = this.authState.currentUser;
 
@@ -66,7 +71,12 @@ export class NotificationsComponent {
     return this.notificationsState.hasUnreadRequestsForUser(user.id);
   });
 
-  constructor() {
+  ngOnInit(): void {
+    // Load persisted state so a page reload or a fresh navigation doesn't
+    // start empty. Reset the sidebar bell counter — user IS viewing them now.
+    this.notificationsState.loadNotifications();
+    this.notificationsState.loadPendingFriendRequests();
+    this.notificationsState.resetUnseenCount();
     this.markCurrentTabAsSeen();
   }
 
@@ -98,10 +108,27 @@ export class NotificationsComponent {
   /* ACTIVITY */
   /* ===================== */
   goToNotificationStation(notification: StationNotificationItem): void {
-    const stationId = notification.meta.stationId;
-    if (!stationId) return;
+    const directStationId = notification.meta.stationId;
+    if (directStationId) {
+      this.router.navigate(['/user/station', directStationId]);
+      return;
+    }
 
-    this.router.navigate(['/user/station', stationId]);
+    // MENTION notifications only carry a commentId — resolve the station it
+    // belongs to via realtime-api-ms and then navigate.
+    const commentId = notification.meta.commentId;
+    if (!commentId) return;
+
+    this.http
+      .get<{ station_id?: string }>(
+        `${this.gatewayUrl}/api/v1/realtime/comments/${commentId}`,
+      )
+      .pipe(catchError(() => of(null)))
+      .subscribe((comment) => {
+        const stationId = comment?.station_id;
+        if (!stationId) return;
+        this.router.navigate(['/user/station', stationId]);
+      });
   }
 
   openDeleteNotificationModal(notification: StationNotificationItem): void {
@@ -127,8 +154,10 @@ export class NotificationsComponent {
   /* REQUESTS */
   /* ===================== */
   acceptRequest(request: FriendRequestItem): void {
-    this.notificationsState.acceptFriendRequest(request.id!);
-    this.showToast('Solicitud aceptada');
+    const username = request.requesterName ?? 'ese usuario';
+    this.notificationsState.acceptFriendRequest(request.id!, () => {
+      this.showToast(`Ahora tú y @${username} son amigos`);
+    });
   }
 
   rejectRequest(request: FriendRequestItem): void {
@@ -139,9 +168,8 @@ export class NotificationsComponent {
   /* ===================== */
   /* UI HELPERS */
   /* ===================== */
-  getNotificationAvatar(_notification: StationNotificationItem): string {
-    // Avatar lookup from mock user store removed — real user avatars come from notification payload
-    return '/assets/icons/avatar-placeholder.png';
+  getNotificationAvatar(notification: StationNotificationItem): string {
+    return notification.meta.actorAvatarUrl || '/assets/icons/avatar-placeholder.png';
   }
 
   getRequestAvatar(request: FriendRequestItem): string {

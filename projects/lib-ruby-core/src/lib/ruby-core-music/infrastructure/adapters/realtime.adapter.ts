@@ -3,21 +3,25 @@
 
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { BehaviorSubject, EMPTY, Observable } from 'rxjs';
+import { map, switchMap } from 'rxjs/operators';
 import { io, Socket } from 'socket.io-client';
 import { API_GATEWAY_URL } from '../../../config/api-gateway-url.token';
 import { RealtimePort } from '../../domain/ports/realtime.port';
 import {
   BulkPresenceResult,
   WsChatMessagePayload,
+  WsCommentDeletedPayload,
   WsCommentLikesUpdatedPayload,
   WsCommentPayload,
+  WsFriendRemovedPayload,
   WsJoinedStationPayload,
+  WsLikeDeltaPayload,
   WsListenerCountPayload,
   WsNotificationPayload,
   WsSendChatMessagePayload,
   WsSendCommentPayload,
+  WsUserPresenceChangedPayload,
 } from '../../domain/models/realtime.models';
 
 /**
@@ -35,15 +39,22 @@ export class RealtimeAdapter extends RealtimePort {
   private readonly gatewayUrl = inject(API_GATEWAY_URL);
   private readonly http = inject(HttpClient);
   private socket: Socket | null = null;
+  private currentToken: string | null = null;
+  private readonly socket$ = new BehaviorSubject<Socket | null>(null);
 
   // ─── Connection Lifecycle ─────────────────────────────────────────────────
 
   connect(token: string): void {
-    if (this.socket?.connected) return;
+    // Already connected with the same token → nothing to do.
+    if (this.socket?.connected && this.currentToken === token) return;
 
-    // Disconnect stale socket if present (e.g. token refresh scenario)
+    // Different token (or stale socket) → tear down and reopen so the handshake
+    // carries the fresh JWT. Critical after a profile edit that re-issues the
+    // access token with an updated `displayName` claim — the WS identity on the
+    // server side (socket.data.username) is only populated at handshake time.
     this.socket?.disconnect();
 
+    this.currentToken = token;
     this.socket = io(this.gatewayUrl, {
       auth: { token: `Bearer ${token}` },
       transports: ['websocket'],
@@ -51,11 +62,17 @@ export class RealtimeAdapter extends RealtimePort {
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
     });
+    // Publish the new socket so subscribers created before connect() can now
+    // register their listeners (fixes race condition where components subscribe
+    // in ngOnInit before the auth flow opens the WS).
+    this.socket$.next(this.socket);
   }
 
   disconnect(): void {
     this.socket?.disconnect();
     this.socket = null;
+    this.currentToken = null;
+    this.socket$.next(null);
   }
 
   isConnected(): boolean {
@@ -74,6 +91,18 @@ export class RealtimeAdapter extends RealtimePort {
 
   sendComment(payload: WsSendCommentPayload): void {
     this.socket?.emit('send_comment', payload);
+  }
+
+  deleteComment(stationId: string, commentId: string): void {
+    this.socket?.emit('delete_comment', { stationId, commentId });
+  }
+
+  emitLikeDelta(stationId: string, songId: string, delta: 1 | -1): void {
+    this.socket?.emit('like_delta', { stationId, songId, delta });
+  }
+
+  emitFriendRemoved(friendshipId: string, otherUserId: string): void {
+    this.socket?.emit('friend_removed', { friendshipId, otherUserId });
   }
 
   pingPresence(): void {
@@ -96,6 +125,22 @@ export class RealtimeAdapter extends RealtimePort {
 
   onJoinedStation(): Observable<WsJoinedStationPayload> {
     return this.fromSocketEvent<WsJoinedStationPayload>('joined_station');
+  }
+
+  onCommentDeleted(): Observable<WsCommentDeletedPayload> {
+    return this.fromSocketEvent<WsCommentDeletedPayload>('comment_deleted');
+  }
+
+  onLikeDelta(): Observable<WsLikeDeltaPayload> {
+    return this.fromSocketEvent<WsLikeDeltaPayload>('like_delta');
+  }
+
+  onUserPresenceChanged(): Observable<WsUserPresenceChangedPayload> {
+    return this.fromSocketEvent<WsUserPresenceChangedPayload>('user_presence_changed');
+  }
+
+  onFriendRemoved(): Observable<WsFriendRemovedPayload> {
+    return this.fromSocketEvent<WsFriendRemovedPayload>('friend_removed');
   }
 
   // ─── Chat ─────────────────────────────────────────────────────────────────
@@ -172,27 +217,23 @@ export class RealtimeAdapter extends RealtimePort {
   // ─── Internal Helpers ─────────────────────────────────────────────────────
 
   /**
-   * Creates a cold Observable that registers/unregisters a socket.io event
-   * listener. The listener is automatically removed when the subscriber
-   * unsubscribes (e.g. via takeUntilDestroyed in the component).
+   * Cold Observable that registers/unregisters a socket.io event listener.
+   *
+   * Waits for a live socket via socket$ instead of failing when the subscriber
+   * beats connect(). On reconnect (connect() replacing the socket) the listener
+   * is automatically re-registered on the new socket and torn down from the
+   * old one. Unsubscribing (e.g. takeUntilDestroyed) removes the listener.
    */
   private fromSocketEvent<T>(event: string): Observable<T> {
-    return new Observable<T>(observer => {
-      const socket = this.socket;
-
-      if (!socket) {
-        // No active connection — complete immediately so callers don't hang.
-        observer.complete();
-        return;
-      }
-
-      const handler = (data: T) => observer.next(data);
-      socket.on(event, handler);
-
-      // Teardown: remove the listener when the subscription is disposed.
-      return () => {
-        socket.off(event, handler);
-      };
-    });
+    return this.socket$.pipe(
+      switchMap(socket => {
+        if (!socket) return EMPTY;
+        return new Observable<T>(observer => {
+          const handler = (data: T) => observer.next(data);
+          socket.on(event, handler);
+          return () => socket.off(event, handler);
+        });
+      }),
+    );
   }
 }

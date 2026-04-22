@@ -288,6 +288,13 @@
   text-decoration: underline;
 }
 
+/* Highlight row whose song is current in the PlayerState. The rule used to
+   live inside a @media (max-width: 760px) block — so on desktop the active
+   title stayed white. Lifting it out makes it apply on every breakpoint. */
+.album-song-row--active .album-song-row__title-button {
+  color: #ff3b30;
+}
+
 .album-song-row__artist-button {
   color: rgba(255, 255, 255, 0.72);
   font-size: 0.9rem;
@@ -319,7 +326,14 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0.95;
+  opacity: 0;
+  transform: translateY(6px) scale(0.92);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.album-song-row:hover .album-song-row__liked-button {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .album-song-row__liked-icon {
@@ -819,4 +833,5 @@
     top: calc(100% + 8px);
     min-width: 200px;
   }
+
 }

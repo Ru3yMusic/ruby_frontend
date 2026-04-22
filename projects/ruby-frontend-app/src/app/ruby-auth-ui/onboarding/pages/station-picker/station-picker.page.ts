@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { AuthState } from '../../../auth/state/auth.state';
 import { LibraryState } from '../../../../user-ruby-music/state/library.state';
 
@@ -17,13 +18,18 @@ interface StationUI {
   templateUrl: './station-picker.page.html',
   styleUrl: './station-picker.page.scss',
 })
-export class StationPickerPage {
+export class StationPickerPage implements OnInit {
   private readonly authState = inject(AuthState);
   private readonly libraryState = inject(LibraryState);
+  private readonly router = inject(Router);
 
   searchTerm = signal('');
   selectedIds = signal<string[]>([]);
   showError = signal(false);
+
+  ngOnInit(): void {
+    this.libraryState.loadActiveStations();
+  }
 
   filteredStations = computed<StationUI[]>(() => {
     const term = this.searchTerm().toLowerCase().trim();
@@ -69,7 +75,7 @@ export class StationPickerPage {
     }
 
     this.authState.setStations(this.selectedIds());
-    window.location.href = '/onboarding/complete';
+    this.router.navigateByUrl('/onboarding/complete');
   }
 
   // =========================

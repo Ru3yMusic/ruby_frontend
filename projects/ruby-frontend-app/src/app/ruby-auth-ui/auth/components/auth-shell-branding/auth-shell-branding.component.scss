@@ -2,83 +2,275 @@
   position: relative;
   height: 100%;
   width: 100%;
-  border-radius: 24px;
+  min-height: 100vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 32px;
+  padding: 36px 44px;
   box-sizing: border-box;
-  background: linear-gradient(135deg, #1a0000, #000000);
+  background: #000;
+  color: #fff;
 }
 
-/*  HEADER (LOGO) */
+/* ===================== */
+/* LOGO                  */
+/* ===================== */
 .branding-header {
-  z-index: 2;
+  position: relative;
+  z-index: 3;
 }
 
-.logo {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: #ffffff;
+.branding-logo {
+  width: 140px;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  /* Slight lift so the PNG edges don't blend into the slide behind it. */
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
 }
 
-/*  IMAGEN / FONDO */
-.branding-image {
+/* ===================== */
+/* SLIDES (stacked)      */
+/* ===================== */
+.branding-slides {
   position: absolute;
   inset: 0;
-  background: url('https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1400&auto=format&fit=crop')
-    center/cover no-repeat;
-  opacity: 0.4;
+  z-index: 1;
+  pointer-events: none;
 }
 
-/*  OVERLAY (DEGRADADO RUBY) */
-.overlay {
+/* Degradado de borde derecho → transparente hacia el centro.
+   Se aplica a nivel del contenedor de slides (un solo sitio, sin duplicar
+   por slide). Dentro del stacking context de `.branding-slides` queda:
+     · por encima de `.branding-slide-image` y `.branding-slide-overlay`
+       (ambos z-auto) → suaviza el corte con el lado derecho
+     · por debajo de `.branding-slide-copy` (z-index: 2) → no toca legibilidad
+   Logo (z:3) y dots (z:3) viven fuera de este contenedor, no les afecta. */
+.branding-slides::after {
+  content: '';
   position: absolute;
   inset: 0;
+  z-index: 1;
+  pointer-events: none;
   background: linear-gradient(
-    to bottom,
-    rgba(120, 0, 0, 0.3),
-    rgba(0, 0, 0, 0.85)
+    to left,
+    rgb(0, 0, 0) 0%,
+    rgba(21, 21, 21, 0.503) 28%,
+    rgba(0, 0, 0, 0) 50%
   );
 }
 
-/*  TEXTO */
-.branding-content {
-  z-index: 2;
-  max-width: 420px;
+.branding-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 900ms ease-in-out;
 }
 
-.title {
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1.2;
-  margin-bottom: 12px;
-  color: #ffffff;
+.branding-slide.active {
+  opacity: 1;
 }
 
-.subtitle {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.75);
-  line-height: 1.5;
+.branding-slide-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #111;
 }
 
-/* DOTS */
-.branding-dots {
+.branding-slide-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+/* Each slide has its own overlay strength and gradient direction so the
+   typography sits well regardless of the placeholder image. */
+.branding-slide-overlay--impact {
+  background: linear-gradient(
+    105deg,
+    rgba(0, 0, 0, 0.82) 0%,
+    rgba(0, 0, 0, 0.55) 45%,
+    rgba(0, 0, 0, 0.20) 80%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+.branding-slide-overlay--poetic {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0.70) 55%,
+    rgba(0, 0, 0, 0.88) 100%
+  );
+}
+
+.branding-slide-overlay--intimate {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.30) 0%,
+    rgba(0, 0, 0, 0.60) 50%,
+    rgba(0, 0, 0, 0.92) 100%
+  );
+}
+
+/* ===================== */
+/* OVERLAY COPY          */
+/* Each slide positions its own text block — allows distinct compositions. */
+/* ===================== */
+.branding-slide-copy {
+  position: absolute;
+  inset: auto 48px 96px 48px;
+  max-width: 560px;
   z-index: 2;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.branding-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.branding-eyebrow--soft {
+  color: rgba(255, 255, 255, 0.58);
+  letter-spacing: 0.2em;
+  text-transform: lowercase;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.branding-eyebrow--wide {
+  color: rgba(255, 255, 255, 0.62);
+  letter-spacing: 0.42em;
+  text-transform: lowercase;
+  font-weight: 500;
+}
+
+.branding-headline {
+  margin: 0;
+  color: #fff;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+
+.branding-headline .line {
+  display: block;
+}
+
+/* RUBY accent word (used in slides 1 & 3) */
+.ruby-word {
+  color: #ff2e3a;
+  font-style: inherit;
+  font-weight: inherit;
+}
+
+/* --- Slide 1: IMPACT — uppercase, ultra bold, huge --- */
+.branding-headline--impact {
+  font-size: clamp(54px, 6vw, 88px);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+
+/* --- Slide 2: POETIC — mixed bold/italic light --- */
+.branding-headline--poetic {
+  font-size: clamp(46px, 5vw, 72px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+}
+
+.branding-headline--poetic .soft-word {
+  font-style: italic;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0 0.08em;
+}
+
+/* --- Slide 3: INTIMATE — lowercase, wider spacing, open lines --- */
+.branding-headline--intimate {
+  font-size: clamp(42px, 4.6vw, 64px);
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0.005em;
+  text-transform: lowercase;
+}
+
+.branding-headline--intimate .line {
+  opacity: 0.92;
+}
+
+.branding-headline--intimate .line:last-child {
+  opacity: 1;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+/* ===================== */
+/* DOTS                  */
+/* ===================== */
+.branding-dots {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  gap: 10px;
   justify-content: center;
+  padding-bottom: 4px;
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  width: 28px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  transition: background 0.4s ease, width 0.4s ease;
 }
 
 .dot.active {
-  background: #ffffff;
+  background: #fff;
+  width: 44px;
+}
+
+/* ===================== */
+/* RESPONSIVE            */
+/* ===================== */
+@media (max-width: 1024px) {
+  .branding-container {
+    min-height: 60vh;
+    padding: 28px 32px;
+  }
+
+  .branding-slide-copy {
+    inset: auto 32px 72px 32px;
+  }
+}
+
+@media (max-width: 640px) {
+  .branding-container {
+    min-height: 48vh;
+    padding: 22px 24px;
+  }
+
+  .branding-logo {
+    width: 110px;
+  }
+
+  .branding-slide-copy {
+    inset: auto 22px 56px 22px;
+    gap: 14px;
+  }
+
+  .branding-eyebrow,
+  .branding-eyebrow--soft,
+  .branding-eyebrow--wide {
+    font-size: 11px;
+  }
 }

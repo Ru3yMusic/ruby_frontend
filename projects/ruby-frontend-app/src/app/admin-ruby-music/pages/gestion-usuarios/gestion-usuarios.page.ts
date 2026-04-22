@@ -1,21 +1,36 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   Check,
   Eye,
   LucideAngularModule,
   Menu,
-  Pencil,
   Search,
 } from 'lucide-angular';
+import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
+import { API_GATEWAY_URL, BulkPresenceResult, RealtimePort } from 'lib-ruby-core';
 import {
-  ChangeUserStatusRequest,
   UserResponse,
-  UserStatus as SdkUserStatus,
   UsersApi,
 } from 'lib-ruby-sdks/auth-service';
+import {
+  ReportTargetSummary,
+  ReportTargetType,
+  ReportsApi,
+} from 'lib-ruby-sdks/social-service';
+import { translateBlockReason } from '../../../core/utils/block-reason-label';
+
+/** Narrow projection returned by realtime-api-ms GET /comments/:id. */
+interface CommentAuthorLookup {
+  user_id: string;
+  username: string;
+  profile_photo_url: string | null;
+  content: string;
+}
 
 /* =========================
    TIPOS / MODELOS
@@ -27,6 +42,9 @@ interface AdminUser {
   name: string;
   email: string;
   avatarUrl: string;
+  /** True when auth-service flagged the account as BLOCKED (handled from Reportes). */
+  isBlocked: boolean;
+  /** Derived at render time: BLOQUEADO | ACTIVO | INACTIVO (presence-driven). */
   status: UserStatus;
   createdAt: string;
   reportCount: number;
@@ -49,6 +67,14 @@ export class GestionUsuariosPage implements OnInit {
      SERVICIOS
   ========================= */
   private readonly usersApi = inject(UsersApi);
+  private readonly reportsApi = inject(ReportsApi);
+  private readonly http = inject(HttpClient);
+  private readonly gatewayUrl = inject(API_GATEWAY_URL);
+  private readonly realtimePort = inject(RealtimePort);
+  private readonly destroyRef = inject(DestroyRef);
+
+  /** Public wrapper so the template can translate user.blockReason. */
+  readonly translateBlockReason = translateBlockReason;
 
   /* =========================
      ICONOS
@@ -56,7 +82,6 @@ export class GestionUsuariosPage implements OnInit {
   readonly Menu = Menu;
   readonly Search = Search;
   readonly Eye = Eye;
-  readonly Pencil = Pencil;
   readonly Check = Check;
 
   /* =========================
@@ -73,7 +98,6 @@ export class GestionUsuariosPage implements OnInit {
      MODALES
   ========================= */
   readonly isDetailModalOpen = signal(false);
-  readonly isEditModalOpen = signal(false);
   readonly isReactivateModalOpen = signal(false);
 
   /* =========================
@@ -82,15 +106,51 @@ export class GestionUsuariosPage implements OnInit {
   readonly selectedUser = signal<AdminUser | null>(null);
 
   /* =========================
-     FORM EDITAR ESTADO
-  ========================= */
-  readonly newStatus = signal<UserStatus>('ACTIVO');
-  readonly blockReason = signal('');
-
-  /* =========================
      DATA
   ========================= */
-  readonly users = signal<AdminUser[]>([]);
+  private readonly _users = signal<AdminUser[]>([]);
+
+  /**
+   * Realtime presence set: userIds currently connected (has at least one live
+   * socket in realtime-ws-ms). Drives the ACTIVO/INACTIVO badge the same way
+   * Amigos does — fed by getBulkPresence() on load and patched live by
+   * onUserPresenceChanged() broadcasts.
+   */
+  private readonly onlineUserIds = signal<ReadonlySet<string>>(new Set());
+
+  /**
+   * Users decorated with the presence-driven status. BLOQUEADO wins over
+   * presence because a blocked account shouldn't render as "Activo" even if
+   * it briefly keeps a socket open during the block transition.
+   */
+  readonly users = computed<AdminUser[]>(() => {
+    const online = this.onlineUserIds();
+    return this._users().map((u) => ({
+      ...u,
+      status: u.isBlocked
+        ? ('BLOQUEADO' as const)
+        : online.has(u.id)
+          ? ('ACTIVO' as const)
+          : ('INACTIVO' as const),
+    }));
+  });
+
+  constructor() {
+    // Patch the online set in place whenever ws-ms broadcasts a presence
+    // change (user logs in / out / disconnects). Mirrors Amigos so both
+    // screens stay in sync without reload.
+    this.realtimePort
+      .onUserPresenceChanged()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((payload) => {
+        this.onlineUserIds.update((set) => {
+          const next = new Set(set);
+          if (payload.online) next.add(payload.userId);
+          else next.delete(payload.userId);
+          return next;
+        });
+      });
+  }
 
   /* =========================
      LIFECYCLE
@@ -103,11 +163,7 @@ export class GestionUsuariosPage implements OnInit {
      COMPUTED: OVERLAY
   ========================= */
   readonly anyModalOpen = computed(() => {
-    return (
-      this.isDetailModalOpen() ||
-      this.isEditModalOpen() ||
-      this.isReactivateModalOpen()
-    );
+    return this.isDetailModalOpen() || this.isReactivateModalOpen();
   });
 
   /* =========================
@@ -154,16 +210,103 @@ export class GestionUsuariosPage implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.usersApi.listUsers().subscribe({
-      next: (page) => {
-        this.users.set(this.mapUsers(page.content ?? []));
-        this.loading.set(false);
-      },
-      error: (err) => {
-        this.error.set(err?.message ?? 'Error al cargar los usuarios');
-        this.loading.set(false);
-      },
-    });
+    // Load users + pending report groups in parallel; then resolve the author
+    // of every COMMENT group (commentId → userId via realtime-api-ms) so a
+    // user's count includes reports against any of their comments.
+    forkJoin({
+      usersPage: this.usersApi.listUsers(),
+      groups: this.reportsApi
+        .listGroupedReports()
+        .pipe(catchError(() => of<ReportTargetSummary[]>([]))),
+    })
+      .pipe(
+        switchMap(({ usersPage, groups }) =>
+          this.buildReportCountMap(groups).pipe(
+            map((counts) => ({ usersPage, counts })),
+          ),
+        ),
+      )
+      .subscribe({
+        next: ({ usersPage, counts }) => {
+          const mapped = this.mapUsers(usersPage.content ?? []).map((u) => ({
+            ...u,
+            reportCount: counts.get(u.id) ?? 0,
+          }));
+          this._users.set(mapped);
+          this.loading.set(false);
+
+          // Seed the online set with one REST call (same endpoint Amigos uses).
+          // After this, onUserPresenceChanged keeps it live.
+          const ids = mapped.filter((u) => !u.isBlocked).map((u) => u.id);
+          if (ids.length > 0) {
+            this.realtimePort
+              .getBulkPresence(ids)
+              .pipe(catchError(() => of<BulkPresenceResult>({})))
+              .subscribe((presence) => {
+                const online = new Set<string>();
+                for (const [uid, info] of Object.entries(presence)) {
+                  if (info?.online) online.add(uid);
+                }
+                this.onlineUserIds.set(online);
+              });
+          } else {
+            this.onlineUserIds.set(new Set());
+          }
+        },
+        error: (err: { message?: string }) => {
+          this.error.set(err?.message ?? 'Error al cargar los usuarios');
+          this.loading.set(false);
+        },
+      });
+  }
+
+  /**
+   * Returns a Map<userId, pendingReportCount> by walking every ReportTargetSummary:
+   *   - USER groups: targetId is already the userId → add reportCount.
+   *   - COMMENT groups: targetId is the commentId; resolve the author via
+   *     GET /comments/:id and add to that author's total.
+   *   - SONG groups: skipped (songs don't map to a user).
+   */
+  private buildReportCountMap(groups: ReportTargetSummary[]) {
+    const counts = new Map<string, number>();
+
+    const commentGroups = groups.filter(
+      (g) => g.targetType === ReportTargetType.COMMENT && !!g.targetId,
+    );
+
+    for (const g of groups) {
+      if (g.targetType === ReportTargetType.USER && g.targetId) {
+        counts.set(g.targetId, (counts.get(g.targetId) ?? 0) + (g.reportCount ?? 0));
+      }
+    }
+
+    if (!commentGroups.length) {
+      return of(counts);
+    }
+
+    return forkJoin(
+      commentGroups.map((g) =>
+        this.http
+          .get<CommentAuthorLookup>(
+            `${this.gatewayUrl}/api/v1/realtime/comments/${g.targetId}`,
+          )
+          .pipe(
+            map((comment) => ({ group: g, comment })),
+            catchError(() => of({ group: g, comment: null as CommentAuthorLookup | null })),
+          ),
+      ),
+    ).pipe(
+      map((resolved) => {
+        for (const { group, comment } of resolved) {
+          if (!comment?.user_id) continue;
+          counts.set(
+            comment.user_id,
+            (counts.get(comment.user_id) ?? 0) + (group.reportCount ?? 0),
+          );
+        }
+        return counts;
+      }),
+    );
   }
 
   /* =========================
@@ -175,27 +318,15 @@ export class GestionUsuariosPage implements OnInit {
       name: u.displayName ?? u.email ?? '',
       email: u.email ?? '',
       avatarUrl: u.profilePhotoUrl ?? '',
-      status: this.mapUserStatus(u.status),
+      isBlocked: u.status === 'BLOCKED',
+      // Initial placeholder — the real value comes from the presence-driven
+      // computed `users` signal (BLOQUEADO / ACTIVO / INACTIVO).
+      status: u.status === 'BLOCKED' ? 'BLOQUEADO' : 'INACTIVO',
       createdAt: u.createdAt ?? '',
       reportCount: 0,
       blockReason: u.blockReason ?? null,
       blockedAt: null,
     }));
-  }
-
-  private mapUserStatus(status?: string): UserStatus {
-    switch (status) {
-      case 'ACTIVE': return 'ACTIVO';
-      case 'INACTIVE': return 'INACTIVO';
-      case 'BLOCKED': return 'BLOQUEADO';
-      default: return 'ACTIVO';
-    }
-  }
-
-  private mapToSdkStatus(status: UserStatus): SdkUserStatus {
-    if (status === 'BLOQUEADO') return 'BLOCKED';
-    if (status === 'INACTIVO') return 'INACTIVE';
-    return 'ACTIVE';
   }
 
   private normalizeUserForView(user: AdminUser): AdminUser {
@@ -254,56 +385,12 @@ export class GestionUsuariosPage implements OnInit {
     return 0;
   }
 
-  private resetEditForm(): void {
-    this.newStatus.set('ACTIVO');
-    this.blockReason.set('');
-  }
-
   /* =========================
      MODAL DETALLE
   ========================= */
   openDetailModal(user: AdminUser): void {
     this.selectedUser.set(user);
     this.isDetailModalOpen.set(true);
-  }
-
-  /* =========================
-     MODAL CAMBIAR ESTADO
-  ========================= */
-  openEditModal(user: AdminUser): void {
-    this.selectedUser.set(user);
-    this.newStatus.set(user.status);
-    this.blockReason.set(user.blockReason ?? '');
-    this.isEditModalOpen.set(true);
-  }
-
-  updateUserStatus(): void {
-    const current = this.selectedUser();
-    if (!current) return;
-
-    const nextStatus = this.newStatus();
-    const reason = this.blockReason().trim();
-
-    if (nextStatus === 'BLOQUEADO' && !reason) return;
-
-    const request: ChangeUserStatusRequest = {
-      status: this.mapToSdkStatus(nextStatus),
-      ...(nextStatus === 'BLOQUEADO' ? { blockReason: reason as ChangeUserStatusRequest['blockReason'] } : {}),
-    };
-
-    this.loading.set(true);
-    this.error.set(null);
-
-    this.usersApi.changeUserStatus(current.id, request).subscribe({
-      next: () => {
-        this.closeAllModals();
-        this.reloadUsers();
-      },
-      error: (err) => {
-        this.error.set(err?.message ?? 'Error al cambiar el estado del usuario');
-        this.loading.set(false);
-      },
-    });
   }
 
   /* =========================
@@ -338,9 +425,7 @@ export class GestionUsuariosPage implements OnInit {
   ========================= */
   closeAllModals(): void {
     this.isDetailModalOpen.set(false);
-    this.isEditModalOpen.set(false);
     this.isReactivateModalOpen.set(false);
     this.selectedUser.set(null);
-    this.resetEditForm();
   }
 }

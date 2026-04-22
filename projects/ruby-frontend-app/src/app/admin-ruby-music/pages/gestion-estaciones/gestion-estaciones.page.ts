@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { HttpClient } from '@angular/common/http';
 import {
   AlertTriangle,
   Eye,
@@ -10,7 +12,8 @@ import {
   Search,
   Trash2,
 } from 'lucide-angular';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of, switchMap, timer } from 'rxjs';
+import { API_GATEWAY_URL } from 'lib-ruby-core';
 
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
@@ -120,6 +123,11 @@ export class GestionEstacionesPage implements OnInit {
   private readonly songsApi = inject(SongsApi);
   private readonly artistsApi = inject(ArtistsApi);
   private readonly albumsApi = inject(AlbumsApi);
+  private readonly http = inject(HttpClient);
+  private readonly gatewayUrl = inject(API_GATEWAY_URL);
+  private readonly destroyRef = inject(DestroyRef);
+
+  private readonly LIVE_LISTENERS_POLL_MS = 10_000;
 
   /* =========================
      ICONOS
@@ -193,6 +201,49 @@ export class GestionEstacionesPage implements OnInit {
   ========================== */
   ngOnInit(): void {
     this.reloadData();
+    this.startLiveListenersPolling();
+  }
+
+  /**
+   * Polls the presence REST endpoint every LIVE_LISTENERS_POLL_MS to keep the
+   * admin cards' liveListeners counter in sync. The WS broadcast only reaches
+   * users already joined to station:{id} rooms, so admins need polling.
+   */
+  private startLiveListenersPolling(): void {
+    timer(0, this.LIVE_LISTENERS_POLL_MS)
+      .pipe(
+        switchMap(() => {
+          const current = this.stations();
+          if (!current.length) {
+            return of<Array<{ stationId: string; count: number }>>([]);
+          }
+          return forkJoin(
+            current.map((station) =>
+              this.http
+                .get<{ stationId: string; count: number }>(
+                  `${this.gatewayUrl}/api/v1/realtime/presence/stations/${station.id}/listeners`,
+                )
+                .pipe(
+                  catchError(() =>
+                    of({ stationId: station.id, count: station.liveListeners }),
+                  ),
+                ),
+            ),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((results) => {
+        if (!results.length) return;
+        const counts = new Map(results.map((r) => [r.stationId, r.count]));
+        this.stations.update((list) =>
+          list.map((station) => {
+            const next = counts.get(station.id);
+            if (next === undefined || next === station.liveListeners) return station;
+            return { ...station, liveListeners: next };
+          }),
+        );
+      });
   }
 
   /* =========================
@@ -618,9 +669,21 @@ export class GestionEstacionesPage implements OnInit {
     this.editArtistFilterQuery.set('');
     this.editAlbumFilterId.set('');
     this.editAlbumFilterQuery.set('');
-    this.editSelectedSongIds.set([...station.songIds]);
+    this.editSelectedSongIds.set([]);
 
     this.isEditModalOpen.set(true);
+
+    this.stationsApi.getSongsByStation(station.id, 0, 500).subscribe({
+      next: (page) => {
+        const realSongIds = (page.content ?? [])
+          .map((song) => song.id ?? '')
+          .filter((id) => !!id);
+        this.editSelectedSongIds.set(realSongIds);
+      },
+      error: (err) => {
+        this.error.set(err?.message ?? 'Error al cargar las canciones de la estación');
+      },
+    });
   }
 
   openDetailModal(station: StationView): void {
@@ -689,15 +752,29 @@ export class GestionEstacionesPage implements OnInit {
     const gradientEnd = this.editGradientEnd();
     const selectedSongIds = this.editSelectedSongIds();
 
-    if (!name || !gradientStart || !gradientEnd) return;
-    if (this.existsStationName(name, current.id)) return;
-    if (selectedSongIds.length < 2) return;
+    if (!name || !gradientStart || !gradientEnd) {
+      this.error.set('Completa nombre y colores de la estación');
+      return;
+    }
+    if (this.existsStationName(name, current.id)) {
+      this.error.set('Ya existe otra estación con ese nombre');
+      return;
+    }
+    if (selectedSongIds.length < 2) {
+      this.error.set('Una estación requiere al menos 2 canciones');
+      return;
+    }
 
     const validSongs = this.songs().filter((song) => selectedSongIds.includes(song.id));
     if (
       validSongs.length !== selectedSongIds.length ||
       validSongs.some((song) => song.genreId !== current.genreId)
-    ) return;
+    ) {
+      this.error.set('Alguna canción seleccionada no es válida para el género de la estación');
+      return;
+    }
+
+    this.error.set(null);
 
     this.loading.set(true);
     this.error.set(null);

@@ -25,6 +25,11 @@ export class PlaylistState {
   private readonly _currentPlaylistSongs = signal<PlaylistSongResponse[]>([]);
   readonly currentPlaylistSongs = this._currentPlaylistSongs.asReadonly();
 
+  // Identifica de qué playlist son las canciones cargadas actualmente.
+  // Usado por syncLikedSong para no mutar la lista si el usuario está viendo otra playlist.
+  private readonly _currentPlaylistId = signal<string | null>(null);
+  readonly currentPlaylistId = this._currentPlaylistId.asReadonly();
+
   private readonly _loading = signal(false);
   readonly loading = this._loading.asReadonly();
 
@@ -56,13 +61,18 @@ export class PlaylistState {
     });
   }
 
-  loadPlaylistSongs(playlistId: string): void {
+  loadPlaylistSongs(
+    playlistId: string,
+    onSuccess?: (songs: PlaylistSongResponse[]) => void,
+  ): void {
     this._loading.set(true);
     this._error.set(null);
+    this._currentPlaylistId.set(playlistId);
     this.playlistSongsApi.getPlaylistSongs(playlistId).subscribe({
       next: (songs) => {
         this._currentPlaylistSongs.set(songs);
         this._loading.set(false);
+        onSuccess?.(songs);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading playlist songs');
@@ -211,6 +221,56 @@ export class PlaylistState {
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error adding song to playlist');
       },
+    });
+  }
+
+  /**
+   * Sincroniza el estado local de la playlist sistema "Tus me gusta" cuando se
+   * hace like/unlike desde cualquier vista. El backend ya aplicó el cambio vía
+   * interaction-service → playlist-service (sincrónico). Aquí reflejamos el cambio
+   * en los signals locales para evitar refetch.
+   *
+   * songCount se ajusta siempre. _currentPlaylistSongs solo se toca si la playlist
+   * abierta en pantalla ES la system playlist (evita borrar/insertar en otra playlist).
+   */
+  syncLikedSong(userId: string, songId: string, action: 'added' | 'removed'): void {
+    const likedPlaylist = this.getLikedSongsPlaylist(userId);
+    if (!likedPlaylist?.id) return;
+    const likedPlaylistId = likedPlaylist.id;
+
+    this._playlists.update(list =>
+      list.map(p => {
+        if (p.id !== likedPlaylistId) return p;
+        const current = p.songCount ?? 0;
+        const nextCount = action === 'added' ? current + 1 : Math.max(0, current - 1);
+        return { ...p, songCount: nextCount };
+      })
+    );
+
+    if (this._currentPlaylistId() !== likedPlaylistId) return;
+
+    if (action === 'removed') {
+      this._currentPlaylistSongs.update(songs =>
+        songs.filter(s => s.songId !== songId)
+      );
+      return;
+    }
+
+    // 'added': insertar fila mínima si no existe ya. La metadata real se resuelve
+    // en la vista vía libraryState.getSongById (caché on-demand).
+    this._currentPlaylistSongs.update(songs => {
+      if (songs.some(s => s.songId === songId)) return songs;
+      const lastPosition = songs.reduce(
+        (max, s) => Math.max(max, s.position ?? 0),
+        0
+      );
+      const newRow = {
+        id: `local-${songId}`,
+        songId,
+        position: lastPosition + 1,
+        addedAt: new Date().toISOString(),
+      } as PlaylistSongResponse;
+      return [...songs, newRow];
     });
   }
 

@@ -399,6 +399,22 @@
       background: rgba(24, 24, 27, 0.05);
       transform: translateY(-1px);
     }
+
+    &.action--view {
+      color: #0ea5e9;
+
+      &:hover {
+        background: rgba(14, 165, 233, 0.10);
+      }
+    }
+
+    &.action--unblock {
+      color: #16a34a;
+
+      &:hover {
+        background: rgba(22, 163, 74, 0.10);
+      }
+    }
   }
 }
 

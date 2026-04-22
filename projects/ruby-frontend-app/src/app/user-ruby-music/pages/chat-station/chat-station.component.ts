@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -50,6 +51,7 @@ export class ChatStationComponent {
   private readonly libraryState = inject(LibraryState);
   private readonly realtimePort = inject(RealtimePort);
   private readonly usersApi = inject(UsersApi);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly currentUser = this.authState.currentUser;
   readonly searchTerm = signal('');
@@ -57,6 +59,10 @@ export class ChatStationComponent {
   readonly error = signal<string | null>(null);
 
   private readonly _enrichedFriends = signal<FriendStationItem[]>([]);
+
+  // NOTE: the global "@friend está escuchando la estación X" toast was moved
+  // to UserLayoutComponent so it fires on every /user/** route, not only this
+  // screen. This component only patches its own card list on presence events.
 
   readonly filteredActiveFriends = computed<FriendStationItem[]>(() => {
     const term = this.searchTerm().trim().toLowerCase();
@@ -75,6 +81,13 @@ export class ChatStationComponent {
   constructor() {
     this.friendsState.loadFriends();
     this.libraryState.loadActiveStations();
+
+    // Realtime presence stream: any user globally joining/leaving a station
+    // triggers a user_presence_changed event. We filter by our own friend set
+    // and patch the corresponding card in place — no reload needed.
+    this.realtimePort.onUserPresenceChanged()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((payload) => this.applyPresenceChange(payload));
 
     // Runs when currentUser, friends signal, or stations signal changes.
     // Stations are tracked so the effect re-runs once they load, resolving names correctly.
@@ -198,5 +211,38 @@ export class ChatStationComponent {
 
   trackByFriendStation(_: number, item: FriendStationItem): string {
     return item.friendshipId;
+  }
+
+  /**
+   * Patches the matching friend's card in place when a presence event arrives.
+   * The global toast is fired by UserLayoutComponent — this method only keeps
+   * the list UI in sync when the user is on this screen.
+   */
+  private applyPresenceChange(payload: {
+    userId: string;
+    stationId: string | null;
+    online: boolean;
+  }): void {
+    const currentList = this._enrichedFriends();
+    const idx = currentList.findIndex((f) => f.friendUserId === payload.userId);
+    if (idx === -1) return;
+
+    const prev = currentList[idx];
+    const stations = this.libraryState.stations();
+    const station = payload.stationId
+      ? stations.find((s) => s.id === payload.stationId)
+      : undefined;
+
+    const next: FriendStationItem = {
+      ...prev,
+      isOnline: payload.online,
+      stationId: station?.id ?? null,
+      stationName: station?.name
+        ?? (payload.stationId ? 'En una estación oculta' : null),
+    };
+
+    const updated = [...currentList];
+    updated[idx] = next;
+    this._enrichedFriends.set(updated);
   }
 }

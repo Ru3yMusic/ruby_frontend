@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { NotificationsState } from '../../state/notifications.state';
 
 interface SidebarItem {
   label: string;
@@ -17,6 +18,10 @@ interface SidebarItem {
   styleUrls: ['./left-sidebar.component.scss'],
 })
 export class LeftSidebarComponent {
+  private readonly notificationsState = inject(NotificationsState);
+
+  /** Unseen notifications since the user last opened /user/notifications. */
+  readonly unseenCount = this.notificationsState.unseenCount;
 
   /* ===================== */
   /* ITEMS DEL SIDEBAR */

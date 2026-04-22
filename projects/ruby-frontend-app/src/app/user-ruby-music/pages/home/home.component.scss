@@ -11,11 +11,11 @@
   border-radius: 15px;
   background: linear-gradient(
     180deg,
-    #8d4c4c 2%,
-    #202020 18%,
-    #120c0c 24%,
-    #202020 66%,
-    #442a2a 100%
+    #aa3131 2%,
+    #111111 30%,
+    #171717 50%,
+    #202020 70%,
+    #2d1c1c 100%
   );
   min-height: 100%;
   position: relative;
@@ -147,6 +147,66 @@
 }
 
 /* ===================== */
+/* FLECHAS LATERALES DEL CARRUSEL
+/* Mismo patrón que station-detail: escondidas por defecto, visibles sólo al
+/* hacer hover sobre el carrusel. Centradas verticalmente. Las flechas
+/* deshabilitadas (cuando no se puede paginar) aparecen igual pero dimmed.
+/* ===================== */
+.home-section-carousel {
+  position: relative;
+  /* Own stacking context so the absolute-positioned arrows always win. */
+  isolation: isolate;
+}
+
+.home-section-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  /* SOLID black circle — no alpha. Was semi-transparent before, which made
+     the arrow look "washed out" over the card behind it. */
+  background: #000;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* Hidden + unclickable by default; both flip together on hover so they
+     never split into a "visible but clicks pass through" state (that dual
+     state was the real bug: disabled arrows showed dimmed at 0.35 opacity
+     yet had pointer-events: none, so the click fell through to the card). */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, background 0.18s ease;
+  z-index: 9999;
+}
+
+/* Inner-positioned so the arrows sit visibly over the first/last cards. */
+.home-section-arrow--left { left: 6px; }
+.home-section-arrow--right { right: 6px; }
+
+/* Enabled arrows reveal on carousel hover, fully solid and clickable. */
+.home-section-carousel:hover .home-section-arrow:not(:disabled) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.home-section-arrow:hover:not(:disabled) {
+  background: #1a1a1a;
+}
+
+.home-section-arrow-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  /* Force the icon to pure white regardless of the source PNG's colour. */
+  filter: brightness(0) invert(1);
+}
+
+/* ===================== */
 /* ÁLBUMES PARA TI */
 /* ===================== */
 .album-grid {
@@ -157,7 +217,7 @@
 }
 
 .album-card {
-  min-width: 225px;
+  min-width: 235px;
   max-width: 225px;
   padding: 12px 14px 14px;
   border-radius: 20px;
@@ -170,7 +230,7 @@
 
 .album-card:hover {
   transform: translateY(-2px) scale(1.02);
-  background: rgba(255, 255, 255, 0.152);
+  background: rgba(182, 181, 181, 0.06);
   box-shadow: 0 18px 30px rgba(0, 0, 0, 0.18);
     
 }
@@ -182,8 +242,8 @@
 
 .album-image {
   width: 100%;
-  height: 166px;
-  border-radius: 40px;
+  height: 176px;
+  border-radius: 55px;
   object-fit: cover;
   display: block;
    box-shadow: 0 18px 30px rgba(0, 0, 0, 0.245);
@@ -376,6 +436,11 @@
   gap: 8px;
 }
 
+/* Highlight fila cuya canción es la current del PlayerState */
+.listen-now-row--active .listen-now-row__title {
+  color: #ff3b30;
+}
+
 .listen-now-row {
   display: grid;
   grid-template-columns: 40px 54px minmax(0, 1fr) 26px 30px;
@@ -490,6 +555,14 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  opacity: 0;
+  transform: translateY(6px) scale(0.92);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.listen-now-row:hover .listen-now-row__liked-button {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .listen-now-row__liked-icon {

@@ -1,11 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { ArtistResponse, SongResponse } from 'lib-ruby-sdks/catalog-service';
-import { SongCardComponent } from 'lib-ruby-core-ui';
 import { LibraryState } from '../../state/library.state';
-import { PlayerState, PlayerSong } from '../../state/player.state';
-import { InteractionState } from '../../state/interaction.state';
 
 type HomeTab = 'TODAS' | 'MUSICA' | 'ESTACION';
 
@@ -18,25 +14,16 @@ interface RankedAlbumCard {
   totalMinutesLabel: string;
 }
 
-interface RecentSongCard {
-  id: string;
-  title: string;
-  artistName: string;
-  coverUrl: string;
-}
-
 @Component({
   selector: 'app-music',
   standalone: true,
-  imports: [CommonModule, SongCardComponent],
+  imports: [CommonModule],
   templateUrl: './music.component.html',
   styleUrls: ['./music.component.scss'],
 })
 export class MusicComponent {
   private readonly router = inject(Router);
   private readonly libraryState = inject(LibraryState);
-  private readonly playerState = inject(PlayerState);
-  private readonly interactionState = inject(InteractionState);
 
   private readonly defaultAlbumCover = '/assets/icons/playlist-cover-placeholder.png';
 
@@ -75,29 +62,13 @@ export class MusicComponent {
       }));
   });
 
-  readonly recentSongs = computed<RecentSongCard[]>(() => {
-    const songs = this.libraryState.songs();
-    const artists = this.libraryState.artists();
-
-    return songs
-      .slice()
-      .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0))
-      .slice(0, 6)
-      .map((s: SongResponse) => {
-        const artist = artists.find((a: ArtistResponse) => a.id === s.artist?.id);
-        return {
-          id: s.id ?? '',
-          title: s.title ?? '',
-          artistName: artist?.name ?? 'Artista desconocido',
-          coverUrl: s.coverUrl ?? '',
-        };
-      });
-  });
-
   constructor() {
     this.libraryState.loadNewReleases();
+    // loadRecentSongs populates the global `songs` signal that
+    // topAlbumsByMinutes aggregates for the "Tus álbumes más largos" ranking
+    // — the name is historic; it's the general catalog loader here.
     this.libraryState.loadRecentSongs();
-    this.libraryState.loadTopArtists();
+    this.libraryState.loadArtists();
   }
 
   setActiveTab(tab: HomeTab): void {
@@ -129,51 +100,6 @@ export class MusicComponent {
   goToAlbum(albumId: string): void {
     if (!albumId) return;
     this.router.navigate(['/user/album', albumId]);
-  }
-
-  isSongPlaying(songId: string): boolean {
-    const current = this.playerState.currentSong();
-    return !!current && current.id === songId && this.playerState.isPlaying();
-  }
-
-  isSongLiked(songId: string): boolean {
-    return this.interactionState.isSongLiked(songId);
-  }
-
-  playSong(songId: string): void {
-    const songRes = this.libraryState.songs().find((s: SongResponse) => s.id === songId);
-    if (!songRes) return;
-    const song = this.toPlayerSong(songRes);
-    const current = this.playerState.currentSong();
-
-    if (current?.id === songId && this.playerState.isPlaying()) {
-      this.playerState.pause(); return;
-    }
-    if (current?.id === songId && !this.playerState.isPlaying()) {
-      this.playerState.resume(); return;
-    }
-    this.playerState.playSong(song);
-  }
-
-  toggleSongLike(songId: string): void {
-    this.interactionState.toggleLike(songId);
-  }
-
-  private toPlayerSong(song: SongResponse): PlayerSong {
-    return {
-      id: song.id ?? '',
-      title: song.title ?? '',
-      artistId: song.artist?.id ?? '',
-      albumId: song.album?.id ?? null,
-      genreId: song.genres?.[0]?.id ?? '',
-      coverUrl: song.coverUrl ?? '',
-      audioUrl: song.audioUrl ?? '',
-      durationSeconds: song.duration ?? 0,
-      lyrics: song.lyrics ?? null,
-      playCount: song.playCount ?? 0,
-      likesCount: song.likesCount ?? 0,
-      createdAt: '',
-    };
   }
 
   private formatMinutesLabel(totalSeconds: number): string {

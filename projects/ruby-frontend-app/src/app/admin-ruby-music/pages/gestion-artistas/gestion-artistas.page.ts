@@ -12,6 +12,7 @@ import {
 import { LucideAngularModule } from 'lucide-angular';
 import { AdminSidebarComponent } from '../../components/admin-sidebar/admin-sidebar.component';
 import { ArtistResponse, ArtistsApi } from 'lib-ruby-sdks/catalog-service';
+import { formatShortDate } from '../../../core/utils/date-format';
 
 /* =========================
    MODELO ARTISTA
@@ -43,6 +44,9 @@ export class GestionArtistasPage implements OnInit {
      SERVICIOS
   ========================== */
   private readonly artistsApi = inject(ArtistsApi);
+
+  /** Public wrapper so the template can format ISO dates as `d/M/yyyy`. */
+  readonly formatShortDate = formatShortDate;
 
   /* =========================
      ICONOS

@@ -91,18 +91,24 @@ export class HomeComponent {
           coverUrl: album.coverUrl || this.defaultAlbumCover,
         };
       })
-      .slice(0, 12);
+      .slice(0, 10);
   });
 
   readonly visibleAlbumsForYou = computed<HomeAlbumCard[]>(() => {
     const start = this.albumsCarouselIndex();
-    return this.albumsForYou().slice(start, start + 7);
+    return this.albumsForYou().slice(start, start + 5);
   });
 
   readonly canMoveAlbumsLeft = computed(() => this.albumsCarouselIndex() > 0);
 
+  /**
+   * Arrow enabled whenever there's still an item beyond the current start
+   * index. The old check (`index + visibleWindow < length`) required *more
+   * items than the window* to ever show a right arrow, which meant sections
+   * with fewer albums than the window size never had a usable carousel.
+   */
   readonly canMoveAlbumsRight = computed(() => {
-    return this.albumsCarouselIndex() + 7 < this.albumsForYou().length;
+    return this.albumsCarouselIndex() + 1 < this.albumsForYou().length;
   });
 
   readonly listenNowSongs = computed<HomeSongRow[]>(() => {
@@ -130,14 +136,22 @@ export class HomeComponent {
   });
 
   readonly recommendedArtists = computed<HomeRecommendedArtistCard[]>(() => {
+    // Reactive safety net: even if the initial seed ran before follows
+    // finished loading (F5 race — loadArtists resolves faster than
+    // loadLibraryArtists+loadFollowedArtists), filter them out at render
+    // time so the UI never shows artists the user already follows. If the
+    // user follows someone from this list, it disappears on the next render
+    // for the same reason — no manual refresh needed.
+    const followed = new Set(this.interactionState.allFollowedArtistIds());
     return this.randomRecommendedArtistIds()
       .map(artistId => this.libraryState.artists().find((a: ArtistResponse) => a.id === artistId))
-      .filter((artist): artist is ArtistResponse => !!artist)
+      .filter((artist): artist is ArtistResponse => !!artist && !followed.has(artist.id ?? ''))
       .map(artist => ({
         id: artist.id ?? '',
         name: artist.name ?? '',
         photoUrl: artist.photoUrl || this.defaultAvatar,
-      }));
+      }))
+      .slice(0, 10);
   });
 
   readonly visibleRecommendedArtists = computed<HomeRecommendedArtistCard[]>(() => {
@@ -147,8 +161,9 @@ export class HomeComponent {
 
   readonly canMoveArtistsLeft = computed(() => this.artistsCarouselIndex() > 0);
 
+  /** Same relaxed rule as albums — see canMoveAlbumsRight above. */
   readonly canMoveArtistsRight = computed(() => {
-    return this.artistsCarouselIndex() + 7 < this.recommendedArtists().length;
+    return this.artistsCarouselIndex() + 1 < this.recommendedArtists().length;
   });
 
   constructor() {
@@ -158,14 +173,26 @@ export class HomeComponent {
       if (songs.length > 0 && this.randomListenSongIds().length === 0) {
         this.refreshListenNowSongs();
       }
-    }, { allowSignalWrites: true });
+    });
 
     effect(() => {
       const artists = this.libraryState.artists();
-      if (artists.length > 0 && this.randomRecommendedArtistIds().length === 0) {
+      const followsReady = this.interactionState.followsLoaded();
+      // Seed only when BOTH the catalog and the follows list are loaded.
+      // Otherwise the filter inside refreshRecommendedArtists runs against
+      // an empty follows set and lets followed artists into the seed (F5
+      // race). The `randomRecommendedArtistIds().length === 0` guard keeps
+      // the seed sticky across re-renders — follow/unfollow changes don't
+      // re-seed but the recommendedArtists computed still filters them out
+      // reactively.
+      if (
+        artists.length > 0
+        && followsReady
+        && this.randomRecommendedArtistIds().length === 0
+      ) {
         this.refreshRecommendedArtists();
       }
-    }, { allowSignalWrites: true });
+    });
 
     this.bootstrapHome();
   }
@@ -175,7 +202,7 @@ export class HomeComponent {
   /* ===================== */
   private bootstrapHome(): void {
     this.libraryState.loadRecentSongs();
-    this.libraryState.loadTopArtists();
+    this.libraryState.loadArtists();
     this.libraryState.loadNewReleases();
     this.interactionState.loadLikedSongs();
     this.interactionState.loadLibraryAlbums();
@@ -203,22 +230,30 @@ export class HomeComponent {
   /* ===================== */
   /* CAROUSELS */
   /* ===================== */
-  moveAlbumsLeft(): void {
+  // stopPropagation on every arrow click prevents the event from ever reaching
+  // an ancestor `.album-card` / `.recommended-artist-card` handler, which is
+  // what made the arrows feel "unclickable" on some clicks — the card was
+  // catching the bubble and navigating away.
+  moveAlbumsLeft(event?: Event): void {
+    event?.stopPropagation();
     if (!this.canMoveAlbumsLeft()) return;
     this.albumsCarouselIndex.update(v => Math.max(0, v - 1));
   }
 
-  moveAlbumsRight(): void {
+  moveAlbumsRight(event?: Event): void {
+    event?.stopPropagation();
     if (!this.canMoveAlbumsRight()) return;
     this.albumsCarouselIndex.update(v => v + 1);
   }
 
-  moveArtistsLeft(): void {
+  moveArtistsLeft(event?: Event): void {
+    event?.stopPropagation();
     if (!this.canMoveArtistsLeft()) return;
     this.artistsCarouselIndex.update(v => Math.max(0, v - 1));
   }
 
-  moveArtistsRight(): void {
+  moveArtistsRight(event?: Event): void {
+    event?.stopPropagation();
     if (!this.canMoveArtistsRight()) return;
     this.artistsCarouselIndex.update(v => v + 1);
   }
@@ -234,7 +269,7 @@ export class HomeComponent {
   }
 
   refreshRecommendedArtists(): void {
-    const followedIds = new Set(this.interactionState.libraryArtistIds());
+    const followedIds = new Set(this.interactionState.allFollowedArtistIds());
     const available = this.libraryState.artists().filter(a => !followedIds.has(a.id ?? ''));
     const shuffled = this.shuffleArray(available)
       .slice(0, 12)
@@ -248,18 +283,29 @@ export class HomeComponent {
   /* ===================== */
   playAlbum(albumId: string, event?: MouseEvent): void {
     event?.stopPropagation();
-    const firstSongRes = this.libraryState.songs().find(s => s.album?.id === albumId);
-    if (!firstSongRes) return;
-    const firstSong = this.toPlayerSong(firstSongRes);
-    const current = this.playerState.currentSong();
+    if (!albumId) return;
 
-    if (current?.albumId === albumId && current.id === firstSong.id && this.playerState.isPlaying()) {
-      this.playerState.pause(); return;
-    }
-    if (current?.albumId === albumId && current.id === firstSong.id && !this.playerState.isPlaying()) {
-      this.playerState.resume(); return;
-    }
-    this.playerState.playSong(firstSong);
+    // Use the album-songs endpoint (same as album-detail and Library) so the
+    // queue is guaranteed to contain EVERY track of the album. The previous
+    // version filtered `libraryState.songs()` — i.e. the "recent songs" global
+    // signal — which produced inconsistent results across artists: albums
+    // whose tracks happened to be in that recent cache worked, others (like
+    // 2Pac's) got a single-track queue → footer prev/next stayed disabled.
+    // Hand raw SongResponse[] straight to PlayerState — it normalizes every
+    // input via normalizeInputSong (single source of truth), so we no longer
+    // pre-map fields here.
+    this.libraryState.getAlbumSongs(albumId).subscribe(albumSongs => {
+      if (albumSongs.length === 0) return;
+      const current = this.playerState.currentSong();
+
+      if (current && albumSongs.some(s => s.id === current.id) && this.playerState.isPlaying()) {
+        this.playerState.pause(); return;
+      }
+      if (current && albumSongs.some(s => s.id === current.id) && !this.playerState.isPlaying()) {
+        this.playerState.resume(); return;
+      }
+      this.playerState.playQueue(albumSongs, 0);
+    });
   }
 
   isAlbumPlaying(albumId: string): boolean {
@@ -269,10 +315,26 @@ export class HomeComponent {
 
   playSong(songId: string, event?: MouseEvent): void {
     event?.stopPropagation();
+    if (this.isSongPlaying(songId)) { this.playerState.pause(); return; }
+
+    // Use the whole "Escuchar ahora" list as the queue so footer prev/next
+    // walks through it. Fallback to single-song play if the id isn't on the
+    // visible list (e.g. called from a non-list section).
+    const rows = this.listenNowSongs();
+    const idx = rows.findIndex(r => r.songId === songId);
+    if (idx >= 0) {
+      const queue = rows
+        .map(row => this.libraryState.songs().find(s => s.id === row.songId))
+        .filter((s): s is SongResponse => !!s)
+        .map(s => this.toPlayerSong(s));
+      if (queue.length > 0) {
+        this.playerState.playQueue(queue, idx);
+        return;
+      }
+    }
+
     const songRes = this.libraryState.songs().find(s => s.id === songId);
     if (!songRes) return;
-
-    if (this.isSongPlaying(songId)) { this.playerState.pause(); return; }
     this.playerState.playSong(this.toPlayerSong(songRes));
   }
 
@@ -281,24 +343,28 @@ export class HomeComponent {
     return !!current && current.id === songId && this.playerState.isPlaying();
   }
 
+  /** True cuando la canción dada es la current del PlayerState (independiente de pause). */
+  isCurrentPlayerSong(songId: string): boolean {
+    return this.playerState.currentSong()?.id === songId;
+  }
+
   playArtist(artistId: string, event?: MouseEvent): void {
     event?.stopPropagation();
-    const songs = this.libraryState.songs()
+    const artistSongs = this.libraryState.songs()
       .filter(s => s.artist?.id === artistId)
       .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0));
 
-    const firstSongRes = songs[0];
-    if (!firstSongRes) return;
-    const firstSong = this.toPlayerSong(firstSongRes);
+    if (artistSongs.length === 0) return;
+    const queue = artistSongs.map(s => this.toPlayerSong(s));
     const current = this.playerState.currentSong();
 
-    if (current?.artistId === artistId && current.id === firstSong.id && this.playerState.isPlaying()) {
+    if (current && queue.some(s => s.id === current.id) && this.playerState.isPlaying()) {
       this.playerState.pause(); return;
     }
-    if (current?.artistId === artistId && current.id === firstSong.id && !this.playerState.isPlaying()) {
+    if (current && queue.some(s => s.id === current.id) && !this.playerState.isPlaying()) {
       this.playerState.resume(); return;
     }
-    this.playerState.playSong(firstSong);
+    this.playerState.playQueue(queue, 0);
   }
 
   isArtistPlaying(artistId: string): boolean {
@@ -501,7 +567,9 @@ export class HomeComponent {
       id: song.id ?? '',
       title: song.title ?? '',
       artistId: song.artist?.id ?? '',
+      artistName: song.artist?.name ?? '',
       albumId: song.album?.id ?? null,
+      albumTitle: song.album?.title ?? null,
       genreId: song.genres?.[0]?.id ?? '',
       coverUrl: song.coverUrl ?? '',
       audioUrl: song.audioUrl ?? '',
