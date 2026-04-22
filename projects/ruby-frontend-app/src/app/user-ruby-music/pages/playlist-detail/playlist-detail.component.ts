@@ -181,6 +181,8 @@ export class PlaylistDetailComponent {
     const songIds = this.playlistState.getSongIdsForCurrentPlaylist();
     const artists = this.libraryState.artists() as any[];
     const albums = this.libraryState.albums() as any[];
+    const addedAtBySongId = this.playlistState.currentPlaylistAddedAtBySongId();
+    const nowMs = this.playlistState.now();
 
     return songIds
       .map((songId, index) => {
@@ -200,7 +202,10 @@ export class PlaylistDetailComponent {
           albumTitle: (album as any)?.title ?? 'Sencillo',
           coverUrl: song.coverUrl || this.defaultPlaylistCover,
           durationLabel: this.formatDuration(song.duration ?? 0),
-          addedAgoLabel: this.buildAddedAgoLabel(playlist.updatedAt || playlist.createdAt),
+          addedAgoLabel: this.buildAddedAgoLabel(
+            addedAtBySongId.get(song.id) ?? playlist.updatedAt ?? playlist.createdAt,
+            nowMs,
+          ),
         };
       })
       .filter((row): row is PlaylistSongRow => !!row);
@@ -993,13 +998,13 @@ export class PlaylistDetailComponent {
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
-  private buildAddedAgoLabel(isoDate: string | null | undefined): string {
+  private buildAddedAgoLabel(isoDate: string | null | undefined, nowMs: number): string {
     if (!isoDate) return 'hace un momento';
 
     const date = new Date(isoDate);
     if (Number.isNaN(date.getTime())) return 'hace un momento';
 
-    const diffMs = Date.now() - date.getTime();
+    const diffMs = nowMs - date.getTime();
     const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
 
     if (diffMinutes < 60) {

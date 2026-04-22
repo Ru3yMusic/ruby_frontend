@@ -36,11 +36,44 @@ export class PlaylistState {
   private readonly _error = signal<string | null>(null);
   readonly error = this._error.asReadonly();
 
+  /**
+   * Tick global para los labels "hace X tiempo" en playlist-detail. Un único
+   * setInterval de 60 s actualiza este signal; cualquier computed que lo lea
+   * (p.ej. el mapeo de filas con addedAgoLabel) se re-evalúa automáticamente
+   * sin necesidad de intervals por fila. Granularidad suficiente para
+   * minutos/horas/días. Vive lo que vive PlaylistState (providedIn root) y
+   * no requiere cleanup.
+   */
+  private readonly _now = signal(Date.now());
+  readonly now = this._now.asReadonly();
+
   /* ===================== */
   /* COMPUTED */
   /* ===================== */
 
   readonly totalPlaylists = computed(() => this._playlists().length);
+
+  /**
+   * Lookup reactivo songId → addedAt (ISO) para la playlist actualmente
+   * cargada. Derivado de _currentPlaylistSongs, por lo que cualquier
+   * load/add/remove (incluida la fila sintética que inserta syncLikedSong)
+   * actualiza el mapa automáticamente. playlist-detail lo usa para calcular
+   * el "hace X" correcto por canción, en vez de reutilizar el updatedAt
+   * global de la playlist.
+   */
+  readonly currentPlaylistAddedAtBySongId = computed<Map<string, string>>(() => {
+    const map = new Map<string, string>();
+    for (const row of this._currentPlaylistSongs()) {
+      if (row.songId && row.addedAt) {
+        map.set(row.songId, row.addedAt);
+      }
+    }
+    return map;
+  });
+
+  constructor() {
+    setInterval(() => this._now.set(Date.now()), 60_000);
+  }
 
   /* ===================== */
   /* LOAD */
