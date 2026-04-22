@@ -255,10 +255,10 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
       this.realtimePort.leaveStation();
     }
     this.pauseAudio();
-    // Limpia el estado global del player para que el footer no resucite la
-    // canción de la estación al salir de station-detail (currentSong=null,
-    // isPlaying=false), garantizando stop real al cambiar de ruta.
-    this.playerState.clearPlayer();
+    // Al salir de station-detail conservamos la canción en el estado global
+    // y sólo la dejamos en pausa, para que el footer la muestre pausada en
+    // vez de caer en "Sin reproducción".
+    this.playerState.pause();
   }
 
   private subscribeToRealtimeEvents(): void {
