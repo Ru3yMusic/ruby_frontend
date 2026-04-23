@@ -1,9 +1,10 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { InteractionState } from './interaction.state';
 
 /** sessionStorage key — bump the version suffix if the shape ever changes
  *  so stale snapshots from old deploys get dropped instead of misparsed. */
 const SNAPSHOT_KEY = 'rubytune:player-snapshot:v1';
+const CURRENT_TIME_PERSIST_INTERVAL_MS = 5000;
 
 interface PlayerSnapshot {
   queue: PlayerSong[];
@@ -55,6 +56,7 @@ export type PlayerSongInput = Partial<PlayerSong> & {
 })
 export class PlayerState {
   private readonly interactionState = inject(InteractionState);
+  private lastTimeSnapshotAt = 0;
 
   constructor() {
     // Restore any snapshot from the previous load of this tab BEFORE the
@@ -68,20 +70,15 @@ export class PlayerState {
     // and let the user press play. Writes are cheap (tiny JSON + setItem);
     // no debouncing needed.
     effect(() => {
-      const snapshot: PlayerSnapshot = {
-        queue: this._queue(),
-        queueIndex: this._queueIndex(),
-        currentTime: this._currentTime(),
-        volume: this._volume(),
-        isShuffle: this._isShuffle(),
-        shuffleOrder: this._shuffleOrder(),
-        isRepeatOne: this._isRepeatOne(),
-      };
-      try {
-        sessionStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
-      } catch {
-        // sessionStorage disabled / quota exceeded — fail silently.
-      }
+      // Track structural player changes, but avoid tracking `_currentTime()` here
+      // so we don't serialize/write to sessionStorage on every `timeupdate` tick.
+      this._queue();
+      this._queueIndex();
+      this._volume();
+      this._isShuffle();
+      this._shuffleOrder();
+      this._isRepeatOne();
+      this.persistSnapshot();
     });
   }
 
@@ -375,6 +372,7 @@ export class PlayerState {
 
   pause(): void {
     this._isPlaying.set(false);
+    this.persistSnapshot();
   }
 
   resume(): void {
@@ -384,10 +382,18 @@ export class PlayerState {
 
   setPlaying(value: boolean): void {
     this._isPlaying.set(value);
+    if (!value) {
+      this.persistSnapshot();
+    }
   }
 
   setCurrentTime(seconds: number): void {
     this._currentTime.set(Math.max(0, seconds));
+    const now = Date.now();
+    if (now - this.lastTimeSnapshotAt >= CURRENT_TIME_PERSIST_INTERVAL_MS) {
+      this.lastTimeSnapshotAt = now;
+      this.persistSnapshot();
+    }
   }
 
   setDuration(seconds: number): void {
@@ -407,6 +413,24 @@ export class PlayerState {
     this._queue.set([]);
     this._queueIndex.set(0);
     this._shuffleOrder.set([]);
+    this.persistSnapshot();
+  }
+
+  private persistSnapshot(): void {
+    const snapshot: PlayerSnapshot = {
+      queue: this._queue(),
+      queueIndex: this._queueIndex(),
+      currentTime: untracked(() => this._currentTime()),
+      volume: this._volume(),
+      isShuffle: this._isShuffle(),
+      shuffleOrder: this._shuffleOrder(),
+      isRepeatOne: this._isRepeatOne(),
+    };
+    try {
+      sessionStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
+    } catch {
+      // sessionStorage disabled / quota exceeded — fail silently.
+    }
   }
 
   formatTime(totalSeconds: number): string {

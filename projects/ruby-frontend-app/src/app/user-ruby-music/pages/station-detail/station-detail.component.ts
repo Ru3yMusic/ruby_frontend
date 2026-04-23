@@ -34,6 +34,8 @@ import { FriendsState } from '../../state/friends.state';
   styleUrls: ['./station-detail.component.scss'],
 })
 export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy {
+  private readonly MAX_STATION_COMMENTS = 200;
+
   @ViewChild('stationAudio') stationAudioRef?: ElementRef<HTMLAudioElement>;
 
   private readonly route = inject(ActivatedRoute);
@@ -276,7 +278,10 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
       .subscribe(comment => {
         this.stationComments.update(list => {
           if (list.some(c => c.commentId === comment.commentId)) return list;
-          return [...list, comment];
+          const next = [...list, comment];
+          return next.length > this.MAX_STATION_COMMENTS
+            ? next.slice(next.length - this.MAX_STATION_COMMENTS)
+            : next;
         });
         this.preloadAvatars([comment]);
       });
@@ -379,7 +384,10 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
           this.stationComments.update((list) => {
             const seen = new Set(list.map((c) => c.commentId));
             const toPrepend = historical.filter((c) => !seen.has(c.commentId));
-            return [...toPrepend, ...list];
+            const merged = [...toPrepend, ...list];
+            return merged.length > this.MAX_STATION_COMMENTS
+              ? merged.slice(merged.length - this.MAX_STATION_COMMENTS)
+              : merged;
           });
           this.preloadAvatars(historical);
         },
