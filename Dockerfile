@@ -25,6 +25,9 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built Angular app from build stage
 COPY --from=build /app/dist/ruby-frontend/browser /usr/share/nginx/html
+COPY docker-entrypoint.d/40-runtime-env.sh /docker-entrypoint.d/40-runtime-env.sh
+
+RUN chmod +x /docker-entrypoint.d/40-runtime-env.sh
 
 RUN chown -R rubymusic:rubymusic /usr/share/nginx/html
 
