@@ -35,6 +35,8 @@ import { FriendsState } from '../../state/friends.state';
 })
 export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly MAX_STATION_COMMENTS = 200;
+  private readonly PLAYER_TIME_SYNC_INTERVAL_MS = 1000;
+  private lastPlayerTimeSyncAt = 0;
 
   @ViewChild('stationAudio') stationAudioRef?: ElementRef<HTMLAudioElement>;
 
@@ -473,7 +475,11 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
     if (!audio) return;
     const nextTime = audio.currentTime ?? 0;
     this.currentTimeSeconds.set(nextTime);
-    this.playerState.setCurrentTime(nextTime);
+    const now = Date.now();
+    if (now - this.lastPlayerTimeSyncAt >= this.PLAYER_TIME_SYNC_INTERVAL_MS) {
+      this.lastPlayerTimeSyncAt = now;
+      this.playerState.setCurrentTime(nextTime);
+    }
   }
 
   onAudioEnded(): void {
@@ -486,6 +492,7 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
 
   onAudioPause(): void {
     this.playerState.setPlaying(false);
+    this.playerState.setCurrentTime(this.currentTimeSeconds());
   }
 
   private pauseAudio(): void {
