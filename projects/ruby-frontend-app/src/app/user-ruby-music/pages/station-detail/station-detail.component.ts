@@ -35,7 +35,9 @@ import { FriendsState } from '../../state/friends.state';
 })
 export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly MAX_STATION_COMMENTS = 200;
+  private readonly UI_TIME_UPDATE_INTERVAL_MS = 250;
   private readonly PLAYER_TIME_SYNC_INTERVAL_MS = 1000;
+  private lastUiTimeUpdateAt = 0;
   private lastPlayerTimeSyncAt = 0;
 
   @ViewChild('stationAudio') stationAudioRef?: ElementRef<HTMLAudioElement>;
@@ -227,7 +229,7 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
       this.realtimePort.pingPresence();
     }, 60_000);
 
-    this.route.paramMap.subscribe(params => {
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       const nextStationId = params.get('id');
       if (!nextStationId) return;
 
@@ -474,8 +476,11 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
     const audio = this.stationAudioRef?.nativeElement;
     if (!audio) return;
     const nextTime = audio.currentTime ?? 0;
-    this.currentTimeSeconds.set(nextTime);
     const now = Date.now();
+    if (now - this.lastUiTimeUpdateAt >= this.UI_TIME_UPDATE_INTERVAL_MS) {
+      this.lastUiTimeUpdateAt = now;
+      this.currentTimeSeconds.set(nextTime);
+    }
     if (now - this.lastPlayerTimeSyncAt >= this.PLAYER_TIME_SYNC_INTERVAL_MS) {
       this.lastPlayerTimeSyncAt = now;
       this.playerState.setCurrentTime(nextTime);

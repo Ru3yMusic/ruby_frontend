@@ -2,7 +2,7 @@ import { HttpInterceptorFn, HttpErrorResponse, HttpRequest, HttpEvent } from '@a
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
-import { catchError, filter, switchMap, take } from 'rxjs/operators';
+import { catchError, filter, switchMap, take, timeout } from 'rxjs/operators';
 import { AuthRepositoryPort } from 'lib-ruby-core';
 import { TokenStorageService } from '../services/token-storage.service';
 
@@ -17,7 +17,9 @@ const AUTH_PASSTHROUGH_PATTERNS = [
 
 // Module-level state shared across all interceptor invocations
 let isRefreshing = false;
-const refreshTokenSubject = new BehaviorSubject<string | null>(null);
+let refreshTokenSubject = new BehaviorSubject<string | null>(null);
+
+const REFRESH_TIMEOUT_MS = 10_000;
 
 function isAuthEndpoint(url: string): boolean {
   return AUTH_PASSTHROUGH_PATTERNS.some(pattern => url.includes(pattern));
@@ -56,6 +58,7 @@ function handle401(
   }
 
   return authRepo.refreshToken(storedRefreshToken).pipe(
+    timeout(REFRESH_TIMEOUT_MS),
     switchMap(authToken => {
       isRefreshing = false;
       tokenStorage.setTokens(authToken.accessToken, authToken.refreshToken);
@@ -64,6 +67,12 @@ function handle401(
     }),
     catchError(refreshError => {
       isRefreshing = false;
+
+      // Unblock queued requests waiting behind `isRefreshing` so they don't
+      // remain pending forever when refresh fails/timeouts.
+      refreshTokenSubject.error(refreshError);
+      refreshTokenSubject = new BehaviorSubject<string | null>(null);
+
       tokenStorage.clearTokens();
       router.navigate(['/auth/login']);
       return throwError(() => refreshError);

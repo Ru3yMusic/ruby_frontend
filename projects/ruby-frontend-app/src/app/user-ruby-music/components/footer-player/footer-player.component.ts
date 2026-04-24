@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import {
   AfterViewInit,
   Component,
+  DestroyRef,
   ElementRef,
   ViewChild,
   computed,
@@ -10,6 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PlayerState } from '../../state/player.state';
 import { LibraryState } from '../../state/library.state';
 
@@ -24,6 +26,7 @@ export class FooterPlayerComponent implements AfterViewInit {
   private readonly playerState = inject(PlayerState);
   private readonly router = inject(Router);
   private readonly libraryState = inject(LibraryState);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly defaultCover = '/assets/icons/playlist-cover-placeholder.png';
 
@@ -82,7 +85,7 @@ export class FooterPlayerComponent implements AfterViewInit {
   });
 
   constructor() {
-    this.router.events.subscribe(event => {
+    this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => {
       if (event instanceof NavigationEnd) {
         this.isStationRoute.set(event.urlAfterRedirects.includes('/user/station'));
       }
