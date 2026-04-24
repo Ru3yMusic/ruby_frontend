@@ -535,7 +535,7 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
     const mentions = this.resolveMentions(message, user.id);
 
     this.realtimePort.sendComment({
-      commentId: crypto.randomUUID(),
+      commentId: this.createCommentId(),
       songId: song['id'] as string,
       stationId,
       content: message,
@@ -544,6 +544,21 @@ export class StationDetailComponent implements OnInit, AfterViewInit, OnDestroy 
 
     this.messageInput.set('');
     this.replyTargetComment.set(null);
+  }
+
+  private createCommentId(): string {
+    const maybeCrypto = globalThis.crypto as Crypto | undefined;
+    if (maybeCrypto?.randomUUID) {
+      return maybeCrypto.randomUUID();
+    }
+
+    // Fallback for non-secure contexts (e.g. plain HTTP on public IP) where
+    // crypto.randomUUID() may be unavailable.
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
   }
 
   /**
