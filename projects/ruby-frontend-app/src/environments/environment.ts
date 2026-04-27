@@ -5,4 +5,6 @@ export const environment = {
   apiGatewayUrl: runtimeEnv.apiGatewayUrl || 'http://localhost:8080',
   // Gateway proxies /socket.io/** → realtime-ws-ms:3001 (direct, not via Eureka)
   realtimeWsUrl: runtimeEnv.realtimeWsUrl || 'http://localhost:8080',
+  wsAuthRefreshEnabled:
+    runtimeEnv.wsAuthRefreshEnabled === true || runtimeEnv.wsAuthRefreshEnabled === 'true',
 };

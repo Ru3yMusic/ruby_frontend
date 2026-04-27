@@ -1,13 +1,18 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { AuthState, CurrentUser } from '../../../auth/state/auth.state';
 import { LibraryState } from '../../../../user-ruby-music/state/library.state';
+import { InteractionState } from '../../../../user-ruby-music/state/interaction.state';
+import { PlayerState } from '../../../../user-ruby-music/state/player.state';
+import { PreferencesApi } from 'lib-ruby-sdks/interaction-service';
 
 interface StationUI {
   id: string;
   name: string;
-  gradientStart: string;
-  gradientEnd: string;
+  photoUrl: string | null;
 }
 
 @Component({
@@ -20,16 +25,20 @@ interface StationUI {
 export class OnboardingCompletePage implements OnInit {
   private readonly authState = inject(AuthState);
   private readonly libraryState = inject(LibraryState);
+  private readonly interactionState = inject(InteractionState);
+  private readonly playerState = inject(PlayerState);
+  private readonly preferencesApi = inject(PreferencesApi);
+  private readonly router = inject(Router);
 
   // IDs seleccionados en el step anterior
-  readonly selectedStationIds = this.authState.selectedStations;
+  readonly selectedArtistIds = this.authState.selectedArtists;
 
-  // Estaciones seleccionadas completas para mostrar en pantalla
+  // Artistas seleccionados completos para mostrar en pantalla
   readonly selectedStations = computed<StationUI[]>(() => {
-    const ids = this.selectedStationIds();
-    return this.libraryState.stations()
-      .filter(station => ids.includes((station as any).id))
-      .map(station => this.toStationUI(station));
+    const ids = this.selectedArtistIds();
+    return this.libraryState.artists()
+      .filter(artist => ids.includes((artist as any).id))
+      .map(artist => this.toStationUI(artist));
   });
 
   constructor() {
@@ -37,10 +46,9 @@ export class OnboardingCompletePage implements OnInit {
   }
 
   ngOnInit(): void {
-    // Si llegamos aquí tras un full-reload, libraryState.stations() está vacío.
-    // Recargar estaciones activas para que "Escuchar ahora" encuentre IDs reales.
-    if (this.libraryState.stations().length === 0) {
-      this.libraryState.loadActiveStations();
+    // Si llegamos aquí tras un full-reload, artists() puede estar vacío.
+    if (this.libraryState.artists().length === 0) {
+      this.libraryState.loadArtists();
     }
   }
 
@@ -51,38 +59,71 @@ export class OnboardingCompletePage implements OnInit {
     const currentUser = this.authState.currentUser();
     if (!currentUser) return;
 
-    const stationIds = this.selectedStationIds();
+    const artistIds = this.selectedArtistIds();
 
     const updatedCurrentUser: CurrentUser = {
       ...currentUser,
       onboardingCompleted: true,
-      selectedStationIds: stationIds,
+      selectedArtistIds: artistIds,
     };
 
     this.authState.setCurrentUser(updatedCurrentUser);
     // Persistir flag por userId para que sobreviva al logout.
-    this.authState.markOnboardingCompleted(currentUser.id, stationIds);
+    this.authState.markOnboardingCompleted(currentUser.id, artistIds);
+    this.preferencesApi.saveArtistPreferences({ ids: artistIds }).subscribe({
+      error: () => {
+        // Keep onboarding UX non-blocking if preferences API fails.
+      },
+    });
+    this.syncSelectedArtistsToLibrary(artistIds);
+  }
+
+  private syncSelectedArtistsToLibrary(artistIds: string[]): void {
+    const uniqueIds = Array.from(new Set(artistIds.filter(Boolean)));
+    for (const artistId of uniqueIds) {
+      if (this.interactionState.isArtistInLibrary(artistId)) continue;
+      this.interactionState.addArtistToLibrary(artistId);
+    }
   }
 
   // =========================
   // ESCUCHAR AHORA
-  // Selecciona una estación random de las elegidas
+  // Reproduce una canción aleatoria de los artistas elegidos
   // =========================
   listenNow(): void {
-    // Preferimos IDs persistidos (sobreviven a full-reload);
-    // caemos a los resueltos desde libraryState si están disponibles.
-    const persistedIds = this.selectedStationIds();
-    const pool = persistedIds.length > 0
-      ? persistedIds
+    const artistIds = this.selectedArtistIds().length > 0
+      ? this.selectedArtistIds()
       : this.selectedStations().map(s => s.id);
 
-    if (pool.length === 0) {
-      window.location.href = '/user/home';
+    if (artistIds.length === 0) {
+      this.router.navigateByUrl('/user/home');
       return;
     }
 
-    const randomId = pool[Math.floor(Math.random() * pool.length)];
-    window.location.href = `/user/station/${randomId}`;
+    const requests = artistIds.map((artistId) =>
+      this.libraryState.getArtistSongs(artistId).pipe(catchError(() => of([]))),
+    );
+
+    forkJoin(requests).subscribe((songGroups) => {
+      const songs = songGroups
+        .flat()
+        .filter((song) => !!song?.id && !!song?.audioUrl && Number(song.duration ?? 0) > 0);
+
+      if (!songs.length) {
+        this.router.navigateByUrl('/user/home');
+        return;
+      }
+
+      // Build a randomised queue from ALL songs of the chosen artists so
+      // footer prev/next navigates within the seeded queue, and the auto-next
+      // logic (PlayerState.advanceOnEnded) keeps the music going. Picking a
+      // random startIndex guarantees we don't always boot with the same
+      // first track of the first chosen artist.
+      const shuffled = this.shuffle(songs);
+      const startIndex = Math.floor(Math.random() * shuffled.length);
+      this.playerState.playQueue(shuffled, startIndex);
+      this.router.navigateByUrl('/user/home');
+    });
   }
 
   // =========================
@@ -90,7 +131,7 @@ export class OnboardingCompletePage implements OnInit {
   // Va directo al home
   // =========================
   skip(): void {
-    window.location.href = '/user/home';
+    this.router.navigateByUrl('/user/home');
   }
 
   // =========================
@@ -100,8 +141,16 @@ export class OnboardingCompletePage implements OnInit {
     return {
       id: station.id,
       name: station.name,
-      gradientStart: station.gradientStart ?? '#1a1a2e',
-      gradientEnd: station.gradientEnd ?? '#16213e',
+      photoUrl: station.photoUrl ?? null,
     };
+  }
+
+  private shuffle<T>(items: T[]): T[] {
+    const copy = [...items];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
   }
 }

@@ -2,21 +2,41 @@
   class="station-detail-page"
   [style.background]="getStationBackgroundStyle()"
 >
+  <!--
+    Two symmetric <audio> elements drive a dual-buffer scheme for gapless
+    transitions. At any moment, ONE is the speaker (audible, playing the
+    current broadcast song); the other is the warmer (silent, src already
+    set to nextSongId so the browser has fully decoded it in memory).
+    When the broadcast crosses to the next song, we DON'T swap src on the
+    active element — that would re-fetch and re-decode (~1s gap even with
+    cache). Instead we just swap which element is "active": .play() on the
+    warmer (already buffered) and .pause() on the old speaker. The new
+    speaker starts mid-decode-state from sample 0 with zero buffering wait,
+    while the old speaker becomes the warmer for the song after that.
+    {@link activeAudioIndex} tracks which is which.
+  -->
   <audio
-    #stationAudio
+    #stationAudio0
     class="station-audio"
-    autoplay
-    (loadedmetadata)="onAudioLoadedMetadata()"
-    (timeupdate)="onAudioTimeUpdate()"
-    (ended)="onAudioEnded()"
-    (play)="onAudioPlay()"
-    (pause)="onAudioPause()"
+    preload="auto"
+    (loadedmetadata)="onAudioLoadedMetadata(0)"
+    (timeupdate)="onAudioTimeUpdate(0)"
+    (ended)="onAudioEnded(0)"
+  ></audio>
+  <audio
+    #stationAudio1
+    class="station-audio"
+    preload="auto"
+    (loadedmetadata)="onAudioLoadedMetadata(1)"
+    (timeupdate)="onAudioTimeUpdate(1)"
+    (ended)="onAudioEnded(1)"
   ></audio>
 
   <div class="station-detail-backdrop">
     <img
       class="station-detail-backdrop-image"
       [src]="getBackdropImage()"
+      [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
       alt="Fondo de estación"
     />
   </div>
@@ -86,6 +106,7 @@
           <img
             class="station-current-cover"
             [src]="getBackdropImage()"
+            [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
             [alt]="currentSong()?.['title'] || 'Canción actual'"
           />
         </div>
@@ -127,6 +148,7 @@
               <img
                 class="station-comment-avatar"
                 [src]="getCommentAvatar(comment)"
+                [imgFallback]="'/assets/icons/avatar-placeholder.png'"
                 [alt]="comment.username"
               />
 
@@ -232,6 +254,7 @@
             <img
               class="station-current-artist-avatar"
               [src]="getCurrentArtistPhoto()"
+              [imgFallback]="'/assets/icons/avatar-placeholder.png'"
               [alt]="currentArtist()?.['name'] || 'Artista actual'"
             />
           </button>

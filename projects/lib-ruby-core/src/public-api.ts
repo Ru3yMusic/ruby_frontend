@@ -1,4 +1,5 @@
 export * from './lib/config/api-gateway-url.token';
+export * from './lib/config/ws-auth-refresh-enabled.token';
 export * from './lib/ruby-core-music/domain/models/auth-token.model';
 export * from './lib/ruby-core-music/domain/models/user.model';
 export * from './lib/ruby-core-music/domain/models/realtime.models';

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { SongResponse, ArtistResponse, AlbumResponse } from 'lib-ruby-sdks/catalog-service';
 import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
@@ -8,6 +8,7 @@ import { PlaylistState } from '../../state/playlist.state';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 interface RelatedSongCard {
   id: string;
@@ -25,7 +26,8 @@ interface RelatedSongCard {
 @Component({
   selector: 'app-right-panel',
   standalone: true,
-  imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './right-panel.component.html',
   styleUrls: ['./right-panel.component.scss'],
 })
@@ -106,34 +108,73 @@ export class RightPanelComponent {
     return `${this.formatNumber(value)} oyentes mensuales`;
   });
 
+  private readonly artistsById = computed(() => {
+    const map = new Map<string, ArtistResponse>();
+    for (const artist of this.libraryState.artists()) {
+      if (artist.id) map.set(artist.id, artist);
+    }
+    return map;
+  });
+
+  private readonly albumsById = computed(() => {
+    const map = new Map<string, AlbumResponse>();
+    for (const album of this.libraryState.albums()) {
+      if (album.id) map.set(album.id, album);
+    }
+    return map;
+  });
+
+  private readonly songsByGenreSorted = computed(() => {
+    const grouped = new Map<string, SongResponse[]>();
+    for (const song of this.libraryState.songs()) {
+      const genreId = song.genres?.[0]?.id;
+      if (!genreId) continue;
+      const bucket = grouped.get(genreId);
+      if (bucket) {
+        bucket.push(song);
+      } else {
+        grouped.set(genreId, [song]);
+      }
+    }
+
+    for (const bucket of grouped.values()) {
+      bucket.sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0));
+    }
+    return grouped;
+  });
+
   readonly relatedSongs = computed<RelatedSongCard[]>(() => {
     const song = this.currentSong();
     if (!song?.genreId) return [];
 
-    return this.libraryState
-      .songs()
-      .filter((s: SongResponse) => s.genres?.[0]?.id === song.genreId && s.id !== song.id)
-      .sort((a: SongResponse, b: SongResponse) => (b.playCount ?? 0) - (a.playCount ?? 0))
-      .slice(0, 10)
-      .map((s: SongResponse) => {
-        const artist = this.libraryState.artists().find((a: ArtistResponse) => a.id === s.artist?.id);
-        const album = s.album?.id
-          ? this.libraryState.albums().find((a: AlbumResponse) => a.id === s.album?.id)
-          : null;
+    const artistsById = this.artistsById();
+    const albumsById = this.albumsById();
+    const genreSongs = this.songsByGenreSorted().get(song.genreId) ?? [];
 
-        return {
-          id: `related-${s.id ?? ''}`,
-          songId: s.id ?? '',
-          title: s.title ?? '',
-          artistId: s.artist?.id ?? '',
-          artistName: artist?.name ?? 'Artista desconocido',
-          albumId: s.album?.id ?? null,
-          albumTitle: album?.title ?? 'Sencillo',
-          coverUrl: s.coverUrl || this.defaultCover,
-          genreId: s.genres?.[0]?.id ?? '',
-          isLiked: this.interactionState.isSongLiked(s.id ?? ''),
-        };
+    const result: RelatedSongCard[] = [];
+    for (const s of genreSongs) {
+      if (s.id === song.id) continue;
+
+      const artist = artistsById.get(s.artist?.id ?? '');
+      const album = s.album?.id ? albumsById.get(s.album.id) : null;
+
+      result.push({
+        id: `related-${s.id ?? ''}`,
+        songId: s.id ?? '',
+        title: s.title ?? '',
+        artistId: s.artist?.id ?? '',
+        artistName: artist?.name ?? 'Artista desconocido',
+        albumId: s.album?.id ?? null,
+        albumTitle: album?.title ?? 'Sencillo',
+        coverUrl: s.coverUrl || this.defaultCover,
+        genreId: s.genres?.[0]?.id ?? '',
+        isLiked: this.interactionState.isSongLiked(s.id ?? ''),
       });
+
+      if (result.length >= 10) break;
+    }
+
+    return result;
   });
 
   readonly visibleRelatedSongs = computed<RelatedSongCard[]>(() => {

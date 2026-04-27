@@ -50,6 +50,7 @@
             <img
               class="station-cover-image"
               [src]="getStationImage(station)"
+              [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
               [alt]="station.name"
             />
           </div>
@@ -92,6 +93,7 @@
             <img
               class="station-cover-image"
               [src]="getStationImage(station)"
+              [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
               [alt]="station.name"
             />
           </div>

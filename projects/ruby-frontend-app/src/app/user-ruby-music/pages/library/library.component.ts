@@ -9,6 +9,8 @@ import { PlaylistState } from '../../state/playlist.state';
 import { PlayerState } from '../../state/player.state';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
+import { SavedPlaylistsState } from '../../state/saved-playlists.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 type LibraryFilter = 'TODOS' | 'PLAYLISTS' | 'ARTISTAS' | 'ALBUMES';
 
@@ -38,7 +40,7 @@ interface LibraryPlaylistCard {
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './library.component.html',
   styleUrls: ['./library.component.scss'],
 })
@@ -49,6 +51,7 @@ export class LibraryComponent {
   private readonly playerState = inject(PlayerState);
   private readonly libraryState = inject(LibraryState);
   private readonly interactionState = inject(InteractionState);
+  private readonly savedPlaylistsState = inject(SavedPlaylistsState);
 
   private readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
   private readonly defaultPlaylistCover = '/assets/icons/playlist-cover-placeholder.png';
@@ -101,7 +104,7 @@ export class LibraryComponent {
 
     const term = this.librarySearch().trim().toLowerCase();
 
-    const playlists = this.playlistState
+    const own: LibraryPlaylistCard[] = this.playlistState
       .getCustomPlaylistsByUser(user.id)
       .filter((p: PlaylistResponse) => (p.name ?? '').trim().length > 0)
       .map((p: PlaylistResponse) => ({
@@ -112,6 +115,25 @@ export class LibraryComponent {
         songsCount: p.songCount ?? 0,
         isLikedSongs: false,
       }));
+
+    // Playlists guardadas de OTROS usuarios. Aparecen mezcladas con las
+    // propias en la misma sección, con el mismo layout. Las restricciones
+    // (no editar, no agregar canciones, no borrar) ya viven en
+    // playlist-detail vía isOwner(). Subtitle distinto para no mentir
+    // sobre la autoría sin romper la simetría visual.
+    const saved: LibraryPlaylistCard[] = this.savedPlaylistsState
+      .savedList()
+      .filter((p: PlaylistResponse) => (p.name ?? '').trim().length > 0)
+      .map((p: PlaylistResponse) => ({
+        id: p.id ?? '',
+        title: p.name ?? '',
+        coverUrl: p.coverUrl ?? this.defaultPlaylistCover,
+        subtitle: 'Playlist guardada',
+        songsCount: p.songCount ?? 0,
+        isLikedSongs: false,
+      }));
+
+    const playlists = [...own, ...saved];
 
     if (!term) return playlists;
     return playlists.filter(p =>

@@ -1,6 +1,12 @@
 import { Observable } from 'rxjs';
 import {
   BulkPresenceResult,
+  MusicFeedAlbumReleasedPayload,
+  MusicFeedArtistTopChangedPayload,
+  MusicFeedPlaylistDeletedPayload,
+  MusicFeedPlaylistPrivacyChangedPayload,
+  MusicFeedPlaylistPublicCreatedPayload,
+  WsArtistFollowersChangedPayload,
   WsChatMessagePayload,
   WsCommentDeletedPayload,
   WsCommentLikesUpdatedPayload,
@@ -10,8 +16,11 @@ import {
   WsLikeDeltaPayload,
   WsListenerCountPayload,
   WsNotificationPayload,
+  WsSongPlayCountChangedPayload,
+  WsStationTrackPayload,
   WsSendChatMessagePayload,
   WsSendCommentPayload,
+  WsTrackChangedPayload,
   WsUserPresenceChangedPayload,
 } from '../models/realtime.models';
 
@@ -21,7 +30,7 @@ import {
  *
  * Connection lifecycle:
  *   1. Call connect(token) once the user logs in (pass JWT access token).
- *   2. Call joinStation(stationId, songId) when entering a station page.
+ *   2. Call joinStation(stationId, tracks) when entering a station page.
  *   3. Call leaveStation() when leaving a station (ngOnDestroy or route change).
  *   4. Call disconnect() when the user logs out.
  *
@@ -36,7 +45,7 @@ export abstract class RealtimePort {
   abstract disconnect(): void;
 
   /** Emit join_station — registers presence in the station room. */
-  abstract joinStation(stationId: string, songId: string): void;
+  abstract joinStation(stationId: string, tracks: WsStationTrackPayload[]): void;
 
   /** Emit leave_station — removes presence from the current station room. */
   abstract leaveStation(): void;
@@ -83,6 +92,9 @@ export abstract class RealtimePort {
   /** Cold Observable — emits joined_station ack after a successful join_station emit. */
   abstract onJoinedStation(): Observable<WsJoinedStationPayload>;
 
+  /** Cold Observable — emits track_changed when station timeline advances. */
+  abstract onTrackChanged(): Observable<WsTrackChangedPayload>;
+
   /** Cold Observable — emits comment_deleted events broadcast from the station room. */
   abstract onCommentDeleted(): Observable<WsCommentDeletedPayload>;
 
@@ -98,6 +110,21 @@ export abstract class RealtimePort {
 
   /** Cold Observable — emits friend_removed events targeted at this user's room. */
   abstract onFriendRemoved(): Observable<WsFriendRemovedPayload>;
+
+  /**
+   * Cold Observable — emits artist_followers_changed events broadcast globally
+   * by realtime-ws-ms whenever any user follows / unfollows an artist (driven
+   * by `artist.followed` / `artist.unfollowed` Kafka topics from social-service).
+   * Subscribers should apply the delta to their cached followersCount.
+   */
+  abstract onArtistFollowersChanged(): Observable<WsArtistFollowersChangedPayload>;
+
+  /**
+   * Cold Observable — emits song_play_count_changed events broadcast globally
+   * whenever interaction-service publishes a `song.played` Kafka event. Use
+   * to bump cached playCount in real time without polling catalog-service.
+   */
+  abstract onSongPlayCountChanged(): Observable<WsSongPlayCountChangedPayload>;
 
   /** Returns whether the underlying socket is currently connected. */
   abstract isConnected(): boolean;
@@ -147,4 +174,25 @@ export abstract class RealtimePort {
    * Returns a map of userId → UserPresenceInfo.
    */
   abstract getBulkPresence(userIds: string[]): Observable<BulkPresenceResult>;
+
+  // ─── Music Feed (Kafka music-feed.* topics) ──────────────────────────────
+  //
+  // Broadcast globally to every authenticated socket. Consumed exclusively by
+  // the page-scoped MusicFeedState in /user/music. Other pages MUST NOT
+  // subscribe to these streams — the cap+replace logic is page-specific.
+
+  /** Cold Observable — emits when an album becomes publicly visible. */
+  abstract onMusicFeedAlbumReleased(): Observable<MusicFeedAlbumReleasedPayload>;
+
+  /** Cold Observable — emits when an artist's isTop flag flips in either direction. */
+  abstract onMusicFeedArtistTopChanged(): Observable<MusicFeedArtistTopChangedPayload>;
+
+  /** Cold Observable — emits when a NEW public (non-system) playlist is created. */
+  abstract onMusicFeedPlaylistPublicCreated(): Observable<MusicFeedPlaylistPublicCreatedPayload>;
+
+  /** Cold Observable — emits on any privacy flip of a non-system playlist. */
+  abstract onMusicFeedPlaylistPrivacyChanged(): Observable<MusicFeedPlaylistPrivacyChangedPayload>;
+
+  /** Cold Observable — emits when a previously-PUBLIC playlist is soft-deleted. */
+  abstract onMusicFeedPlaylistDeleted(): Observable<MusicFeedPlaylistDeletedPayload>;
 }

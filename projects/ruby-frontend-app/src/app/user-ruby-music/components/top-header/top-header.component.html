@@ -78,6 +78,7 @@
                         class="search-result-image"
                         [class.search-result-image--artist]="isArtistResult(result)"
                         [src]="result.imageUrl || '/assets/icons/playlist-cover-placeholder.png'"
+                        [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
                         [alt]="result.title"
                       />
                     </div>
@@ -163,6 +164,7 @@
         <img
           class="profile-avatar"
           [src]="currentUser()?.avatarUrl || '/assets/icons/avatar-placeholder.png'"
+          [imgFallback]="'/assets/icons/avatar-placeholder.png'"
           alt="Foto de perfil"
         />
       </button>

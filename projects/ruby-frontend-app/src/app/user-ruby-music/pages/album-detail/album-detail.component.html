@@ -7,6 +7,7 @@
         <img
           class="album-hero__cover"
           [src]="displayAlbumCover()"
+          [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
           [alt]="displayAlbumTitle()"
         />
       </div>
@@ -23,6 +24,7 @@
         <img
           class="album-hero__artist-avatar"
           [src]="displayArtistPhoto()"
+          [imgFallback]="'/assets/icons/avatar-placeholder.png'"
           [alt]="displayArtistName()"
         />
 
@@ -298,6 +300,7 @@
             <img
               class="album-related__image"
               [src]="album.coverUrl"
+              [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
               [alt]="album.title"
             />
 

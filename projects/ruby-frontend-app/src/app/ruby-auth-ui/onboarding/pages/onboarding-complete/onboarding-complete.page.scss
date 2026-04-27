@@ -46,6 +46,13 @@
   border-radius: 50%;
   opacity: 0.9;
   filter: blur(0.2px);
+  overflow: hidden;
+}
+
+.circle-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* POSICIONES TIPO "TRIÁNGULO CRUZADO" */

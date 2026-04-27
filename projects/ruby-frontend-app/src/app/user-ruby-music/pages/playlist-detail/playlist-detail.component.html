@@ -26,6 +26,7 @@
             <img
               class="playlist-cover-image"
               [src]="displayCoverUrl()"
+              [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
               alt="Portada playlist"
             />
 
@@ -59,6 +60,7 @@
           <img
             class="playlist-owner-avatar"
             [src]="displayOwnerAvatarUrl()"
+            [imgFallback]="'/assets/icons/avatar-placeholder.png'"
             alt="Usuario de la playlist"
           />
 
@@ -92,6 +94,24 @@
 
                 @if (isMoreMenuOpen()) {
                   <div class="playlist-more-menu" (click)="$event.stopPropagation()">
+                    <!-- Para non-owner el menú expone solo Save/Unsave. -->
+                    @if (!isOwner()) {
+                      <button
+                        class="playlist-more-menu-item"
+                        type="button"
+                        (click)="togglePlaylistSaveFromMenu()"
+                      >
+                        <img
+                          class="playlist-more-menu-icon"
+                          src="/assets/icons/playlist-menu-add.png"
+                          [alt]="isPlaylistSavedByMe() ? 'Quitar de mi biblioteca' : 'Agregar a mi biblioteca'"
+                        />
+                        <span>
+                          {{ isPlaylistSavedByMe() ? 'Quitar de mi biblioteca' : 'Agregar a mi biblioteca' }}
+                        </span>
+                      </button>
+                    }
+
                     @if (canAddSongsManually()) {
                       <button
                         class="playlist-more-menu-item"
@@ -215,8 +235,8 @@
           </div>
         }
 
-        <!-- CON CANCIONES -->
-        @if (hasSongs() && !isLikedSongsPlaylist()) {
+        <!-- CON CANCIONES (solo el dueño puede seguir agregando) -->
+        @if (hasSongs() && !isLikedSongsPlaylist() && isOwner()) {
           <div class="playlist-secondary-actions">
             <button
               class="playlist-secondary-button"
@@ -263,6 +283,7 @@
             <img
               class="playlist-song-cover"
               [src]="song.coverUrl"
+              [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
               [alt]="song.title"
             />
           </div>
@@ -409,7 +430,7 @@
                   </button>
                 }
 
-                @if (!isLikedSongsPlaylist()) {
+                @if (!isLikedSongsPlaylist() && isOwner()) {
                   <button
                     class="playlist-song-more-menu-item"
                     type="button"
@@ -434,94 +455,99 @@
 
   <!-- ===================== -->
   <!-- RECOMENDACIONES -->
+  <!-- Solo visible para el dueño de la playlist (sirve para que él agregue
+       canciones nuevas). Para no-dueños la playlist termina acá. -->
   <!-- ===================== -->
-  <section class="playlist-recommendations-section">
-    <h2 class="playlist-recommendations-title">
-      {{ recommendedSectionTitle() }}
-    </h2>
+  @if (isOwner()) {
+    <section class="playlist-recommendations-section">
+      <h2 class="playlist-recommendations-title">
+        {{ recommendedSectionTitle() }}
+      </h2>
 
-    <p class="playlist-recommendations-subtitle">
-      {{ recommendedSectionSubtitle() }}
-    </p>
+      <p class="playlist-recommendations-subtitle">
+        {{ recommendedSectionSubtitle() }}
+      </p>
 
-    <div class="playlist-recommendations-list">
-      @for (song of visibleRecommendedSongs(); track song.id) {
-        <article class="playlist-recommendation-row">
+      <div class="playlist-recommendations-list">
+        @for (song of visibleRecommendedSongs(); track song.id) {
+          <article class="playlist-recommendation-row">
 
-          <div class="playlist-recommendation-cover-wrapper">
-            <img
-              class="playlist-recommendation-cover"
-              [src]="song.coverUrl"
-              [alt]="song.title"
-            />
-
-            <button
-              class="playlist-recommendation-play-button"
-              type="button"
-              (click)="playRecommendedSong(song)"
-            >
+            <div class="playlist-recommendation-cover-wrapper">
               <img
-                class="playlist-recommendation-play-icon"
-                [src]="isSongPlaying(song.songId)
-                  ? '/assets/icons/playlist-pause-secu.png'
-                  : '/assets/icons/playlist-recommendation-play.png'"
-                [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
+                class="playlist-recommendation-cover"
+                [src]="song.coverUrl"
+                [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
+                [alt]="song.title"
               />
-            </button>
-          </div>
 
-          <div class="playlist-recommendation-main-info">
-            <p class="playlist-recommendation-title">{{ song.title }}</p>
-            <p class="playlist-recommendation-artist">{{ song.artistName }}</p>
-          </div>
+              <button
+                class="playlist-recommendation-play-button"
+                type="button"
+                (click)="playRecommendedSong(song)"
+              >
+                <img
+                  class="playlist-recommendation-play-icon"
+                  [src]="isSongPlaying(song.songId)
+                    ? '/assets/icons/playlist-pause-secu.png'
+                    : '/assets/icons/playlist-recommendation-play.png'"
+                  [alt]="isSongPlaying(song.songId) ? 'Pausar canción' : 'Reproducir canción'"
+                />
+              </button>
+            </div>
 
-          <div class="playlist-recommendation-album">
-            {{ song.albumTitle }}
-          </div>
+            <div class="playlist-recommendation-main-info">
+              <p class="playlist-recommendation-title">{{ song.title }}</p>
+              <p class="playlist-recommendation-artist">{{ song.artistName }}</p>
+            </div>
 
-          @if (isLikedSongsPlaylist()) {
-            <button
-              class="playlist-recommendation-like-button"
-              type="button"
-              (click)="toggleSongLike(song.songId)"
-            >
-              <img
-                class="playlist-recommendation-like-icon"
-                [src]="isSongLiked(song.songId)
-                  ? '/assets/icons/song-liked-filled.png'
-                  : '/assets/icons/song-liked-outline.png'"
-                [alt]="isSongLiked(song.songId)
-                  ? 'Quitar de Tus me gusta'
-                  : 'Agregar a Tus me gusta'"
-              />
-            </button>
-          } @else {
-            <button
-              class="playlist-recommendation-add-button"
-              type="button"
-              (click)="addRecommendedSong(song)"
-            >
-              <img
-                class="playlist-recommendation-add-icon"
-                src="/assets/icons/playlist-recommendation-add.png"
-                alt="Agregar canción"
-              />
-            </button>
-          }
-        </article>
+            <div class="playlist-recommendation-album">
+              {{ song.albumTitle }}
+            </div>
+
+            @if (isLikedSongsPlaylist()) {
+              <button
+                class="playlist-recommendation-like-button"
+                type="button"
+                (click)="toggleSongLike(song.songId)"
+              >
+                <img
+                  class="playlist-recommendation-like-icon"
+                  [src]="isSongLiked(song.songId)
+                    ? '/assets/icons/song-liked-filled.png'
+                    : '/assets/icons/song-liked-outline.png'"
+                  [alt]="isSongLiked(song.songId)
+                    ? 'Quitar de Tus me gusta'
+                    : 'Agregar a Tus me gusta'"
+                />
+              </button>
+            } @else {
+              <button
+                class="playlist-recommendation-add-button"
+                type="button"
+                (click)="addRecommendedSong(song)"
+              >
+                <img
+                  class="playlist-recommendation-add-icon"
+                  src="/assets/icons/playlist-recommendation-add.png"
+                  alt="Agregar canción"
+                />
+              </button>
+            }
+          </article>
+        }
+      </div>
+
+      @if (hasSongs()) {
+        <button
+          class="playlist-reload-button"
+          type="button"
+          (click)="reloadRecommendations()"
+        >
+          Volver a cargar
+        </button>
       }
-    </div>
-
-    @if (hasSongs()) {
-      <button
-        class="playlist-reload-button"
-        type="button"
-        (click)="reloadRecommendations()"
-      >
-        Volver a cargar
-      </button>
-    }
-  </section>
+    </section>
+  }
 
   @if (isFeedbackVisible()) {
     <div class="playlist-feedback-toast">
@@ -556,6 +582,7 @@
           <img
             class="playlist-modal-cover-preview"
             [src]="displayCoverUrl()"
+            [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
             alt="Vista previa portada"
           />
 
@@ -680,6 +707,7 @@
                 <img
                   class="playlist-add-songs-item-cover"
                   [src]="song.coverUrl"
+                  [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
                   [alt]="song.title"
                 />
               </div>

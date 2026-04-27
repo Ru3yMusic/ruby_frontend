@@ -15,7 +15,11 @@ export interface AlbumResponse {
     title?: string;
     artist?: ArtistResponse;
     coverUrl?: string;
-    releaseDate?: string;
+    releaseDateTime?: string;
+    /**
+     * True once the scheduled release time has passed (visible to public). False while still scheduled in the future.
+     */
+    released?: boolean;
     totalStreams?: number;
     /**
      * Number of songs in this album (computed)

@@ -2,11 +2,14 @@ import { CommonModule } from '@angular/common';
 import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
+import { UsersApi } from 'lib-ruby-sdks/auth-service';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { LibraryState } from '../../state/library.state';
 import { PlaylistState } from '../../state/playlist.state';
 import { PlayerState } from '../../state/player.state';
 import { InteractionState } from '../../state/interaction.state';
+import { SavedPlaylistsState } from '../../state/saved-playlists.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 type AddSongsTab = 'SUGGESTIONS' | 'LIKED';
 
@@ -41,7 +44,7 @@ interface AddSongsRow {
 @Component({
   selector: 'app-playlist-detail',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './playlist-detail.component.html',
   styleUrls: ['./playlist-detail.component.scss'],
 })
@@ -53,6 +56,17 @@ export class PlaylistDetailComponent {
   private readonly playerState = inject(PlayerState);
   private readonly libraryState = inject(LibraryState);
   private readonly interactionState = inject(InteractionState);
+  private readonly savedPlaylistsState = inject(SavedPlaylistsState);
+  private readonly usersApi = inject(UsersApi);
+
+  /**
+   * Datos del creador de la playlist cuando el current user NO es el dueño.
+   * Para playlists propias, displayOwnerName usa `currentUser.name` directo;
+   * para ajenas hidrata estos signals via auth-service.
+   */
+  private readonly _playlistOwnerName = signal<string | null>(null);
+  private readonly _playlistOwnerAvatarUrl = signal<string | null>(null);
+  private fetchedOwnerForPlaylistId: string | null = null;
 
   private readonly defaultTopColor = '#4b4b4b';
   private readonly defaultPlaylistCover = '/assets/icons/playlist-cover-placeholder.png';
@@ -106,20 +120,42 @@ export class PlaylistDetailComponent {
     return this.currentPlaylist()?.isSystem === true;
   });
 
+  /**
+   * True cuando el usuario actual es el dueño de la playlist.
+   * Usado para:
+   *   - Filtrar el menú de 3 puntitos (no-owner ve solo play/shuffle/save).
+   *   - Ocultar la sección "Canciones recomendadas" (solo tiene sentido
+   *     mientras el dueño edita su playlist; para non-owner es ruido).
+   */
+  readonly isOwner = computed(() => {
+    const user = this.currentUser();
+    const playlist = this.currentPlaylist();
+    return !!user?.id && !!playlist?.userId && user.id === playlist.userId;
+  });
+
+  /**
+   * True cuando la playlist está en `mi biblioteca > saved`. Solo aplica a
+   * playlists ajenas; las propias no se "guardan" porque ya son tuyas.
+   */
+  readonly isPlaylistSavedByMe = computed(() => {
+    if (this.isOwner()) return false;
+    return this.savedPlaylistsState.isPlaylistSaved(this.currentPlaylist()?.id);
+  });
+
   readonly canEditPlaylistIdentity = computed(() => {
-    return !this.isLikedSongsPlaylist();
+    return !this.isLikedSongsPlaylist() && this.isOwner();
   });
 
   readonly canEditPlaylistPrivacy = computed(() => {
-    return !this.isLikedSongsPlaylist();
+    return !this.isLikedSongsPlaylist() && this.isOwner();
   });
 
   readonly canDeletePlaylist = computed(() => {
-    return !this.isLikedSongsPlaylist();
+    return !this.isLikedSongsPlaylist() && this.isOwner();
   });
 
   readonly canAddSongsManually = computed(() => {
-    return !this.isLikedSongsPlaylist();
+    return !this.isLikedSongsPlaylist() && this.isOwner();
   });
 
   readonly playlistName = computed(() => {
@@ -155,13 +191,19 @@ export class PlaylistDetailComponent {
   });
 
   readonly displayOwnerName = computed(() => {
-    const user = this.currentUser();
-    return user?.name ?? 'Usuario RubyTune';
+    if (this.isOwner()) {
+      const user = this.currentUser();
+      return user?.name ?? 'Usuario RubyTune';
+    }
+    return this._playlistOwnerName() ?? 'Usuario RubyTune';
   });
 
   readonly displayOwnerAvatarUrl = computed(() => {
-    const user = this.currentUser();
-    return user?.avatarUrl || '/assets/icons/avatar-placeholder.png';
+    if (this.isOwner()) {
+      const user = this.currentUser();
+      return user?.avatarUrl || '/assets/icons/avatar-placeholder.png';
+    }
+    return this._playlistOwnerAvatarUrl() || '/assets/icons/avatar-placeholder.png';
   });
 
   readonly displayCoverUrl = computed(() => {
@@ -174,11 +216,26 @@ export class PlaylistDetailComponent {
       || this.defaultPlaylistCover;
   });
 
+  /**
+   * Source of truth para los song IDs que se renderizan en la playlist.
+   * - System playlist ("Tus me gusta"): deriva de interactionState.likedSongIds(),
+   *   que es la fuente real de verdad (tabla song_likes). Esto enmascara cualquier
+   *   drift en playlist_songs producido si la sync M2M interaction→playlist falla.
+   * - Playlist normal: usa el snapshot cargado por loadPlaylistSongs (el orden
+   *   manual por position importa, así que NO se puede sustituir).
+   */
+  readonly effectiveSongIds = computed<string[]>(() => {
+    if (this.isLikedSongsPlaylist()) {
+      return this.interactionState.likedSongIds();
+    }
+    return this.playlistState.getSongIdsForCurrentPlaylist();
+  });
+
   readonly playlistSongs = computed<PlaylistSongRow[]>(() => {
     const playlist = this.currentPlaylist();
     if (!playlist) return [];
 
-    const songIds = this.playlistState.getSongIdsForCurrentPlaylist();
+    const songIds = this.effectiveSongIds();
     const artists = this.libraryState.artists() as any[];
     const albums = this.libraryState.albums() as any[];
     const addedAtBySongId = this.playlistState.currentPlaylistAddedAtBySongId();
@@ -211,11 +268,17 @@ export class PlaylistDetailComponent {
       .filter((row): row is PlaylistSongRow => !!row);
   });
 
-  // Fuente de verdad para el contador: backend (playlist.songCount), no el length filtrado.
-  readonly songsCount = computed(() => this.currentPlaylist()?.songCount ?? 0);
+  // El contador real es siempre la longitud de effectiveSongIds (post-load).
+  // No dependemos de playlist.songCount del backend porque puede quedar stale
+  // (e.g. cuando se ven playlists ajenas hidratadas via getPlaylistById en otro
+  // momento que el add/remove song). effectiveSongIds se sincroniza con la
+  // tabla playlist_songs vía loadPlaylistSongs.
+  readonly songsCount = computed(() => {
+    return this.effectiveSongIds().length;
+  });
 
   readonly totalDurationSeconds = computed(() => {
-    const songIds = this.playlistState.getSongIdsForCurrentPlaylist();
+    const songIds = this.effectiveSongIds();
 
     return songIds.reduce((total, songId) => {
       const song = this.libraryState.getSongById(songId) as any;
@@ -266,7 +329,7 @@ export class PlaylistDetailComponent {
     this.shuffleSeed(); // track for re-evaluation on reload
 
     if (playlist && songs.length > 0) {
-      const loadedSongIds = this.playlistState.getSongIdsForCurrentPlaylist();
+      const loadedSongIds = this.effectiveSongIds();
       const rows = [...songs]
         .filter((song: any) => !loadedSongIds.includes(song.id))
         .sort(() => Math.random() - 0.5)
@@ -315,7 +378,7 @@ export class PlaylistDetailComponent {
 
     if (!playlist) return [];
 
-    const loadedSongIds = this.playlistState.getSongIdsForCurrentPlaylist();
+    const loadedSongIds = this.effectiveSongIds();
 
     return songs
       .filter((song: any) => !loadedSongIds.includes(song.id))
@@ -358,6 +421,41 @@ export class PlaylistDetailComponent {
   private bootstrappedForId: string | null = null;
 
   constructor() {
+    // Si el id viene de la URL pero la playlist no está en _playlists
+    // (caso típico: usuario abre una playlist pública AJENA desde /user/music),
+    // se hidrata acá. getMyPlaylists() solo trae las propias.
+    effect(() => {
+      const id = this.playlistId();
+      if (!id) return;
+      this.playlistState.ensurePlaylistLoaded(id);
+    });
+
+    // Si el current user NO es el dueño, hidratar el nombre/avatar del creador
+    // vía auth-service/users/{id}. Solo para playlists ajenas (las propias usan
+    // currentUser directamente). Idempotente por id de playlist.
+    effect(() => {
+      const playlist = this.currentPlaylist();
+      if (!playlist?.id || !playlist.userId) return;
+      if (this.isOwner()) {
+        this._playlistOwnerName.set(null);
+        this._playlistOwnerAvatarUrl.set(null);
+        this.fetchedOwnerForPlaylistId = null;
+        return;
+      }
+      if (this.fetchedOwnerForPlaylistId === playlist.id) return;
+      this.fetchedOwnerForPlaylistId = playlist.id;
+      this.usersApi.getUserById(playlist.userId).subscribe({
+        next: (user) => {
+          this._playlistOwnerName.set(user.displayName ?? user.email ?? null);
+          this._playlistOwnerAvatarUrl.set(user.profilePhotoUrl ?? null);
+        },
+        error: () => {
+          this._playlistOwnerName.set(null);
+          this._playlistOwnerAvatarUrl.set(null);
+        },
+      });
+    });
+
     // Dispara bootstrap cuando currentPlaylist() esté disponible.
     // Si el usuario recarga directo en /user/playlist/:id y playlists() llega tarde,
     // el effect lo cubre sin que dependa del orden de inicialización de otros componentes.
@@ -371,9 +469,11 @@ export class PlaylistDetailComponent {
 
     // Hidrata metadata de canciones que no estén ya en libraryState (recientes/búsqueda).
     // Esto permite que playlist-detail muestre filas para canciones likeadas desde
-    // estaciones, álbumes, etc. — sin refetch masivo, solo lo que falta.
+    // estaciones, álbumes, etc. — sin refetch masivo, solo lo que falta. Usamos
+    // effectiveSongIds para que en system playlist se hidraten los likedSongIds
+    // (que es lo que realmente se renderiza tras el fix anti-drift).
     effect(() => {
-      const ids = this.playlistState.getSongIdsForCurrentPlaylist();
+      const ids = this.effectiveSongIds();
       if (ids.length === 0) return;
       this.libraryState.ensureSongsLoaded(ids);
     });
@@ -655,6 +755,24 @@ export class PlaylistDetailComponent {
     });
   }
 
+  /**
+   * Toggle save/unsave para playlists ajenas (non-owner). El menú 3-puntitos
+   * solo expone esta acción cuando isOwner === false.
+   */
+  togglePlaylistSaveFromMenu(): void {
+    const playlist = this.currentPlaylist();
+    if (!playlist?.id || this.isOwner()) {
+      this.isMoreMenuOpen.set(false);
+      return;
+    }
+    if (this.savedPlaylistsState.isPlaylistSaved(playlist.id)) {
+      this.savedPlaylistsState.unsavePlaylist(playlist.id);
+    } else {
+      this.savedPlaylistsState.savePlaylist(playlist);
+    }
+    this.isMoreMenuOpen.set(false);
+  }
+
   playPlaylist(): void {
     const playlist = this.currentPlaylist();
     const firstSongRow = this.playlistSongs()[0];
@@ -662,7 +780,7 @@ export class PlaylistDetailComponent {
 
     if (!playlist || !firstSongRow) return;
 
-    const playlistSongIds = this.playlistState.getSongIdsForCurrentPlaylist();
+    const playlistSongIds = this.effectiveSongIds();
 
     if (
       currentSong &&
@@ -750,7 +868,7 @@ export class PlaylistDetailComponent {
 
     if (!playlist || !currentSong) return false;
 
-    return this.playlistState.getSongIdsForCurrentPlaylist().includes(currentSong.id) && this.playerState.isPlaying();
+    return this.effectiveSongIds().includes(currentSong.id) && this.playerState.isPlaying();
   }
 
   isSongPlaying(songId: string): boolean {

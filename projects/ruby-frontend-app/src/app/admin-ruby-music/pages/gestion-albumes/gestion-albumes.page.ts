@@ -39,7 +39,10 @@ interface Album {
   title: string;
   artistId: string;
   coverUrl: string;
-  releaseDate: string;
+  /** Display string for the UI: "DD/MM/YYYY hh:mm:ss AM/PM" */
+  releaseDateTime: string;
+  /** Raw ISO from the SDK ("2026-04-26T16:22:00") — sort + form load use this */
+  releaseDateTimeIso: string;
   songsCount: number;
   totalStreams: string;
   createdAt: string;
@@ -86,7 +89,7 @@ export class GestionAlbumesPage implements OnInit {
   ========================== */
   readonly sidebarOpen = signal(false);
   readonly searchQuery = signal('');
-  readonly minAlbumReleaseDate = this.getTodayInputDate();
+  readonly minAlbumReleaseDateTime = signal(this.getTodayInputDate());
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -109,7 +112,7 @@ export class GestionAlbumesPage implements OnInit {
   readonly createAlbumTitle = signal('');
   readonly createAlbumArtistId = signal('');
   readonly createAlbumCoverUrl = signal('');
-  readonly createAlbumReleaseDate = signal('');
+  readonly createAlbumReleaseDateTime = signal('');
 
   /* =========================
      FORM EDIT
@@ -117,7 +120,7 @@ export class GestionAlbumesPage implements OnInit {
   readonly editAlbumTitle = signal('');
   readonly editAlbumArtistId = signal('');
   readonly editAlbumCoverUrl = signal('');
-  readonly editAlbumReleaseDate = signal('');
+  readonly editAlbumReleaseDateTime = signal('');
 
   /* =========================
      DATA BASE
@@ -155,10 +158,7 @@ export class GestionAlbumesPage implements OnInit {
             'https://ui-avatars.com/api/?name=Artist&background=e5e7eb&color=111&bold=true',
         };
       })
-      .sort(
-        (a, b) =>
-          this.parseDateToTime(b.releaseDate) - this.parseDateToTime(a.releaseDate)
-      );
+      .sort((a, b) => b.releaseDateTimeIso.localeCompare(a.releaseDateTimeIso));
   });
 
   readonly filteredAlbums = computed(() => {
@@ -206,10 +206,11 @@ export class GestionAlbumesPage implements OnInit {
       title: a.title ?? '',
       artistId: a.artist?.id ?? '',
       coverUrl: a.coverUrl ?? '',
-      releaseDate: this.mapDate(a.releaseDate),
+      releaseDateTime: this.mapDate(a.releaseDateTime),
+      releaseDateTimeIso: a.releaseDateTime ?? '',
       songsCount: a.songCount ?? 0,
       totalStreams: `${a.totalStreams ?? 0} streams`,
-      createdAt: this.mapDate(a.releaseDate),
+      createdAt: this.mapDate(a.releaseDateTime),
     }));
   }
 
@@ -220,7 +221,11 @@ export class GestionAlbumesPage implements OnInit {
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const year = d.getFullYear();
-      return `${day}/${month}/${year}`;
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const hours24 = d.getHours();
+      const period = hours24 >= 12 ? 'PM' : 'AM';
+      const hours12 = String(hours24 % 12 || 12).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours12}:${minutes} ${period}`;
     }
     return isoDate;
   }
@@ -271,70 +276,41 @@ export class GestionAlbumesPage implements OnInit {
     return value.trim().toLowerCase();
   }
 
+  /**
+   * Earliest valid release moment for the form: now + 1 minute, with seconds
+   * truncated to keep the input format aligned (yyyy-MM-ddTHH:mm). Adding the
+   * minute prevents users from "agendar para ya mismo" — the scheduler runs
+   * every 60s, so anything before now+1min would publish immediately and
+   * defeat the purpose of scheduling.
+   */
   private getTodayInputDate(): string {
-    const date = new Date();
+    const date = new Date(Date.now() + 60_000);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
 
-    return `${year}-${month}-${day}`;
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 
-  private formatInputDateToDisplay(value: string): string {
-    const [year, month, day] = value.split('-');
-
-    if (!year || !month || !day) {
-      return '';
-    }
-
-    return `${day}/${month}/${year}`;
+  private refreshMinReleaseDateTime(): void {
+    this.minAlbumReleaseDateTime.set(this.getTodayInputDate());
   }
 
-  private formatDisplayDateToInput(value: string): string {
-    const [day, month, year] = value.split('/');
-
-    if (!day || !month || !year) {
-      return '';
-    }
-
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  private isPastIso(iso: string): boolean {
+    if (!iso) return false;
+    return iso < this.minAlbumReleaseDateTime();
   }
 
-  private parseDateToTime(value: string): number {
-    if (!value) return 0;
-
-    const isoDate = new Date(value);
-    if (!Number.isNaN(isoDate.getTime())) {
-      return isoDate.getTime();
-    }
-
-    const parts = value.split('/').map(Number);
-    if (parts.length === 3) {
-      const [day, month, year] = parts;
-      return new Date(year, month - 1, day).getTime();
-    }
-
-    return 0;
-  }
-
-  private isPastDisplayDate(value: string): boolean {
-    const inputDate = this.formatDisplayDateToInput(value);
-
-    if (!inputDate) {
-      return false;
-    }
-
-    return inputDate < this.minAlbumReleaseDate;
-  }
-
-  isEditReleaseDateLocked(): boolean {
+  isEditReleaseDateTimeLocked(): boolean {
     const current = this.selectedAlbum();
 
     if (!current) {
       return false;
     }
 
-    return this.isPastDisplayDate(current.releaseDate);
+    return this.isPastIso(current.releaseDateTimeIso);
   }
 
   private existsAlbumTitle(
@@ -356,31 +332,35 @@ export class GestionAlbumesPage implements OnInit {
     this.createAlbumTitle.set('');
     this.createAlbumArtistId.set('');
     this.createAlbumCoverUrl.set('');
-    this.createAlbumReleaseDate.set('');
+    this.createAlbumReleaseDateTime.set('');
   }
 
   private resetEditForm(): void {
     this.editAlbumTitle.set('');
     this.editAlbumArtistId.set('');
     this.editAlbumCoverUrl.set('');
-    this.editAlbumReleaseDate.set('');
+    this.editAlbumReleaseDateTime.set('');
   }
 
   /* =========================
      MODALES
   ========================== */
   openCreateModal(): void {
+    this.refreshMinReleaseDateTime();
     this.resetCreateForm();
     this.isCreateModalOpen.set(true);
   }
 
   openEditModal(album: AlbumView): void {
+    this.refreshMinReleaseDateTime();
     this.selectedAlbum.set(album);
 
     this.editAlbumTitle.set(album.title);
     this.editAlbumArtistId.set(album.artistId);
     this.editAlbumCoverUrl.set(album.coverUrl);
-    this.editAlbumReleaseDate.set(this.formatDisplayDateToInput(album.releaseDate));
+    // ISO from SDK has seconds ("2026-04-26T16:22:00"). Input is minute-precision,
+    // so slice to "yyyy-MM-ddTHH:mm" to keep the value format aligned.
+    this.editAlbumReleaseDateTime.set((album.releaseDateTimeIso || '').slice(0, 16));
 
     this.isEditModalOpen.set(true);
   }
@@ -402,10 +382,14 @@ export class GestionAlbumesPage implements OnInit {
     const title = this.createAlbumTitle().trim();
     const artistId = this.createAlbumArtistId().trim();
     const coverUrl = this.createAlbumCoverUrl().trim();
-    const releaseDateInput = this.createAlbumReleaseDate().trim();
+    const releaseDateTimeInput = this.createAlbumReleaseDateTime().trim();
 
-    if (!title || !artistId || !coverUrl || !releaseDateInput) return;
-    if (releaseDateInput < this.minAlbumReleaseDate) return;
+    if (!title || !artistId || !coverUrl || !releaseDateTimeInput) return;
+    this.refreshMinReleaseDateTime();
+    if (releaseDateTimeInput < this.minAlbumReleaseDateTime()) {
+      this.error.set('La fecha de lanzamiento debe ser al menos 1 minuto después de la hora actual.');
+      return;
+    }
 
     const artistExists = this.artists().some((artist) => artist.id === artistId);
     if (!artistExists) return;
@@ -419,7 +403,7 @@ export class GestionAlbumesPage implements OnInit {
       title,
       artistId,
       coverUrl,
-      releaseDate: releaseDateInput,
+      releaseDateTime: releaseDateTimeInput,
     }).subscribe({
       next: () => {
         this.closeAllModals();
@@ -450,14 +434,20 @@ export class GestionAlbumesPage implements OnInit {
 
     if (this.existsAlbumTitle(title, artistId, current.id)) return;
 
-    const isReleaseDateLocked = this.isEditReleaseDateLocked();
+    const isReleaseDateTimeLocked = this.isEditReleaseDateTimeLocked();
 
-    const finalReleaseDate = isReleaseDateLocked
-      ? this.formatDisplayDateToInput(current.releaseDate)
-      : this.editAlbumReleaseDate().trim();
+    const finalReleaseDateTime = isReleaseDateTimeLocked
+      ? current.releaseDateTimeIso
+      : this.editAlbumReleaseDateTime().trim();
 
-    if (!isReleaseDateLocked && !finalReleaseDate) return;
-    if (!isReleaseDateLocked && finalReleaseDate < this.minAlbumReleaseDate) return;
+    if (!isReleaseDateTimeLocked && !finalReleaseDateTime) return;
+    if (!isReleaseDateTimeLocked) {
+      this.refreshMinReleaseDateTime();
+      if (finalReleaseDateTime < this.minAlbumReleaseDateTime()) {
+        this.error.set('La fecha de lanzamiento debe ser al menos 1 minuto después de la hora actual.');
+        return;
+      }
+    }
 
     this.loading.set(true);
     this.error.set(null);
@@ -466,7 +456,7 @@ export class GestionAlbumesPage implements OnInit {
       title,
       artistId,
       coverUrl,
-      releaseDate: finalReleaseDate,
+      releaseDateTime: finalReleaseDateTime,
     }).subscribe({
       next: () => {
         this.closeAllModals();

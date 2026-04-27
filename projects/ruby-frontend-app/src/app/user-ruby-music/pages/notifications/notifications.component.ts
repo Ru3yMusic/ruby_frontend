@@ -10,13 +10,14 @@ import {
   StationNotificationItem,
 } from '../../state/notifications.state';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 type NotificationsTab = 'ACTIVIDAD' | 'SOLICITUDES';
 
 @Component({
   selector: 'app-notifications',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './notifications.component.html',
   styleUrls: ['./notifications.component.scss'],
 })

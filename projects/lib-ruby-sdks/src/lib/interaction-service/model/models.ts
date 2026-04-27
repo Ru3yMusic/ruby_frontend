@@ -4,6 +4,8 @@ export * from './library-request';
 export * from './like-status-response';
 export * from './play-history-page';
 export * from './play-history-response';
+export * from './playback-checkpoint-request';
+export * from './playback-checkpoint-response';
 export * from './record-play-request';
 export * from './user-likes-internal-response';
 export * from './uuid-list-request';

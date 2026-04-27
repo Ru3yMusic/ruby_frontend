@@ -114,7 +114,7 @@
 
               <div class="album-card__title-row">
                 <h3>{{ album.title }}</h3>
-                <small>{{ album.releaseDate }}</small>
+                <small>{{ album.releaseDateTime }}</small>
               </div>
 
               <div class="album-card__artist-row">
@@ -241,10 +241,10 @@
         <div class="form-group">
           <label>Fecha de Lanzamiento *</label>
           <input
-            type="date"
-            [min]="minAlbumReleaseDate"
-            [value]="createAlbumReleaseDate()"
-            (input)="createAlbumReleaseDate.set($any($event.target).value)"
+            type="datetime-local"
+            [min]="minAlbumReleaseDateTime()"
+            [value]="createAlbumReleaseDateTime()"
+            (input)="createAlbumReleaseDateTime.set($any($event.target).value)"
           />
         </div>
 
@@ -392,18 +392,18 @@
         <div class="form-group">
           <label>Fecha de Lanzamiento *</label>
 
-          @if (isEditReleaseDateLocked()) {
+          @if (isEditReleaseDateTimeLocked()) {
             <input
               type="text"
-              [value]="selectedAlbum()?.releaseDate"
+              [value]="selectedAlbum()?.releaseDateTime"
               readonly
             />
           } @else {
             <input
-              type="date"
-              [min]="minAlbumReleaseDate"
-              [value]="editAlbumReleaseDate()"
-              (input)="editAlbumReleaseDate.set($any($event.target).value)"
+              type="datetime-local"
+              [min]="minAlbumReleaseDateTime()"
+              [value]="editAlbumReleaseDateTime()"
+              (input)="editAlbumReleaseDateTime.set($any($event.target).value)"
             />
           }
         </div>
@@ -474,7 +474,7 @@
         <!-- FECHA -->
         <div class="album-detail__field">
           <span>Fecha de lanzamiento</span>
-          <strong>{{ selectedAlbum()?.releaseDate }}</strong>
+          <strong>{{ selectedAlbum()?.releaseDateTime }}</strong>
         </div>
 
         <!-- STREAMS -->

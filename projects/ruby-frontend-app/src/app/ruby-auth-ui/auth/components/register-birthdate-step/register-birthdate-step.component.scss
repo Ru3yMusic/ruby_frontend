@@ -124,11 +124,12 @@
   height: 100%;
   overflow-y: auto;
   scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
   scrollbar-width: none;
   -ms-overflow-style: none;
   padding: 0;
   box-sizing: border-box;
-    overscroll-behavior: contain;
+  overscroll-behavior: contain;
 }
 
 .column::-webkit-scrollbar {
@@ -138,6 +139,7 @@
 /* ITEMS */
 .item {
   height: 56px;
+  scroll-snap-align: center;
   display: flex;
   align-items: center;
   justify-content: center;

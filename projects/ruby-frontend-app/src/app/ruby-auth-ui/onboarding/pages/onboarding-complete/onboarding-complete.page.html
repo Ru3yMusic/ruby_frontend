@@ -4,19 +4,23 @@
   <div class="header">
     <h1 class="title">¡Excelentes elecciones!</h1>
     <p class="subtitle">
-      Crearemos estaciones personalizadas para ti.
+      Crearemos una experiencia basada en los artistas que te gustan.
     </p>
   </div>
 
-  <!-- CÍRCULOS DE ESTACIONES -->
+  <!-- CÍRCULOS DE ARTISTAS -->
   <div class="circles-container" *ngIf="selectedStations().length > 0">
 
     <div
       class="circle"
       *ngFor="let station of selectedStations(); let i = index"
       [ngClass]="'circle-' + i"
-      [style.background]="'linear-gradient(135deg, ' + station.gradientStart + ', ' + station.gradientEnd + ')'"
     >
+      <img
+        class="circle-image"
+        [src]="station.photoUrl || '/assets/icons/avatar-placeholder.png'"
+        [alt]="station.name"
+      />
     </div>
 
   </div>

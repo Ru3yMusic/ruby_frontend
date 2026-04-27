@@ -10,6 +10,7 @@ import { BulkPresenceResult, RealtimePort } from 'lib-ruby-core';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { FriendsState } from '../../state/friends.state';
 import { LibraryState } from '../../state/library.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 /**
  * Represents an accepted friend enriched with presence, name, avatar, and station info.
@@ -40,7 +41,7 @@ interface FriendStationItem {
 @Component({
   selector: 'app-chat-station',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './chat-station.component.html',
   styleUrls: ['./chat-station.component.scss'],
 })

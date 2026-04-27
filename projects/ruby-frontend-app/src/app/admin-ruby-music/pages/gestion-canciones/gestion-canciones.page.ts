@@ -45,7 +45,7 @@ interface Album {
   title: string;
   artistId: string;
   coverUrl: string;
-  releaseDate: string;
+  releaseDateTime: string;
   songsCount: number;
   totalStreams: string;
   createdAt: string;
@@ -304,10 +304,10 @@ export class GestionCancionesPage implements OnInit {
       title: a.title ?? '',
       artistId: a.artist?.id ?? '',
       coverUrl: a.coverUrl ?? '',
-      releaseDate: a.releaseDate ?? '',
+      releaseDateTime: a.releaseDateTime ?? '',
       songsCount: a.songCount ?? 0,
       totalStreams: `${a.totalStreams ?? 0} streams`,
-      createdAt: a.releaseDate ?? '',
+      createdAt: a.releaseDateTime ?? '',
     }));
   }
 

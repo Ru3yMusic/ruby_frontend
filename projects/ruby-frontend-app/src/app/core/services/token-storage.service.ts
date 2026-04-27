@@ -33,13 +33,27 @@ export class TokenStorageService {
     return this._refreshToken();
   }
 
+  getTokenExpiryMs(token: string): number | null {
+    const payload = this.decodeTokenPayload(token);
+    if (!payload?.exp) return null;
+    return payload.exp * 1000;
+  }
+
   isTokenExpired(token: string): boolean {
+    const expMs = this.getTokenExpiryMs(token);
+    return expMs === null || expMs < Date.now();
+  }
+
+  private decodeTokenPayload(token: string): { exp?: number } | null {
     try {
       const payload = token.split('.')[1];
-      const decoded = JSON.parse(atob(payload)) as { exp: number };
-      return decoded.exp * 1000 < Date.now();
+      if (!payload) return null;
+
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      return JSON.parse(atob(padded)) as { exp?: number };
     } catch {
-      return true;
+      return null;
     }
   }
 }

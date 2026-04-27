@@ -1,9 +1,12 @@
 import { CommonModule } from '@angular/common';
 import {
   AfterViewInit,
+  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
+  NgZone,
+  OnDestroy,
   ViewChild,
   computed,
   effect,
@@ -14,19 +17,22 @@ import { NavigationEnd, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PlayerState } from '../../state/player.state';
 import { LibraryState } from '../../state/library.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 @Component({
   selector: 'app-footer-player',
   standalone: true,
-  imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './footer-player.component.html',
   styleUrls: ['./footer-player.component.scss'],
 })
-export class FooterPlayerComponent implements AfterViewInit {
+export class FooterPlayerComponent implements AfterViewInit, OnDestroy {
   private readonly playerState = inject(PlayerState);
   private readonly router = inject(Router);
   private readonly libraryState = inject(LibraryState);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly ngZone = inject(NgZone);
 
   private readonly defaultCover = '/assets/icons/playlist-cover-placeholder.png';
 
@@ -43,7 +49,17 @@ export class FooterPlayerComponent implements AfterViewInit {
   readonly isShuffle = this.playerState.isShuffle;
   readonly isRepeatOne = this.playerState.isRepeatOne;
 
-  readonly isStationRoute = signal(this.router.url.includes('/user/station'));
+  /**
+   * Matches the live-station detail route `/user/station/:id` only — NOT the
+   * station listing at `/user/station`. The footer must keep playing while the
+   * user browses the listing; only when they enter a specific station (which
+   * has its own audio element) should we pause + visually hide.
+   */
+  private static readonly LIVE_STATION_ROUTE_REGEX = /^\/user\/station\/[^/]+/;
+
+  readonly isStationRoute = signal(
+    FooterPlayerComponent.LIVE_STATION_ROUTE_REGEX.test(this.router.url),
+  );
 
   /**
    * When PlayerState restores a snapshot from sessionStorage at bootstrap,
@@ -54,6 +70,10 @@ export class FooterPlayerComponent implements AfterViewInit {
    * currentTime freely afterwards.
    */
   private pendingSeekOnLoad: number | null = null;
+  private lastTimeSyncAt = 0;
+  private readonly timeSyncIntervalMs = 250;
+  private syncedAudioUrl: string | null = null;
+  private teardownAudioListeners: (() => void) | null = null;
 
   readonly displayCoverUrl = computed(() => {
     return this.currentSong()?.coverUrl || this.defaultCover;
@@ -87,7 +107,9 @@ export class FooterPlayerComponent implements AfterViewInit {
   constructor() {
     this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => {
       if (event instanceof NavigationEnd) {
-        this.isStationRoute.set(event.urlAfterRedirects.includes('/user/station'));
+        this.isStationRoute.set(
+          FooterPlayerComponent.LIVE_STATION_ROUTE_REGEX.test(event.urlAfterRedirects),
+        );
       }
     });
 
@@ -132,6 +154,8 @@ export class FooterPlayerComponent implements AfterViewInit {
   ngAfterViewInit(): void {
     const audio = this.audioRef?.nativeElement;
     if (!audio) return;
+
+    this.attachAudioListeners(audio);
 
     audio.volume = this.volume();
 
@@ -183,7 +207,52 @@ export class FooterPlayerComponent implements AfterViewInit {
     const audio = this.audioRef?.nativeElement;
     if (!audio) return;
 
+    const now = Date.now();
+    if (now - this.lastTimeSyncAt < this.timeSyncIntervalMs) return;
+    this.lastTimeSyncAt = now;
     this.playerState.setCurrentTime(audio.currentTime);
+  }
+
+  ngOnDestroy(): void {
+    this.teardownAudioListeners?.();
+    this.teardownAudioListeners = null;
+  }
+
+  private attachAudioListeners(audio: HTMLAudioElement): void {
+    this.teardownAudioListeners?.();
+
+    this.ngZone.runOutsideAngular(() => {
+      const onTimeUpdate = () => {
+        if (this.isStationRoute()) return;
+
+        const now = Date.now();
+        if (now - this.lastTimeSyncAt < this.timeSyncIntervalMs) return;
+        this.lastTimeSyncAt = now;
+        const nextTime = audio.currentTime;
+
+        this.ngZone.run(() => {
+          this.playerState.setCurrentTime(nextTime);
+        });
+      };
+
+      const onLoadedMetadata = () => {
+        this.ngZone.run(() => this.onLoadedMetadata());
+      };
+
+      const onEnded = () => {
+        this.ngZone.run(() => this.onEnded());
+      };
+
+      audio.addEventListener('timeupdate', onTimeUpdate);
+      audio.addEventListener('loadedmetadata', onLoadedMetadata);
+      audio.addEventListener('ended', onEnded);
+
+      this.teardownAudioListeners = () => {
+        audio.removeEventListener('timeupdate', onTimeUpdate);
+        audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+        audio.removeEventListener('ended', onEnded);
+      };
+    });
   }
 
   onLoadedMetadata(): void {
@@ -282,9 +351,11 @@ export class FooterPlayerComponent implements AfterViewInit {
     const audio = this.audioRef?.nativeElement;
     if (!audio || !nextUrl) return;
 
-    if (audio.src === nextUrl) return;
+    const normalizedNextUrl = this.normalizeAudioUrl(nextUrl);
+    if (this.syncedAudioUrl === normalizedNextUrl) return;
 
     audio.src = nextUrl;
+    this.syncedAudioUrl = normalizedNextUrl;
     audio.load();
 
     if (this.isPlaying()) {
@@ -316,6 +387,15 @@ export class FooterPlayerComponent implements AfterViewInit {
     }
 
     audio.pause();
+  }
+
+  private normalizeAudioUrl(url: string): string {
+    if (!url) return '';
+    try {
+      return new URL(url, window.location.origin).toString();
+    } catch {
+      return url;
+    }
   }
 
 }

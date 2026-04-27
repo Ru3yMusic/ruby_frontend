@@ -108,6 +108,17 @@
   justify-content: center;
   z-index: 50;
   box-sizing: border-box;
+
+  /*
+   * Inside a live station the wrapper itself must vanish — otherwise the
+   * 90px black bar at the bottom is still visible even after the inner
+   * <app-footer-player> hides itself. The audio element is not destroyed
+   * because the inner component stays mounted (only display:none) so its
+   * <audio> retains src + currentTime for resume on exit.
+   */
+  &--hidden {
+    display: none;
+  }
 }
 
 /* ===================== */

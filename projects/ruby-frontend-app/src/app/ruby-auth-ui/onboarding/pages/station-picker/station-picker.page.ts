@@ -7,8 +7,7 @@ import { LibraryState } from '../../../../user-ruby-music/state/library.state';
 interface StationUI {
   id: string;
   name: string;
-  gradientStart: string;
-  gradientEnd: string;
+  photoUrl: string | null;
 }
 
 @Component({
@@ -28,15 +27,15 @@ export class StationPickerPage implements OnInit {
   showError = signal(false);
 
   ngOnInit(): void {
-    this.libraryState.loadActiveStations();
+    this.libraryState.loadArtists();
   }
 
   filteredStations = computed<StationUI[]>(() => {
     const term = this.searchTerm().toLowerCase().trim();
-    const stations = this.libraryState.stations().map(s => this.toStationUI(s));
+    const artists = this.libraryState.artists().map(s => this.toStationUI(s));
 
-    if (!term) return stations;
-    return stations.filter(station => station.name.toLowerCase().includes(term));
+    if (!term) return artists;
+    return artists.filter(artist => artist.name.toLowerCase().includes(term));
   });
 
   // =========================
@@ -74,7 +73,7 @@ export class StationPickerPage implements OnInit {
       return;
     }
 
-    this.authState.setStations(this.selectedIds());
+    this.authState.setArtists(this.selectedIds());
     this.router.navigateByUrl('/onboarding/complete');
   }
 
@@ -85,8 +84,7 @@ export class StationPickerPage implements OnInit {
     return {
       id: station.id,
       name: station.name,
-      gradientStart: station.gradientStart ?? '#1a1a2e',
-      gradientEnd: station.gradientEnd ?? '#16213e',
+      photoUrl: station.photoUrl ?? null,
     };
   }
 }

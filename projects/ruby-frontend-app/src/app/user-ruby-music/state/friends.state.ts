@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { finalize } from 'rxjs/operators';
 import {
   FriendshipsApi,
   FriendshipResponse,
@@ -53,6 +54,13 @@ export class FriendsState {
   private readonly _error = signal<string | null>(null);
   readonly error = this._error.asReadonly();
 
+  // Inflight de cargas idempotentes (loadFriends, loadPendingRequests). Sin esto,
+  // varios componentes (LeftSidebar, station-detail, /friends, layout) llamando
+  // refreshAll() casi simultáneamente disparaban requests duplicadas que se
+  // serializaban en social-service y saturaban el límite de 6 conexiones del browser.
+  private readonly inflightLoaders = new Set<string>();
+  private activeLoaderCount = 0;
+
   /* ===================== */
   /* COMPUTED */
   /* ===================== */
@@ -66,33 +74,49 @@ export class FriendsState {
   /* ===================== */
 
   loadFriends(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('friends')) return;
     this._error.set(null);
-    this.friendshipsApi.listFriends().subscribe({
+    this.friendshipsApi.listFriends().pipe(
+      finalize(() => this.endLoader('friends')),
+    ).subscribe({
       next: (friends) => {
         this._friends.set(friends);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading friends');
-        this._loading.set(false);
       },
     });
   }
 
   loadPendingRequests(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('pending-requests')) return;
     this._error.set(null);
-    this.friendshipsApi.getPendingRequests().subscribe({
+    this.friendshipsApi.getPendingRequests().pipe(
+      finalize(() => this.endLoader('pending-requests')),
+    ).subscribe({
       next: (requests) => {
         this._pendingRequests.set(requests);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading pending requests');
-        this._loading.set(false);
       },
     });
+  }
+
+  private beginLoader(key: string): boolean {
+    if (this.inflightLoaders.has(key)) return false;
+    this.inflightLoaders.add(key);
+    this.activeLoaderCount += 1;
+    this._loading.set(true);
+    return true;
+  }
+
+  private endLoader(key: string): void {
+    if (!this.inflightLoaders.delete(key)) return;
+    this.activeLoaderCount = Math.max(0, this.activeLoaderCount - 1);
+    if (this.activeLoaderCount === 0) {
+      this._loading.set(false);
+    }
   }
 
   refreshAll(): void {

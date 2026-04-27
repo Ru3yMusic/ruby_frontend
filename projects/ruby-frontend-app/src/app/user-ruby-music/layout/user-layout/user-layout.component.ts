@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { catchError, of } from 'rxjs';
 import { RealtimePort, WsUserPresenceChangedPayload } from 'lib-ruby-core';
 import { FriendshipStatus } from 'lib-ruby-sdks/social-service';
@@ -14,6 +14,7 @@ import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { FriendsState } from '../../state/friends.state';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
+import { SavedPlaylistsState } from '../../state/saved-playlists.state';
 
 /**
  * Hosts the global "friend entered a station" toast. The listener lives here
@@ -28,6 +29,7 @@ import { InteractionState } from '../../state/interaction.state';
 @Component({
   selector: 'app-user-layout',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterOutlet,
@@ -45,8 +47,21 @@ export class UserLayoutComponent implements OnInit {
   private readonly friendsState = inject(FriendsState);
   private readonly libraryState = inject(LibraryState);
   private readonly interactionState = inject(InteractionState);
+  private readonly savedPlaylistsState = inject(SavedPlaylistsState);
   private readonly usersApi = inject(UsersApi);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
+
+  /**
+   * Matches `/user/station/:id` (live station) — NOT `/user/station` (listing).
+   * Drives `[class.player--hidden]` on the footer wrapper so the entire 90px
+   * black bar disappears when the user enters a live station, leaving only
+   * the chat + station audio. The listing page keeps the footer visible.
+   */
+  private static readonly LIVE_STATION_ROUTE_REGEX = /^\/user\/station\/[^/]+/;
+  readonly isLiveStation = signal(
+    UserLayoutComponent.LIVE_STATION_ROUTE_REGEX.test(this.router.url),
+  );
 
   readonly toastMessage = signal('');
   readonly isToastVisible = signal(false);
@@ -67,57 +82,61 @@ export class UserLayoutComponent implements OnInit {
   private static readonly TOAST_LEAVE_ANIM_MS = 260;
 
   ngOnInit(): void {
-    // Ensure the friend list and station catalog are available even when the
-    // user boots straight into /user/home — the toast filter needs both.
+    this.router.events
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => {
+        if (event instanceof NavigationEnd) {
+          this.isLiveStation.set(
+            UserLayoutComponent.LIVE_STATION_ROUTE_REGEX.test(event.urlAfterRedirects),
+          );
+        }
+      });
+
     this.friendsState.loadFriends();
     this.libraryState.loadActiveStations();
-
-    // Global catalog preload — guarantees that any /user/** route (including
-    // direct F5 into artist-detail, album-detail, playlist-detail) finds
-    // `libraryState.songs/artists/albums` already populated so its computeds
-    // (currentArtist, currentAlbum, recommended lists, etc.) resolve instead
-    // of sitting on the empty-initial-value branch. Gated by empty checks so
-    // page-level loaders that already fired are not re-triggered.
     if (this.libraryState.songs().length === 0) {
       this.libraryState.loadRecentSongs();
     }
     if (this.libraryState.artists().length === 0) {
       this.libraryState.loadArtists();
     }
-    if (this.libraryState.albums().length === 0) {
-      this.libraryState.loadNewReleases();
-    }
-
-    // Interaction catalog: library artists + followed artists. Required by
-    // any /user/** page that shows "is the user following this artist?" or
-    // lists followed artists (Profile's Siguiendo, Home's Artistas
-    // recomendados filter, etc.). Gated by `followsLoaded` so users who
-    // follow nobody don't re-fire the HTTP on every layout mount — that
-    // flag is set to true the moment either loader resolves, even when the
-    // returned list is empty. `loadLibraryArtists` internally also calls
-    // `loadFollowedArtists`, so one call seeds both sources.
-    if (!this.interactionState.followsLoaded()) {
-      this.interactionState.loadLibraryArtists();
-    }
-
-    // Liked songs + library albums: same pattern. Pages like album-detail,
-    // artist-detail, playlist-detail, song-detail, the right-panel and the
-    // top-header search all read `isSongLiked` / `isAlbumInLibrary` without
-    // ever loading the sets themselves. Preloading here guarantees heart
-    // icons and "Guardado" badges render in the correct state on any F5 into
-    // /user/**, not only when the user happens to land on home/library/
-    // station-detail first. Guards avoid re-firing on every route change.
-    if (!this.interactionState.likedSongsLoaded()) {
-      this.interactionState.loadLikedSongs();
-    }
-    if (!this.interactionState.libraryAlbumsLoaded()) {
-      this.interactionState.loadLibraryAlbums();
-    }
-
+    setTimeout(() => {
+      if (this.libraryState.albums().length === 0) {
+        this.libraryState.loadNewReleases();
+      }
+      if (!this.interactionState.followsLoaded()) {
+        this.interactionState.loadLibraryArtists();
+      }
+      if (!this.interactionState.likedSongsLoaded()) {
+        this.interactionState.loadLikedSongs();
+      }
+      if (!this.interactionState.libraryAlbumsLoaded()) {
+        this.interactionState.loadLibraryAlbums();
+      }
+      this.savedPlaylistsState.loadSavedPlaylists();
+    }, 150);
     this.realtimePort
       .onUserPresenceChanged()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((payload) => this.handlePresenceChange(payload));
+
+    // Cross-user catalog stats — broadcast globally by realtime-ws-ms when any
+    // user (not just this one) follows / unfollows an artist or plays a song.
+    // We mutate the LOCAL cache in-place so UI bindings (followers count,
+    // play count) reflect the new value live without polling catalog-service.
+    this.realtimePort
+      .onArtistFollowersChanged()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ artistId, delta }) => {
+        this.libraryState.applyArtistFollowersDelta(artistId, delta);
+      });
+
+    this.realtimePort
+      .onSongPlayCountChanged()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ songId, delta }) => {
+        this.libraryState.applySongPlayCountDelta(songId, delta);
+      });
   }
 
   private handlePresenceChange(payload: WsUserPresenceChangedPayload): void {

@@ -2,8 +2,13 @@ import { Routes } from '@angular/router';
 
 export const ONBOARDING_ROUTES: Routes = [
   {
-    path: 'stations',
+    path: 'artists',
     loadComponent: () => import('./pages/station-picker/station-picker.page').then(m => m.StationPickerPage),
+  },
+  {
+    path: 'stations',
+    redirectTo: 'artists',
+    pathMatch: 'full',
   },
   {
     path: 'complete',

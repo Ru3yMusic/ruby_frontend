@@ -9,6 +9,7 @@ import { PlayerState } from '../../state/player.state';
 import { PlaylistState } from '../../state/playlist.state';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 interface PopularSongRow {
   id: string;
@@ -42,7 +43,7 @@ interface RelatedArtistCard {
 @Component({
   selector: 'app-artist-detail',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './artist-detail.component.html',
   styleUrls: ['./artist-detail.component.scss'],
 })
@@ -164,13 +165,12 @@ export class ArtistDetailComponent {
 
     return (this.libraryState.albums() as any[])
       .filter(album => album.artist?.id === artist.id)
-      .sort((a, b) => new Date(b.releaseDate || b.createdAt).getTime() - new Date(a.releaseDate || a.createdAt).getTime())
-      .slice(0, 6)
+      .sort((a, b) => new Date(b.releaseDateTime || b.createdAt).getTime() - new Date(a.releaseDateTime || a.createdAt).getTime())
       .map(album => ({
         id: album.id,
         title: album.title,
         coverUrl: album.coverUrl || this.defaultAlbumCover,
-        releaseYear: this.extractYear(album.releaseDate || album.createdAt),
+        releaseYear: this.extractYear(album.releaseDateTime || album.createdAt),
       }));
   });
 
@@ -724,8 +724,10 @@ export class ArtistDetailComponent {
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
+  /** Spotify-style: dots as thousands separators (es-ES locale, e.g. 2.554.300). */
   private formatNumber(value: number): string {
-    return new Intl.NumberFormat('en-US').format(value);
+    const safe = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+    return new Intl.NumberFormat('es-ES').format(safe);
   }
 
   private extractYear(value: string | null | undefined): string {

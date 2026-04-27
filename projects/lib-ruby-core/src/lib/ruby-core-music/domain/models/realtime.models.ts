@@ -30,6 +30,13 @@ export interface WsCommentPayload {
   mentions: string[];
   likesCount: number;
   createdAt: string;
+  /**
+   * Station session version at which the comment was published. Frontends
+   * drop broadcasts whose version doesn't match the current session — protects
+   * against stale broadcasts arriving after a count===0 reset bumped the
+   * version on the server.
+   */
+  sessionVersion: number;
 }
 
 /** notification — pushed to user:{userId} private room */
@@ -54,6 +61,27 @@ export interface WsListenerCountPayload {
 export interface WsJoinedStationPayload {
   stationId: string;
   listenerCount: number;
+  songId: string;
+  offsetSeconds: number;
+  serverTimeMs: number;
+  sessionVersion: number;
+  /** Next songId in the broadcast queue, computed by the server. Empty when the queue has fewer than 2 entries. */
+  nextSongId: string;
+}
+
+export interface WsTrackChangedPayload {
+  stationId: string;
+  songId: string;
+  offsetSeconds: number;
+  serverTimeMs: number;
+  sessionVersion: number;
+  /** Next songId in the broadcast queue, computed by the server. Empty when the queue has fewer than 2 entries. */
+  nextSongId: string;
+}
+
+export interface WsStationTrackPayload {
+  songId: string;
+  durationSeconds: number;
 }
 
 // ─── Client → Server ────────────────────────────────────────────────────────
@@ -71,7 +99,7 @@ export interface WsSendCommentPayload {
 /** join_station payload */
 export interface WsJoinStationPayload {
   stationId: string;
-  songId: string;
+  tracks: WsStationTrackPayload[];
 }
 
 // ─── Chat Events ─────────────────────────────────────────────────────────────
@@ -207,4 +235,101 @@ export interface WsUserPresenceChangedPayload {
 export interface WsFriendRemovedPayload {
   friendshipId:    string;
   removedByUserId?: string;
+}
+
+/**
+ * Server → Client: a delta has been applied to an artist's followersCount in
+ * catalog-service. Broadcast globally to every connected socket so any tab
+ * that has the artist cached can update its UI without a refetch.
+ *
+ * delta is +1 for a follow, -1 for an unfollow.
+ */
+export interface WsArtistFollowersChangedPayload {
+  artistId: string;
+  delta:    1 | -1;
+}
+
+/**
+ * Server → Client: a play has been recorded for a song; catalog-service has
+ * (or will shortly) increment its playCount. Broadcast globally so any tab
+ * that has the song cached can bump its play counter live.
+ *
+ * delta is always +1 — there is no "unplay" event.
+ */
+export interface WsSongPlayCountChangedPayload {
+  songId: string;
+  delta:  1;
+}
+
+// ─── Music Feed Events (Kafka music-feed.* topics) ───────────────────────────
+//
+// Broadcast globally to every authenticated socket. Consumed exclusively by
+// the page-scoped MusicFeedState in /user/music — other pages MUST NOT
+// subscribe to these streams (the cap+replace logic is page-specific and
+// would corrupt global state if shared).
+
+/**
+ * music_feed_album_released — emitted when an album becomes publicly visible
+ * (created with past releaseDateTime, updated to past, or scheduler flip).
+ */
+export interface MusicFeedAlbumReleasedPayload {
+  albumId:         string;
+  artistId:        string;
+  artistName:      string;
+  title:           string;
+  coverUrl:        string;
+  /** ISO-8601 (LocalDateTime serialized — no timezone). */
+  releaseDateTime: string;
+}
+
+/**
+ * music_feed_artist_top_changed — emitted on any isTop flip in either
+ * direction. isTop reflects the NEW state; consumers add or remove the card.
+ */
+export interface MusicFeedArtistTopChangedPayload {
+  artistId:  string;
+  name:      string;
+  photoUrl:  string;
+  isTop:     boolean;
+  /** ISO-8601 — used to slot the artist in createdAt-DESC order. */
+  createdAt: string;
+}
+
+/**
+ * music_feed_playlist_public_created — emitted only for NEW playlists with
+ * isPublic=true. Never for system playlists ("Tus me gusta").
+ */
+export interface MusicFeedPlaylistPublicCreatedPayload {
+  playlistId:  string;
+  userId:      string;
+  name:        string;
+  description: string | null;
+  coverUrl:    string | null;
+  /** Always 0 at creation; included for shape consistency with other events. */
+  songCount:   number;
+  createdAt:   string;
+}
+
+/**
+ * music_feed_playlist_privacy_changed — emitted on any privacy flip of a
+ * non-system playlist. isPublic reflects the NEW state — consumers add to
+ * the feed when true and remove when false.
+ */
+export interface MusicFeedPlaylistPrivacyChangedPayload {
+  playlistId:  string;
+  userId:      string;
+  isPublic:    boolean;
+  name:        string;
+  description: string | null;
+  coverUrl:    string | null;
+  songCount:   number;
+  createdAt:   string;
+}
+
+/**
+ * music_feed_playlist_deleted — emitted only when a previously-PUBLIC
+ * playlist is soft-deleted. Minimal payload: consumers remove by id.
+ */
+export interface MusicFeedPlaylistDeletedPayload {
+  playlistId: string;
 }

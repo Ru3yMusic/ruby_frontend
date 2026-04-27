@@ -10,6 +10,7 @@ import { LibraryState } from '../../state/library.state';
 import { PlaylistState } from '../../state/playlist.state';
 import { PlayerState } from '../../state/player.state';
 import { UserProfileState } from '../../state/user-profile.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 interface ProfilePlaylistCard {
   id: string;
@@ -32,7 +33,7 @@ interface FollowedArtistCard {
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.scss'],
 })
@@ -48,7 +49,7 @@ export class ProfileComponent {
   readonly userProfileState = inject(UserProfileState);
 
   private readonly defaultTopColor = '#5b5b5b';
-  private readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
+  readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
 
   readonly currentUser = this.authState.currentUser;
 

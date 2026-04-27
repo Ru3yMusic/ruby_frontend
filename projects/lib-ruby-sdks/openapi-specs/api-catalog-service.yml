@@ -1011,7 +1011,7 @@ components:
 
     AlbumRequest:
       type: object
-      required: [title, artistId, coverUrl, releaseDate]
+      required: [title, artistId, coverUrl, releaseDateTime]
       properties:
         title:
           type: string
@@ -1020,9 +1020,10 @@ components:
           format: uuid
         coverUrl:
           type: string
-        releaseDate:
+        releaseDateTime:
           type: string
-          format: date
+          format: date-time
+          description: Scheduled release timestamp. Albums become public when this moment passes (the scheduler flips `released` to true).
         stationId:
           type: string
           format: uuid
@@ -1040,9 +1041,12 @@ components:
           $ref: '#/components/schemas/ArtistResponse'
         coverUrl:
           type: string
-        releaseDate:
+        releaseDateTime:
           type: string
-          format: date
+          format: date-time
+        released:
+          type: boolean
+          description: True once the scheduled release time has passed (visible to public). False while still scheduled in the future.
         totalStreams:
           type: integer
           format: int64

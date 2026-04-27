@@ -12,6 +12,7 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { CreatePlaylistRequest } from '../model/models';
+import { PlaylistPage } from '../model/models';
 import { PlaylistResponse } from '../model/models';
 import { UpdatePlaylistRequest } from '../model/models';
 
@@ -45,11 +46,39 @@ export interface PlaylistsApiInterface {
     getMyPlaylists(extraHttpRequestParams?: any): Observable<Array<PlaylistResponse>>;
 
     /**
+     * Lists playlists the authenticated user saved from other users. Filtered automatically — excludes any playlist that has gone private, was soft-deleted, or is a system playlist (defensive against orphan save-rows). The frontend merges this list with /my to render the full \&quot;Mi biblioteca\&quot; view. 
+     * 
+     */
+    getMySavedPlaylists(extraHttpRequestParams?: any): Observable<Array<PlaylistResponse>>;
+
+    /**
      * Get playlist by ID
      * 
      * @param id 
      */
     getPlaylistById(id: string, extraHttpRequestParams?: any): Observable<PlaylistResponse>;
+
+    /**
+     * Paginated list of public playlists from any user (excludes system \&quot;Tus me gusta\&quot; and soft-deleted), newest first. Powers the global \&quot;Playlist Recomendadas\&quot; feed in /user/music. Frontend resolves creator user info via POST /api/v1/auth/users/batch. 
+     * 
+     * @param page 
+     * @param size 
+     */
+    getPublicPlaylists(page?: number, size?: number, extraHttpRequestParams?: any): Observable<PlaylistPage>;
+
+    /**
+     * Saves another user\&#39;s public playlist into the authenticated user\&#39;s library. Idempotent — saving twice does not create duplicates. Rejects if the playlist is private, system, soft-deleted, or owned by the requesting user. 
+     * 
+     * @param id 
+     */
+    savePublicPlaylist(id: string, extraHttpRequestParams?: any): Observable<{}>;
+
+    /**
+     * Removes a saved-playlist link from the user\&#39;s library. No-op if not saved.
+     * 
+     * @param id 
+     */
+    unsavePublicPlaylist(id: string, extraHttpRequestParams?: any): Observable<{}>;
 
     /**
      * Update playlist metadata

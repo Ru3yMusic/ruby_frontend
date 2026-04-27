@@ -1,5 +1,4 @@
 .gitignore
-.openapi-generator-ignore
 README.md
 api.base.service.ts
 api.module.ts
@@ -25,6 +24,8 @@ model/like-status-response.ts
 model/models.ts
 model/play-history-page.ts
 model/play-history-response.ts
+model/playback-checkpoint-request.ts
+model/playback-checkpoint-response.ts
 model/record-play-request.ts
 model/user-likes-internal-response.ts
 model/uuid-list-request.ts

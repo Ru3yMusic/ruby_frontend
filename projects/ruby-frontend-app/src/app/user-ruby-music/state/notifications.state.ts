@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, OnDestroy, computed, effect, inject, signal } from '@angular/core';
-import { Subscription, catchError, forkJoin, map, of, switchMap } from 'rxjs';
+import { Subscription, catchError, map, of, switchMap } from 'rxjs';
 import {
   FriendshipsApi,
   FriendshipResponse,
@@ -89,11 +89,10 @@ export class NotificationsState implements OnDestroy {
    * patch every matching notification's meta — same pattern used by the
    * Solicitudes tab and Activos estación list.
    *
-   * Value semantics:
-   *   - missing key: never fetched.
-   *   - empty string: fetch in flight.
-   *   - non-empty string: resolved URL.
-   *   - null: fetched, actor has no photo.
+    * Value semantics:
+    *   - missing key: never fetched.
+    *   - null: fetch in flight OR fetched with no photo.
+    *   - non-empty string: resolved URL.
    */
   private readonly actorAvatarCache = new Map<string, string | null>();
 
@@ -308,6 +307,52 @@ export class NotificationsState implements OnDestroy {
       });
   }
 
+  /**
+   * Batch-resolves actor avatars to avoid one HTTP request per notification.
+   * Only fetches ids that are not already cached.
+   */
+  private enrichActorAvatars(actorUserIds: string[]): void {
+    const uncached = Array.from(new Set(actorUserIds.filter(Boolean))).filter(
+      (id) => !this.actorAvatarCache.has(id),
+    );
+    if (uncached.length === 0) return;
+
+    // Mark as in-flight to prevent parallel duplicate fetches.
+    for (const id of uncached) {
+      this.actorAvatarCache.set(id, null);
+    }
+
+    this.usersApi.batchGetUsers({ ids: uncached }).subscribe({
+      next: (users) => {
+        const userMap = new Map(users.filter((u) => !!u.id).map((u) => [u.id!, u]));
+        const resolvedAvatars = new Map<string, string>();
+        for (const actorUserId of uncached) {
+          const url = userMap.get(actorUserId)?.profilePhotoUrl ?? null;
+          this.actorAvatarCache.set(actorUserId, url);
+          if (url) resolvedAvatars.set(actorUserId, url);
+        }
+
+        if (resolvedAvatars.size > 0) {
+          this._notifications.update((list) =>
+            list.map((n) => {
+              const actorUserId = n.meta.actorUserId;
+              if (!actorUserId) return n;
+              const avatarUrl = resolvedAvatars.get(actorUserId);
+              if (!avatarUrl || n.meta.actorAvatarUrl === avatarUrl) return n;
+              return { ...n, meta: { ...n.meta, actorAvatarUrl: avatarUrl } };
+            }),
+          );
+        }
+      },
+      error: () => {
+        // Allow retry on next refresh if the bulk request failed.
+        for (const actorUserId of uncached) {
+          this.actorAvatarCache.delete(actorUserId);
+        }
+      },
+    });
+  }
+
   /** Patches every in-memory notification authored by `actorUserId`. */
   private patchActorAvatar(actorUserId: string, avatarUrl: string): void {
     this._notifications.update((list) =>
@@ -371,9 +416,11 @@ export class NotificationsState implements OnDestroy {
           const mapped = (page.content ?? [])
             .filter(raw => raw.type !== 'FRIEND_REQUEST')
             .map(raw => this.mapRawNotification(raw));
+          let newlyLoaded: StationNotificationItem[] = [];
           this._notifications.update((current) => {
             const seen = new Set(current.map(n => n.id));
             const toPrepend = mapped.filter(n => !seen.has(n.id));
+            newlyLoaded = toPrepend;
             // Historical comes newest-first from the API; WS items accumulate
             // at the top via upsertNotification. Merge both keeping newest
             // first by createdAt.
@@ -384,21 +431,21 @@ export class NotificationsState implements OnDestroy {
             return combined;
           });
 
-          // Kick off station-name enrichment for every newly loaded mention
-          // that still lacks one. Runs async per notification — the UI paints
+          // Kick off station-name enrichment only for newly loaded mentions
+          // that still lack one. Runs async per notification — the UI paints
           // the placeholder message first, then swaps in the real name.
-          for (const n of this._notifications()) {
+          for (const n of newlyLoaded) {
             if (!n.meta.stationName && n.meta.commentId) {
               this.enrichStationInfo(n.id, n.meta.commentId);
             }
-            // Same pattern for actor avatars: the JWT doesn't carry
-            // profilePhotoUrl, so persisted notifications arrive with an
-            // empty actor_photo_url. Resolve via auth-service per unique
-            // actor (cache in actorAvatarCache) and patch the meta.
-            if (!n.meta.actorAvatarUrl && n.meta.actorUserId) {
-              this.enrichActorAvatar(n.id, n.meta.actorUserId);
-            }
           }
+
+          // Resolve missing avatars in one bulk request instead of N getUserById.
+          this.enrichActorAvatars(
+            newlyLoaded
+              .filter((n) => !n.meta.actorAvatarUrl && !!n.meta.actorUserId)
+              .map((n) => n.meta.actorUserId as string),
+          );
 
           this._loading.set(false);
         },
@@ -417,19 +464,38 @@ export class NotificationsState implements OnDestroy {
       .pipe(
         switchMap((requests) => {
           if (!requests.length) return of<FriendRequestItem[]>([]);
-          // FriendshipResponse only carries ids — fetch the requester's
-          // displayName + avatar so the Solicitudes card renders real data.
-          return forkJoin(
-            requests.map((r) =>
-              this.usersApi.getUserById(r.requesterId ?? '').pipe(
-                catchError(() => of<UserResponse | null>(null)),
-                map((user) => ({
-                  ...r,
-                  requesterName: user?.displayName ?? r.requesterId,
-                  requesterAvatarUrl: user?.profilePhotoUrl ?? undefined,
-                }) as FriendRequestItem),
+          // FriendshipResponse only carries ids — fetch requesters in batch so
+          // the Solicitudes card renders real names/avatars without N calls.
+          const requesterIds = Array.from(
+            new Set(requests.map((r) => r.requesterId).filter((id): id is string => !!id)),
+          );
+
+          if (!requesterIds.length) {
+            return of(
+              requests.map(
+                (r) =>
+                  ({
+                    ...r,
+                    requesterName: r.requesterId,
+                    requesterAvatarUrl: undefined,
+                  }) as FriendRequestItem,
               ),
-            ),
+            );
+          }
+
+          return this.usersApi.batchGetUsers({ ids: requesterIds }).pipe(
+            catchError(() => of<UserResponse[]>([])),
+            map((users) => {
+              const userMap = new Map(users.filter((u) => !!u.id).map((u) => [u.id!, u]));
+              return requests.map(
+                (r) =>
+                  ({
+                    ...r,
+                    requesterName: userMap.get(r.requesterId ?? '')?.displayName ?? r.requesterId,
+                    requesterAvatarUrl: userMap.get(r.requesterId ?? '')?.profilePhotoUrl ?? undefined,
+                  }) as FriendRequestItem,
+              );
+            }),
           );
         }),
       )
@@ -486,9 +552,7 @@ export class NotificationsState implements OnDestroy {
     // `_notifications` already holds only activity items for the current user
     // (the WS delivers per-room and the HTTP load is scoped by JWT), so no
     // per-user filter is needed. Kept the userId arg for template compat.
-    return [...this._notifications()].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+    return this._notifications();
   }
 
   getPendingFriendRequestsForUser(_userId: string): FriendRequestItem[] {

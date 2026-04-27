@@ -2,7 +2,7 @@
 
   <!-- ENCABEZADO -->
   <div class="header">
-    <h1 class="title">Elige 3 o más estaciones que te gusten</h1>
+    <h1 class="title">Elige 3 o mas artistas que te gusten</h1>
     <p class="subtitle">
       Tus elecciones nos ayudarán a personalizar mejor tu experiencia
     </p>
@@ -13,7 +13,7 @@
     <input
       type="text"
       class="search-input"
-      placeholder="Buscar estación"
+      placeholder="Buscar artista"
       [value]="searchTerm()"
       (input)="onSearch(($any($event.target)).value)"
     />
@@ -26,9 +26,13 @@
       class="station-bubble"
       *ngFor="let station of filteredStations()"
       [class.selected]="isSelected(station.id)"
-      [style.background]="'linear-gradient(135deg, ' + station.gradientStart + ', ' + station.gradientEnd + ')'"
       (click)="toggleStation(station.id)"
     >
+      <img
+        class="station-image"
+        [src]="station.photoUrl || '/assets/icons/avatar-placeholder.png'"
+        [alt]="station.name"
+      />
       <span class="station-name">{{ station.name }}</span>
 
       <!-- CHECK DE SELECCIÓN -->
@@ -38,7 +42,7 @@
 
   <!-- ERROR -->
   <p class="error-message" *ngIf="showError()">
-    Debes seleccionar al menos 3 estaciones para continuar
+    Debes seleccionar al menos 3 artistas para continuar
   </p>
 
   <!-- BOTÓN CONTINUAR -->
@@ -54,7 +58,7 @@
   <!-- ESTADO VACÍO -->
   <ng-template #emptyState>
     <div class="empty-state">
-      <p>No hay estaciones disponibles por ahora.</p>
+      <p>No hay artistas disponibles por ahora.</p>
     </div>
   </ng-template>
 

@@ -9,6 +9,7 @@
         <img
           class="song-hero__cover"
           [src]="displaySongCover()"
+          [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
           [alt]="displaySongTitle()"
         />
       </div>
@@ -25,6 +26,7 @@
         <img
           class="song-hero__artist-avatar"
           [src]="displayArtistPhoto()"
+          [imgFallback]="'/assets/icons/avatar-placeholder.png'"
           [alt]="displayArtistName()"
         />
 
@@ -245,6 +247,7 @@
       <img
         class="song-artist-card__photo"
         [src]="displayArtistPhoto()"
+        [imgFallback]="'/assets/icons/avatar-placeholder.png'"
         [alt]="displayArtistName()"
       />
 
@@ -268,6 +271,7 @@
         <img
           class="song-album-section__cover"
           [src]="currentAlbum()?.coverUrl || displaySongCover()"
+          [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
           [alt]="displayAlbumTitle()"
         />
 

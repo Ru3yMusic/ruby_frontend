@@ -9,6 +9,7 @@ import { PlayerState } from '../../state/player.state';
 import { PlaylistState } from '../../state/playlist.state';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 interface AlbumSongRow {
   id: string;
@@ -31,7 +32,7 @@ interface RelatedAlbumCard {
 @Component({
   selector: 'app-album-detail',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './album-detail.component.html',
   styleUrls: ['./album-detail.component.scss'],
 })
@@ -164,7 +165,7 @@ export class AlbumDetailComponent {
         id: album.id,
         title: album.title,
         coverUrl: album.coverUrl || this.defaultAlbumCover,
-        releaseYear: this.extractYear(album.releaseDate || album.createdAt),
+        releaseYear: this.extractYear(album.releaseDateTime || album.createdAt),
       }));
   });
 

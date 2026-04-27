@@ -54,6 +54,82 @@ paths:
                 items:
                   $ref: '#/components/schemas/PlaylistResponse'
 
+  /api/v1/playlists/public:
+    get:
+      tags: [Playlists]
+      operationId: getPublicPlaylists
+      summary: |
+        Paginated list of public playlists from any user (excludes system "Tus me gusta"
+        and soft-deleted), newest first. Powers the global "Playlist Recomendadas"
+        feed in /user/music. Frontend resolves creator user info via
+        POST /api/v1/auth/users/batch.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Page of public playlists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistPage'
+
+  /api/v1/playlists/my/saved:
+    get:
+      tags: [Playlists]
+      operationId: getMySavedPlaylists
+      summary: |
+        Lists playlists the authenticated user saved from other users.
+        Filtered automatically — excludes any playlist that has gone private,
+        was soft-deleted, or is a system playlist (defensive against orphan
+        save-rows). The frontend merges this list with /my to render the full
+        "Mi biblioteca" view.
+      responses:
+        '200':
+          description: List of saved (still-visible) playlists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlaylistResponse'
+
+  /api/v1/playlists/{id}/save:
+    post:
+      tags: [Playlists]
+      operationId: savePublicPlaylist
+      summary: |
+        Saves another user's public playlist into the authenticated user's library.
+        Idempotent — saving twice does not create duplicates.
+        Rejects if the playlist is private, system, soft-deleted, or owned by
+        the requesting user.
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Saved (or already was)
+        '400':
+          description: Target not eligible (private, system, soft-deleted, owned)
+    delete:
+      tags: [Playlists]
+      operationId: unsavePublicPlaylist
+      summary: Removes a saved-playlist link from the user's library. No-op if not saved.
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Removed (or was not saved)
+
   /api/v1/playlists/{id}:
     get:
       tags: [Playlists]
@@ -320,6 +396,22 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    PlaylistPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaylistResponse'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
 
     PlaylistSongResponse:
       type: object

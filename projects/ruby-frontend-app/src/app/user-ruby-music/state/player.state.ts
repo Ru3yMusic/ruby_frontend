@@ -1,10 +1,18 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import {
+  PlayHistoryApi,
+  PlaybackCheckpointRequest,
+  PlaybackCheckpointResponse,
+} from 'lib-ruby-sdks/interaction-service';
 import { InteractionState } from './interaction.state';
+import { AuthState } from '../../ruby-auth-ui/auth/state/auth.state';
+import { LibraryState } from './library.state';
 
 /** sessionStorage key — bump the version suffix if the shape ever changes
  *  so stale snapshots from old deploys get dropped instead of misparsed. */
 const SNAPSHOT_KEY = 'rubytune:player-snapshot:v1';
 const CURRENT_TIME_PERSIST_INTERVAL_MS = 5000;
+const BACKEND_CHECKPOINT_PERSIST_INTERVAL_MS = 15000;
 
 interface PlayerSnapshot {
   queue: PlayerSong[];
@@ -56,7 +64,12 @@ export type PlayerSongInput = Partial<PlayerSong> & {
 })
 export class PlayerState {
   private readonly interactionState = inject(InteractionState);
+  private readonly playHistoryApi = inject(PlayHistoryApi);
+  private readonly authState = inject(AuthState);
+  private readonly libraryState = inject(LibraryState);
   private lastTimeSnapshotAt = 0;
+  private lastBackendCheckpointAt = 0;
+  private readonly hydratedCheckpointUsers = new Set<string>();
 
   constructor() {
     // Restore any snapshot from the previous load of this tab BEFORE the
@@ -79,6 +92,16 @@ export class PlayerState {
       this._shuffleOrder();
       this._isRepeatOne();
       this.persistSnapshot();
+    });
+
+    effect(() => {
+      const userId = this.authState.currentUser()?.id;
+      if (!userId) return;
+      if (this.hydratedCheckpointUsers.has(userId)) return;
+      const hasCurrentSong = untracked(() => !!this._currentSong()?.id);
+      if (hasCurrentSong) return;
+      this.hydratedCheckpointUsers.add(userId);
+      this.restoreFromBackendCheckpoint();
     });
   }
 
@@ -196,7 +219,11 @@ export class PlayerState {
   /**
    * Called by the footer's <audio> `ended` event. Restarts the current song
    * when repeat-one is on, otherwise advances to the next queue entry. When
-   * the queue is exhausted, pauses at 0 (no auto-wrap).
+   * the queue is exhausted, falls back to a "radio" of the user's followed
+   * artists: picks a random song from any followed artist (excluding the one
+   * that just played) and seeds a fresh single-song queue. The next `ended`
+   * triggers the same logic again, so playback chains until the user pauses
+   * or has no followed artists with available songs in the cached library.
    */
   advanceOnEnded(): void {
     if (this._isRepeatOne()) {
@@ -207,13 +234,41 @@ export class PlayerState {
       return;
     }
     const nextIdx = this.computeNextIndex();
-    if (nextIdx === null) {
-      this._isPlaying.set(false);
-      this._currentTime.set(0);
+    if (nextIdx !== null) {
+      this._queueIndex.set(nextIdx);
+      this.applySongPlayback(this._queue()[nextIdx]);
       return;
     }
-    this._queueIndex.set(nextIdx);
-    this.applySongPlayback(this._queue()[nextIdx]);
+    // Queue exhausted — try the followed-artists radio.
+    const next = this.pickRandomSongFromFollowedArtists();
+    if (next) {
+      this.playSong(next);
+      return;
+    }
+    this._isPlaying.set(false);
+    this._currentTime.set(0);
+  }
+
+  /**
+   * Picks a random song from any artist the user follows. Excludes the
+   * current song so we never autoplay the same track back-to-back. Returns
+   * null when the user follows nobody, or when none of the followed artists
+   * have a song in the cached library.
+   */
+  private pickRandomSongFromFollowedArtists(): PlayerSongInput | null {
+    const followedIds = new Set(this.interactionState.allFollowedArtistIds());
+    if (followedIds.size === 0) return null;
+    const currentSongId = this._currentSong()?.id ?? '';
+    const candidates = (this.libraryState.songs() as any[])
+      .filter(song =>
+        song?.id
+        && song.id !== currentSongId
+        && !!song.audioUrl
+        && followedIds.has(song.artist?.id ?? '')
+      );
+    if (candidates.length === 0) return null;
+    const idx = Math.floor(Math.random() * candidates.length);
+    return candidates[idx] as PlayerSongInput;
   }
 
   private computeNextIndex(): number | null {
@@ -373,6 +428,7 @@ export class PlayerState {
   pause(): void {
     this._isPlaying.set(false);
     this.persistSnapshot();
+    this.persistBackendCheckpoint(true);
   }
 
   resume(): void {
@@ -384,6 +440,7 @@ export class PlayerState {
     this._isPlaying.set(value);
     if (!value) {
       this.persistSnapshot();
+      this.persistBackendCheckpoint(true);
     }
   }
 
@@ -394,6 +451,7 @@ export class PlayerState {
       this.lastTimeSnapshotAt = now;
       this.persistSnapshot();
     }
+    this.persistBackendCheckpoint(false);
   }
 
   setDuration(seconds: number): void {
@@ -431,6 +489,67 @@ export class PlayerState {
     } catch {
       // sessionStorage disabled / quota exceeded — fail silently.
     }
+  }
+
+  private restoreFromBackendCheckpoint(): void {
+    this.playHistoryApi.getPlaybackCheckpoint().subscribe({
+      next: (checkpoint: PlaybackCheckpointResponse) => {
+        const songId = checkpoint?.songId ?? '';
+        const currentTime = Math.max(0, checkpoint?.currentTimeSeconds ?? 0);
+        if (!songId) return;
+
+        this.libraryState.loadSongById(songId).subscribe({
+          next: (song) => {
+            this.applyBackendCheckpoint(song, currentTime);
+          },
+          error: () => {
+            // If song metadata is unavailable, skip restoration gracefully.
+          },
+        });
+      },
+      error: () => {
+        // 204/no checkpoint or transient API errors should not block app bootstrap.
+      },
+    });
+  }
+
+  private applyBackendCheckpoint(song: PlayerSongInput, currentTimeSeconds: number): void {
+    const normalized = this.normalizeInputSong(song);
+    this._queue.set([normalized]);
+    this._queueIndex.set(0);
+    this._shuffleOrder.set(this._isShuffle() ? [0] : []);
+    this._currentSong.set(normalized);
+    this._currentTime.set(Math.max(0, Math.floor(currentTimeSeconds)));
+    this._duration.set(normalized.durationSeconds || 0);
+    this._isPlaying.set(false);
+    this.persistSnapshot();
+  }
+
+  private persistBackendCheckpoint(force: boolean): void {
+    const currentUserId = this.authState.currentUser()?.id;
+    const song = this._currentSong();
+    if (!currentUserId || !song?.id) return;
+
+    const now = Date.now();
+    if (!force && now - this.lastBackendCheckpointAt < BACKEND_CHECKPOINT_PERSIST_INTERVAL_MS) {
+      return;
+    }
+    this.lastBackendCheckpointAt = now;
+
+    const payload: PlaybackCheckpointRequest = {
+      songId: song.id,
+      currentTimeSeconds: Math.max(0, Math.floor(this._currentTime())),
+    };
+
+    if (payload.currentTimeSeconds <= 0) {
+      return;
+    }
+
+    this.playHistoryApi.upsertPlaybackCheckpoint(payload).subscribe({
+      error: () => {
+        // Ignore checkpoint persistence errors to keep playback smooth.
+      },
+    });
   }
 
   formatTime(totalSeconds: number): string {

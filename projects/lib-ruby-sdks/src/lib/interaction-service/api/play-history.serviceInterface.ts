@@ -12,6 +12,8 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { PlayHistoryPage } from '../model/models';
+import { PlaybackCheckpointRequest } from '../model/models';
+import { PlaybackCheckpointResponse } from '../model/models';
 import { RecordPlayRequest } from '../model/models';
 
 
@@ -32,10 +34,23 @@ export interface PlayHistoryApiInterface {
     getPlayHistory(page?: number, size?: number, extraHttpRequestParams?: any): Observable<PlayHistoryPage>;
 
     /**
+     * Get last playback checkpoint for authenticated user
+     * 
+     */
+    getPlaybackCheckpoint(extraHttpRequestParams?: any): Observable<PlaybackCheckpointResponse>;
+
+    /**
      * Record a song play
      * 
      * @param recordPlayRequest 
      */
     recordPlay(recordPlayRequest: RecordPlayRequest, extraHttpRequestParams?: any): Observable<{}>;
+
+    /**
+     * Save or update playback checkpoint for authenticated user
+     * 
+     * @param playbackCheckpointRequest 
+     */
+    upsertPlaybackCheckpoint(playbackCheckpointRequest: PlaybackCheckpointRequest, extraHttpRequestParams?: any): Observable<{}>;
 
 }

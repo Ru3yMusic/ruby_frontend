@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { finalize } from 'rxjs/operators';
 import {
   LibraryApi,
   LibraryItemType,
@@ -77,11 +78,19 @@ export class InteractionState {
   private readonly _error = signal<string | null>(null);
   readonly error = this._error.asReadonly();
 
+  private readonly inflightLoaders = new Set<string>();
+  private activeLoaderCount = 0;
+
   /* ===================== */
   /* COMPUTED */
   /* ===================== */
 
   readonly likedSongsCount = computed(() => this._likedSongIds().length);
+
+  private readonly likedSongIdSet = computed(() => new Set(this._likedSongIds()));
+  private readonly libraryAlbumIdSet = computed(() => new Set(this._libraryAlbumIds()));
+  private readonly libraryArtistIdSet = computed(() => new Set(this._libraryArtistIds()));
+  private readonly followedArtistIdSet = computed(() => new Set(this._followedArtistIds()));
 
   /**
    * Fuente de verdad unificada para "artistas seguidos": unión de la biblioteca
@@ -99,7 +108,7 @@ export class InteractionState {
   });
 
   isSongLiked(songId: string): boolean {
-    return this._likedSongIds().includes(songId);
+    return this.likedSongIdSet().has(songId);
   }
 
   getLikesCountDelta(songId: string): number {
@@ -107,12 +116,12 @@ export class InteractionState {
   }
 
   isAlbumInLibrary(albumId: string): boolean {
-    return this._libraryAlbumIds().includes(albumId);
+    return this.libraryAlbumIdSet().has(albumId);
   }
 
   isArtistInLibrary(artistId: string): boolean {
-    return this._libraryArtistIds().includes(artistId)
-      || this._followedArtistIds().includes(artistId);
+    return this.libraryArtistIdSet().has(artistId)
+      || this.followedArtistIdSet().has(artistId);
   }
 
   /* ===================== */
@@ -120,17 +129,17 @@ export class InteractionState {
   /* ===================== */
 
   loadLikedSongs(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('liked-songs')) return;
     this._error.set(null);
-    this.songInteractionsApi.getLikedSongs().subscribe({
+    this.songInteractionsApi.getLikedSongs().pipe(
+      finalize(() => this.endLoader('liked-songs')),
+    ).subscribe({
       next: (page) => {
         this._likedSongIds.set(page.content ?? []);
         this._likedSongsLoaded.set(true);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading liked songs');
-        this._loading.set(false);
       },
     });
   }
@@ -213,16 +222,16 @@ export class InteractionState {
   /* ===================== */
 
   loadPlayHistory(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('play-history')) return;
     this._error.set(null);
-    this.playHistoryApi.getPlayHistory().subscribe({
+    this.playHistoryApi.getPlayHistory().pipe(
+      finalize(() => this.endLoader('play-history')),
+    ).subscribe({
       next: (page) => {
         this._playHistory.set(page.content ?? []);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading play history');
-        this._loading.set(false);
       },
     });
   }
@@ -240,33 +249,33 @@ export class InteractionState {
   /* ===================== */
 
   loadLibraryAlbums(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('library-albums')) return;
     this._error.set(null);
-    this.libraryApi.getLibrary(LibraryItemType.ALBUM).subscribe({
+    this.libraryApi.getLibrary(LibraryItemType.ALBUM).pipe(
+      finalize(() => this.endLoader('library-albums')),
+    ).subscribe({
       next: (page) => {
         this._libraryAlbumIds.set(page.content ?? []);
         this._libraryAlbumsLoaded.set(true);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading library albums');
-        this._loading.set(false);
       },
     });
   }
 
   loadLibraryArtists(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('library-artists')) return;
     this._error.set(null);
-    this.libraryApi.getLibrary(LibraryItemType.ARTIST).subscribe({
+    this.libraryApi.getLibrary(LibraryItemType.ARTIST).pipe(
+      finalize(() => this.endLoader('library-artists')),
+    ).subscribe({
       next: (page) => {
         this._libraryArtistIds.set(page.content ?? []);
         this._followsLoaded.set(true);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading library artists');
-        this._loading.set(false);
       },
     });
     // Cargar en paralelo los follows reales del social-service para que
@@ -355,19 +364,35 @@ export class InteractionState {
   }
 
   loadFollowedArtists(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('followed-artists')) return;
     this._error.set(null);
-    this.artistFollowsApi.getFollowedArtists().subscribe({
+    this.artistFollowsApi.getFollowedArtists().pipe(
+      finalize(() => this.endLoader('followed-artists')),
+    ).subscribe({
       next: (ids) => {
         this._followedArtistIds.set(ids);
         this._followsLoaded.set(true);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading followed artists');
-        this._loading.set(false);
       },
     });
+  }
+
+  private beginLoader(key: string): boolean {
+    if (this.inflightLoaders.has(key)) return false;
+    this.inflightLoaders.add(key);
+    this.activeLoaderCount += 1;
+    this._loading.set(true);
+    return true;
+  }
+
+  private endLoader(key: string): void {
+    if (!this.inflightLoaders.delete(key)) return;
+    this.activeLoaderCount = Math.max(0, this.activeLoaderCount - 1);
+    if (this.activeLoaderCount === 0) {
+      this._loading.set(false);
+    }
   }
 
   followArtist(artistId: string): void {

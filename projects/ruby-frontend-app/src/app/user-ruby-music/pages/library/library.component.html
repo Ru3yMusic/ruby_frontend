@@ -182,6 +182,7 @@
                 <img
                   class="library-item-image"
                   [src]="artist.photoUrl"
+                  [imgFallback]="'/assets/icons/avatar-placeholder.png'"
                   [alt]="artist.name"
                 />
 
@@ -223,6 +224,7 @@
                 <img
                   class="library-item-image"
                   [src]="playlist.coverUrl"
+                  [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
                   [alt]="playlist.title"
                 />
 
@@ -264,6 +266,7 @@
                 <img
                   class="library-item-image"
                   [src]="album.coverUrl"
+                  [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
                   [alt]="album.title"
                 />
 
@@ -332,6 +335,7 @@
                   <img
                     class="library-top-item-image library-top-item-image--circle"
                     [src]="artist.photoUrl || '/assets/icons/avatar-placeholder.png'"
+                    [imgFallback]="'/assets/icons/avatar-placeholder.png'"
                     [alt]="artist.name"
                   />
 
@@ -362,6 +366,7 @@
                   <img
                     class="library-suggestion-image library-suggestion-image--circle"
                     [src]="artist.photoUrl || '/assets/icons/avatar-placeholder.png'"
+                    [imgFallback]="'/assets/icons/avatar-placeholder.png'"
                     [alt]="artist.name"
                   />
 
@@ -426,6 +431,7 @@
                   <img
                     class="library-featured-album-cover"
                     [src]="album.coverUrl || '/assets/icons/playlist-cover-placeholder.png'"
+                    [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
                     [alt]="album.title"
                   />
 
@@ -441,7 +447,7 @@
                 <div class="library-featured-album-info">
                   <h4 class="library-featured-album-title">{{ album.title }}</h4>
                   <p class="library-featured-album-artist">{{ getAlbumArtistName(album) }}</p>
-                  <p class="library-featured-album-meta">{{ album.releaseDate }}</p>
+                  <p class="library-featured-album-meta">{{ album.releaseDateTime }}</p>
                 </div>
               </button>
             }
@@ -464,13 +470,14 @@
                 <img
                   class="library-album-row-cover"
                   [src]="album.coverUrl || '/assets/icons/playlist-cover-placeholder.png'"
+                  [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
                   [alt]="album.title"
                 />
 
                 <div class="library-album-row-info">
                   <h4 class="library-album-row-title">{{ album.title }}</h4>
                   <p class="library-album-row-artist">{{ getAlbumArtistName(album) }}</p>
-                   <p class="library-album-row-meta">{{ album.releaseDate }} · {{ album.songCount }} canciones</p>
+                   <p class="library-album-row-meta">{{ album.releaseDateTime }} · {{ album.songCount }} canciones</p>
                 </div>
 
                 <img

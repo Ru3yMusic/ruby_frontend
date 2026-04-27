@@ -3,6 +3,7 @@ import { Component, OnInit, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { LibraryState } from '../../state/library.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 type HomeTab = 'TODAS' | 'MUSICA' | 'ESTACION';
 
@@ -19,7 +20,7 @@ interface StationCardView {
 @Component({
   selector: 'app-station',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './station.component.html',
   styleUrls: ['./station.component.scss'],
 })

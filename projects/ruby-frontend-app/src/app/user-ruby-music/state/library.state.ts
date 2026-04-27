@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { finalize, map, tap } from 'rxjs/operators';
 import {
   AlbumsApi,
   AlbumResponse,
@@ -55,6 +55,9 @@ export class LibraryState {
   private readonly _error = signal<string | null>(null);
   readonly error = this._error.asReadonly();
 
+  private readonly inflightLoaders = new Set<string>();
+  private activeLoaderCount = 0;
+
   /* ===================== */
   /* COMPUTED */
   /* ===================== */
@@ -70,16 +73,16 @@ export class LibraryState {
   /* ===================== */
 
   loadRecentSongs(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('recent-songs')) return;
     this._error.set(null);
-    this.songsApi.getRecentSongs().subscribe({
+    this.songsApi.getRecentSongs().pipe(
+      finalize(() => this.endLoader('recent-songs')),
+    ).subscribe({
       next: (songs) => {
         this._songs.set(songs);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading songs');
-        this._loading.set(false);
       },
     });
   }
@@ -87,61 +90,61 @@ export class LibraryState {
   loadArtists(): void {
     // Catálogo completo de artistas (usado para lookups por ID en todo user).
     // Componentes que necesiten solo destacados filtran por isTop inline.
-    this._loading.set(true);
+    if (!this.beginLoader('artists')) return;
     this._error.set(null);
-    this.artistsApi.listArtists(undefined, 0, 500).subscribe({
+    this.artistsApi.listArtists(undefined, 0, 500).pipe(
+      finalize(() => this.endLoader('artists')),
+    ).subscribe({
       next: (page) => {
         this._artists.set(page.content ?? []);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading artists');
-        this._loading.set(false);
       },
     });
   }
 
   loadGenres(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('genres')) return;
     this._error.set(null);
-    this.genresApi.listGenres().subscribe({
+    this.genresApi.listGenres().pipe(
+      finalize(() => this.endLoader('genres')),
+    ).subscribe({
       next: (genres) => {
         this._genres.set(genres);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading genres');
-        this._loading.set(false);
       },
     });
   }
 
   loadNewReleases(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('new-releases')) return;
     this._error.set(null);
-    this.albumsApi.getNewReleases().subscribe({
+    this.albumsApi.getNewReleases(0, 20).pipe(
+      finalize(() => this.endLoader('new-releases')),
+    ).subscribe({
       next: (page) => {
         this._albums.set(page.content ?? []);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading albums');
-        this._loading.set(false);
       },
     });
   }
 
   loadActiveStations(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('active-stations')) return;
     this._error.set(null);
-    this.stationsApi.listActiveStations().subscribe({
+    this.stationsApi.listActiveStations().pipe(
+      finalize(() => this.endLoader('active-stations')),
+    ).subscribe({
       next: (stations) => {
         this._stations.set(stations);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading stations');
-        this._loading.set(false);
       },
     });
   }
@@ -155,16 +158,16 @@ export class LibraryState {
       this._songs.set([]);
       return;
     }
-    this._loading.set(true);
+    if (!this.beginLoader('search-songs')) return;
     this._error.set(null);
-    this.songsApi.searchSongs(query).subscribe({
+    this.songsApi.searchSongs(query).pipe(
+      finalize(() => this.endLoader('search-songs')),
+    ).subscribe({
       next: (page) => {
         this._songs.set(page.content ?? []);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error searching songs');
-        this._loading.set(false);
       },
     });
   }
@@ -174,18 +177,34 @@ export class LibraryState {
       this._artists.set([]);
       return;
     }
-    this._loading.set(true);
+    if (!this.beginLoader('search-artists')) return;
     this._error.set(null);
-    this.artistsApi.searchArtists(query).subscribe({
+    this.artistsApi.searchArtists(query).pipe(
+      finalize(() => this.endLoader('search-artists')),
+    ).subscribe({
       next: (page) => {
         this._artists.set(page.content ?? []);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error searching artists');
-        this._loading.set(false);
       },
     });
+  }
+
+  private beginLoader(key: string): boolean {
+    if (this.inflightLoaders.has(key)) return false;
+    this.inflightLoaders.add(key);
+    this.activeLoaderCount += 1;
+    this._loading.set(true);
+    return true;
+  }
+
+  private endLoader(key: string): void {
+    if (!this.inflightLoaders.delete(key)) return;
+    this.activeLoaderCount = Math.max(0, this.activeLoaderCount - 1);
+    if (this.activeLoaderCount === 0) {
+      this._loading.set(false);
+    }
   }
 
   /* ===================== */
@@ -319,6 +338,52 @@ export class LibraryState {
         },
       });
     }
+  }
+
+  /* ===================== */
+  /* REALTIME DELTAS */
+  /* Applied from cross-user broadcasts (artist.followed / artist.unfollowed /
+   * song.played Kafka topics fanned out by realtime-ws-ms). The mutations are
+   * scoped to the cached entity so any view bound to libraryState.artists() /
+   * songs() / songsById picks up the new counter without a refetch. */
+  /* ===================== */
+
+  applyArtistFollowersDelta(artistId: string, delta: number): void {
+    if (!artistId || !Number.isFinite(delta) || delta === 0) return;
+    this._artists.update(list => {
+      const idx = list.findIndex(a => (a as any).id === artistId);
+      if (idx < 0) return list;
+      const current = list[idx] as any;
+      const nextCount = Math.max(0, Number(current.followersCount ?? 0) + delta);
+      const updated = { ...current, followersCount: nextCount } as ArtistResponse;
+      const next = [...list];
+      next[idx] = updated;
+      return next;
+    });
+  }
+
+  applySongPlayCountDelta(songId: string, delta: number): void {
+    if (!songId || !Number.isFinite(delta) || delta === 0) return;
+
+    this._songs.update(list => {
+      const idx = list.findIndex(s => (s as any).id === songId);
+      if (idx < 0) return list;
+      const current = list[idx] as any;
+      const nextCount = Math.max(0, Number(current.playCount ?? 0) + delta);
+      const next = [...list];
+      next[idx] = { ...current, playCount: nextCount } as SongResponse;
+      return next;
+    });
+
+    this._songsById.update(map => {
+      const cached = map[songId] as any;
+      if (!cached) return map;
+      const nextCount = Math.max(0, Number(cached.playCount ?? 0) + delta);
+      return {
+        ...map,
+        [songId]: { ...cached, playCount: nextCount } as SongResponse,
+      };
+    });
   }
 
   /* ===================== */

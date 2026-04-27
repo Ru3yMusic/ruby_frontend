@@ -26,7 +26,6 @@
         class="column"
         #dayColumn
         (scroll)="onDayScroll($event)"
-         (wheel)="onColumnWheel($event, 'day')"
       >
         <div
           class="item"
@@ -42,7 +41,6 @@
         class="column"
         #monthColumn
         (scroll)="onMonthScroll($event)"
-        (wheel)="onColumnWheel($event, 'month')"
       >
         <div
           class="item"
@@ -58,7 +56,6 @@
         class="column"
         #yearColumn
         (scroll)="onYearScroll($event)"
-        (wheel)="onColumnWheel($event, 'year')"
       >
         <div
           class="item"

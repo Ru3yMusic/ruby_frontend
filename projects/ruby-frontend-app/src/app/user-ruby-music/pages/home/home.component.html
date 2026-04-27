@@ -33,155 +33,6 @@
   </div>
 
   <!-- ===================== -->
-  <!-- ÁLBUMES PARA TI -->
-  <!-- ===================== -->
-  <section class="home-section home-section--with-arrows">
-    <div class="home-section__header">
-      <div>
-        <h2 class="home-title">Álbumes para Ti</h2>
-        <p class="home-subtitle">Descubre álbumes que encajan con tu estilo.</p>
-      </div>
-    </div>
-
-    <div class="home-section-carousel">
-      <button
-        class="home-section-arrow home-section-arrow--left"
-        type="button"
-        [disabled]="!canMoveAlbumsLeft()"
-        (click)="moveAlbumsLeft($event)"
-      >
-        <img
-          class="home-section-arrow-icon"
-          src="/assets/icons/home-carousel-left.png"
-          alt="Mover a la izquierda"
-        />
-      </button>
-
-      <button
-        class="home-section-arrow home-section-arrow--right"
-        type="button"
-        [disabled]="!canMoveAlbumsRight()"
-        (click)="moveAlbumsRight($event)"
-      >
-        <img
-          class="home-section-arrow-icon"
-          src="/assets/icons/home-carousel-right.png"
-          alt="Mover a la derecha"
-        />
-      </button>
-
-    <div class="album-grid">
-      @for (album of visibleAlbumsForYou(); track album.id) {
-        <article
-          class="album-card"
-          (click)="goToAlbumDetail(album.id)"
-        >
-          <div class="album-image-wrapper">
-            <img
-              class="album-image"
-              [src]="album.coverUrl"
-              [alt]="album.title"
-            />
-
-            <button
-              class="play-button"
-              type="button"
-              (click)="playAlbum(album.id, $event)"
-            >
-              <img
-                class="play-button__icon"
-                [src]="isAlbumPlaying(album.id)
-                  ? '/assets/icons/home-pause.png'
-                  : '/assets/icons/home-play.png'"
-                [alt]="isAlbumPlaying(album.id) ? 'Pausar álbum' : 'Reproducir álbum'"
-              />
-            </button>
-
-            <div class="album-card__menu-wrapper">
-              <button
-                class="album-card__menu-button"
-                type="button"
-                (click)="toggleAlbumMenu(album.id, $event)"
-              >
-                <img
-                  class="album-card__menu-icon"
-                  src="/assets/icons/playlist-song-more.png"
-                  alt="Más opciones"
-                />
-              </button>
-
-              @if (openAlbumMenuId() === album.id) {
-                <div class="album-card__menu" (click)="$event.stopPropagation()">
-                  <button
-                    class="album-card__menu-item"
-                    type="button"
-                    (click)="toggleSaveAlbum(album.id, $event)"
-                  >
-                    <span>
-                      {{ isAlbumSaved(album.id)
-                        ? 'Quitar de tu biblioteca'
-                        : 'Agregar a tu biblioteca' }}
-                    </span>
-                  </button>
-
-                  <div class="album-card__submenu-wrapper">
-                    <button
-                      class="album-card__menu-item"
-                      type="button"
-                      (click)="toggleAlbumPlaylistSubmenu(album.id, $event)"
-                    >
-                      <span>Agregar a playlist</span>
-                    </button>
-
-                    @if (openAlbumPlaylistSubmenuId() === album.id) {
-                      <div class="album-card__submenu" (click)="$event.stopPropagation()">
-                        <button
-                          class="album-card__submenu-item"
-                          type="button"
-                          (click)="addAlbumToNewPlaylist(album.id)"
-                        >
-                          Nueva playlist
-                        </button>
-
-                        @for (playlist of customPlaylists(); track playlist.id) {
-                          <button
-                            class="album-card__submenu-item"
-                            type="button"
-                            (click)="addAlbumToExistingPlaylist(playlist.id!, album.id!, $event)"
-                          >
-                            {{ playlist.name }}
-                          </button>
-                        }
-                      </div>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-          </div>
-
-          <button
-            class="album-name"
-            type="button"
-            (click)="goToAlbumDetail(album.id, $event)"
-          >
-            {{ album.title }}
-          </button>
-
-          <button
-            class="album-artist"
-            type="button"
-            (click)="goToArtistDetail(album.artistId, $event)"
-          >
-            {{ album.artistName }}
-          </button>
-        </article>
-      }
-    </div>
-    </div>
-  </section>
-
-  <!-- ===================== -->
   <!-- ESCUCHAR AHORA -->
   <!-- ===================== -->
   <section class="home-section">
@@ -219,18 +70,35 @@
             <img
               class="listen-now-row__image"
               [src]="song.coverUrl"
+              [imgFallback]="defaultAlbumCover"
               [alt]="song.title"
             />
           </div>
 
           <div class="listen-now-row__info">
-            <button
-              class="listen-now-row__title"
-              type="button"
-              (click)="goToSongDetail(song.songId, $event)"
-            >
-              {{ song.title }}
-            </button>
+            <div class="listen-now-row__title-row">
+              <button
+                class="listen-now-row__title"
+                type="button"
+                (click)="goToSongDetail(song.songId, $event)"
+              >
+                {{ song.title }}
+              </button>
+
+              @if (song.isLiked) {
+                <button
+                  class="listen-now-row__liked-inline"
+                  type="button"
+                  (click)="toggleSongLike(song.songId)"
+                >
+                  <img
+                    class="listen-now-row__liked-inline-icon"
+                    src="/assets/icons/song-liked-filled.png"
+                    alt="Quitar de Tus me gusta"
+                  />
+                </button>
+              }
+            </div>
 
             <button
               class="listen-now-row__artist"
@@ -241,19 +109,8 @@
             </button>
           </div>
 
-          @if (song.isLiked) {
-            <button
-              class="listen-now-row__liked-button"
-              type="button"
-              (click)="toggleSongLike(song.songId)"
-            >
-              <img
-                class="listen-now-row__liked-icon"
-                src="/assets/icons/song-liked-filled.png"
-                alt="Quitar de Tus me gusta"
-              />
-            </button>
-          }
+          <span class="listen-now-row__plays">{{ song.playCountLabel }}</span>
+          <span class="listen-now-row__duration">{{ song.durationLabel }}</span>
 
           <div class="listen-now-row__menu-wrapper">
             <button
@@ -366,6 +223,156 @@
   </section>
 
   <!-- ===================== -->
+  <!-- ÁLBUMES PARA TI -->
+  <!-- ===================== -->
+  <section class="home-section home-section--with-arrows">
+    <div class="home-section__header">
+      <div>
+        <h2 class="home-title">Álbumes para Ti</h2>
+        <p class="home-subtitle">Descubre álbumes que encajan con tu estilo.</p>
+      </div>
+    </div>
+
+    <div class="home-section-carousel">
+      <button
+        class="home-section-arrow home-section-arrow--left"
+        type="button"
+        [disabled]="!canMoveAlbumsLeft()"
+        (click)="moveAlbumsLeft($event)"
+      >
+        <img
+          class="home-section-arrow-icon"
+          src="/assets/icons/home-carousel-left.png"
+          alt="Mover a la izquierda"
+        />
+      </button>
+
+      <button
+        class="home-section-arrow home-section-arrow--right"
+        type="button"
+        [disabled]="!canMoveAlbumsRight()"
+        (click)="moveAlbumsRight($event)"
+      >
+        <img
+          class="home-section-arrow-icon"
+          src="/assets/icons/home-carousel-right.png"
+          alt="Mover a la derecha"
+        />
+      </button>
+
+    <div class="album-grid">
+      @for (album of visibleAlbumsForYou(); track album.id) {
+        <article
+          class="album-card"
+          (click)="goToAlbumDetail(album.id)"
+        >
+          <div class="album-image-wrapper">
+            <img
+              class="album-image"
+              [src]="album.coverUrl"
+              [imgFallback]="defaultAlbumCover"
+              [alt]="album.title"
+            />
+
+            <button
+              class="play-button"
+              type="button"
+              (click)="playAlbum(album.id, $event)"
+            >
+              <img
+                class="play-button__icon"
+                [src]="isAlbumPlaying(album.id)
+                  ? '/assets/icons/home-pause.png'
+                  : '/assets/icons/home-play.png'"
+                [alt]="isAlbumPlaying(album.id) ? 'Pausar álbum' : 'Reproducir álbum'"
+              />
+            </button>
+
+            <div class="album-card__menu-wrapper">
+              <button
+                class="album-card__menu-button"
+                type="button"
+                (click)="toggleAlbumMenu(album.id, $event)"
+              >
+                <img
+                  class="album-card__menu-icon"
+                  src="/assets/icons/playlist-song-more.png"
+                  alt="Más opciones"
+                />
+              </button>
+
+              @if (openAlbumMenuId() === album.id) {
+                <div class="album-card__menu" (click)="$event.stopPropagation()">
+                  <button
+                    class="album-card__menu-item"
+                    type="button"
+                    (click)="toggleSaveAlbum(album.id, $event)"
+                  >
+                    <span>
+                      {{ isAlbumSaved(album.id)
+                        ? 'Quitar de tu biblioteca'
+                        : 'Agregar a tu biblioteca' }}
+                    </span>
+                  </button>
+
+                  <div class="album-card__submenu-wrapper">
+                    <button
+                      class="album-card__menu-item"
+                      type="button"
+                      (click)="toggleAlbumPlaylistSubmenu(album.id, $event)"
+                    >
+                      <span>Agregar a playlist</span>
+                    </button>
+
+                    @if (openAlbumPlaylistSubmenuId() === album.id) {
+                      <div class="album-card__submenu" (click)="$event.stopPropagation()">
+                        <button
+                          class="album-card__submenu-item"
+                          type="button"
+                          (click)="addAlbumToNewPlaylist(album.id)"
+                        >
+                          Nueva playlist
+                        </button>
+
+                        @for (playlist of customPlaylists(); track playlist.id) {
+                          <button
+                            class="album-card__submenu-item"
+                            type="button"
+                            (click)="addAlbumToExistingPlaylist(playlist.id!, album.id!, $event)"
+                          >
+                            {{ playlist.name }}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <button
+            class="album-name"
+            type="button"
+            (click)="goToAlbumDetail(album.id, $event)"
+          >
+            {{ album.title }}
+          </button>
+
+          <button
+            class="album-artist"
+            type="button"
+            (click)="goToArtistDetail(album.artistId, $event)"
+          >
+            {{ album.artistName }}
+          </button>
+        </article>
+      }
+    </div>
+    </div>
+  </section>
+
+  <!-- ===================== -->
   <!-- ARTISTAS RECOMENDADOS -->
   <!-- ===================== -->
   <section class="home-section home-section--last home-section--with-arrows">
@@ -412,6 +419,7 @@
             <img
               class="recommended-artist-card__image"
               [src]="artist.photoUrl"
+              [imgFallback]="defaultAvatar"
               [alt]="artist.name"
             />
 

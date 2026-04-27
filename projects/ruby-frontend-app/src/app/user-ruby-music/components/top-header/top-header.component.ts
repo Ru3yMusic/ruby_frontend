@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, HostListener, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, HostListener, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthRepositoryPort } from 'lib-ruby-core';
 import { EMPTY } from 'rxjs';
@@ -9,6 +9,7 @@ import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { TokenStorageService } from '../../../core/services/token-storage.service';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 type HeaderSearchResultType = 'SONG' | 'ALBUM' | 'ARTIST';
 
@@ -23,7 +24,8 @@ interface HeaderSearchResult {
 @Component({
   selector: 'app-top-header',
   standalone: true,
-  imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './top-header.component.html',
   styleUrls: ['./top-header.component.scss'],
 })
@@ -44,11 +46,13 @@ export class TopHeaderComponent {
 
   goToHome(): void {
     this.closeAllOverlays();
+    if (this.router.url === '/user/home') return;
     this.router.navigate(['/user/home']);
   }
 
   goToLibrary(): void {
     this.closeAllOverlays();
+    if (this.router.url === '/user/library') return;
     this.router.navigate(['/user/library']);
   }
 

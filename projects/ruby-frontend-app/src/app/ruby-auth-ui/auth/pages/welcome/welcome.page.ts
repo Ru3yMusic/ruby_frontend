@@ -111,11 +111,6 @@ export class WelcomePage {
           return;
         }
 
-        if (!user.onboardingCompleted) {
-          this.router.navigateByUrl('/onboarding/stations');
-          return;
-        }
-
         this.router.navigateByUrl('/user/home');
       },
       error: (err: unknown) => {
@@ -223,7 +218,7 @@ export class WelcomePage {
         }
         this.authState.resetDraft();
         this.isLoading.set(false);
-        this.router.navigateByUrl('/onboarding/stations');
+        this.router.navigateByUrl('/onboarding/artists');
       },
       error: (err: unknown) => {
         console.error('Error en auto-login post-register:', err);

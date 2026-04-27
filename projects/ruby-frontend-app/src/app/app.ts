@@ -1,6 +1,10 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { NotificationsState } from './user-ruby-music/state/notifications.state';
+// ─── KILL SWITCH (debug freeze) ────────────────────────────────────────────
+// Both eager injections desactivados temporalmente para aislar el freeze de
+// /user/home. Si el freeze desaparece, uno de estos servicios contiene el loop.
+// import { SessionKeepaliveService } from './core/services/session-keepalive.service';
+// import { NotificationsState } from './user-ruby-music/state/notifications.state';
 
 @Component({
   selector: 'app-root',
@@ -9,7 +13,7 @@ import { NotificationsState } from './user-ruby-music/state/notifications.state'
   styleUrl: './app.scss',
 })
 export class App {
-  // Eager-inject NotificationsState at bootstrap so its token→realtime effect
-  // runs from app start (opens the WS on login / page reload, closes on logout).
-  private readonly notificationsState = inject(NotificationsState);
+  // KILL SWITCH: SessionKeepaliveService y NotificationsState desactivados.
+  // private readonly sessionKeepalive = inject(SessionKeepaliveService);
+  // private readonly notificationsState = inject(NotificationsState);
 }

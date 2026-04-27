@@ -13,7 +13,10 @@ export interface AlbumRequest {
     title: string;
     artistId: string;
     coverUrl: string;
-    releaseDate: string;
+    /**
+     * Scheduled release timestamp. Albums become public when this moment passes (the scheduler flips `released` to true).
+     */
+    releaseDateTime: string;
     /**
      * Optional station this album belongs to (drives \"Escucha en [station]\" in album detail)
      */

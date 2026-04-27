@@ -8,6 +8,7 @@ import { PlayerState } from '../../state/player.state';
 import { PlaylistState } from '../../state/playlist.state';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 interface AlbumSongRow {
   id: string;
@@ -23,7 +24,7 @@ interface AlbumSongRow {
 @Component({
   selector: 'app-song-detail',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './song-detail.component.html',
   styleUrls: ['./song-detail.component.scss'],
 })
@@ -102,7 +103,7 @@ export class SongDetailComponent {
   readonly displayReleaseYear = computed(() => {
     const album = this.currentAlbum();
     if (!album) return '';
-    return this.extractYear(album.releaseDate || album.createdAt);
+    return this.extractYear(album.releaseDateTime || album.createdAt);
   });
 
   readonly displayDurationLabel = computed(() => {

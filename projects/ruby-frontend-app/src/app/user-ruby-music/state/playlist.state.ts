@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { finalize } from 'rxjs/operators';
 import {
   PlaylistsApi,
   PlaylistSongsApi,
@@ -35,6 +36,11 @@ export class PlaylistState {
 
   private readonly _error = signal<string | null>(null);
   readonly error = this._error.asReadonly();
+
+  // Inflight de cargas idempotentes (loadPlaylists). Sin esto, layout/sidebar/home
+  // llamando loadPlaylists casi a la vez disparaban GET /playlists/my duplicados.
+  private readonly inflightLoaders = new Set<string>();
+  private activeLoaderCount = 0;
 
   /**
    * Tick global para los labels "hace X tiempo" en playlist-detail. Un único
@@ -80,18 +86,66 @@ export class PlaylistState {
   /* ===================== */
 
   loadPlaylists(): void {
-    this._loading.set(true);
+    if (!this.beginLoader('playlists')) return;
     this._error.set(null);
-    this.playlistsApi.getMyPlaylists().subscribe({
+    this.playlistsApi.getMyPlaylists().pipe(
+      finalize(() => this.endLoader('playlists')),
+    ).subscribe({
       next: (playlists) => {
         this._playlists.set(playlists);
-        this._loading.set(false);
       },
       error: (err: { message?: string }) => {
         this._error.set(err?.message ?? 'Error loading playlists');
-        this._loading.set(false);
       },
     });
+  }
+
+  /**
+   * Hidrata una playlist específica si no está en `_playlists` (porque
+   * `getMyPlaylists` solo trae las del usuario actual). Necesario cuando
+   * el usuario abre una playlist pública ajena desde `/user/music` —
+   * sin esto, `playlist-detail` no encuentra la playlist y nunca dispara
+   * `loadPlaylistSongs`.
+   *
+   * Las vistas que listan playlists ("Mi biblioteca", "Mis playlists" en
+   * sidebar) filtran por `userId === currentUserId`, así que upsertar una
+   * playlist ajena acá NO la hace aparecer en esas listas.
+   */
+  ensurePlaylistLoaded(playlistId: string): void {
+    if (!playlistId) return;
+    if (this._playlists().some(p => p.id === playlistId)) return;
+    const inflightKey = `playlist-${playlistId}`;
+    if (!this.beginLoader(inflightKey)) return;
+    this.playlistsApi
+      .getPlaylistById(playlistId)
+      .pipe(finalize(() => this.endLoader(inflightKey)))
+      .subscribe({
+        next: (playlist) => {
+          this._playlists.update(list =>
+            list.some(p => p.id === playlist.id) ? list : [...list, playlist],
+          );
+        },
+        error: () => {
+          // No bubble: el componente verá `currentPlaylist() === null` y
+          // mostrará el estado vacío sin reventar.
+        },
+      });
+  }
+
+  private beginLoader(key: string): boolean {
+    if (this.inflightLoaders.has(key)) return false;
+    this.inflightLoaders.add(key);
+    this.activeLoaderCount += 1;
+    this._loading.set(true);
+    return true;
+  }
+
+  private endLoader(key: string): void {
+    if (!this.inflightLoaders.delete(key)) return;
+    this.activeLoaderCount = Math.max(0, this.activeLoaderCount - 1);
+    if (this.activeLoaderCount === 0) {
+      this._loading.set(false);
+    }
   }
 
   loadPlaylistSongs(

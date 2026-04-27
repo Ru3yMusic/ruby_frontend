@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { SongResponse, ArtistResponse, AlbumResponse } from 'lib-ruby-sdks/catalog-service';
 import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
@@ -8,6 +8,7 @@ import { PlayerState, PlayerSong } from '../../state/player.state';
 import { PlaylistState } from '../../state/playlist.state';
 import { LibraryState } from '../../state/library.state';
 import { InteractionState } from '../../state/interaction.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 type HomeTab = 'TODAS' | 'MUSICA' | 'ESTACION';
 
@@ -29,6 +30,10 @@ interface HomeSongRow {
   albumTitle: string;
   coverUrl: string;
   isLiked: boolean;
+  /** Spotify-style locale-formatted play count (e.g. "2.554.300" with es-ES). */
+  playCountLabel: string;
+  /** mm:ss formatted duration (e.g. "3:45"). */
+  durationLabel: string;
 }
 
 interface HomeRecommendedArtistCard {
@@ -40,7 +45,8 @@ interface HomeRecommendedArtistCard {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss',
 })
@@ -52,8 +58,10 @@ export class HomeComponent {
   private readonly libraryState = inject(LibraryState);
   private readonly interactionState = inject(InteractionState);
 
-  private readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
-  private readonly defaultAlbumCover = '/assets/icons/playlist-cover-placeholder.png';
+  // protected — referenced from the component template via [imgFallback].
+  // Angular strictTemplates rejects `private` members in templates.
+  protected readonly defaultAvatar = '/assets/icons/avatar-placeholder.png';
+  protected readonly defaultAlbumCover = '/assets/icons/playlist-cover-placeholder.png';
 
   readonly currentUser = this.authState.currentUser;
   readonly loading = this.libraryState.loading;
@@ -78,11 +86,36 @@ export class HomeComponent {
     return this.playlistState.getCustomPlaylistsByUser(user.id);
   });
 
+  readonly artistsById = computed(() => {
+    const map = new Map<string, ArtistResponse>();
+    for (const artist of this.libraryState.artists()) {
+      if (artist.id) map.set(artist.id, artist);
+    }
+    return map;
+  });
+
+  readonly albumsById = computed(() => {
+    const map = new Map<string, AlbumResponse>();
+    for (const album of this.libraryState.albums()) {
+      if (album.id) map.set(album.id, album);
+    }
+    return map;
+  });
+
+  readonly songsById = computed(() => {
+    const map = new Map<string, SongResponse>();
+    for (const song of this.libraryState.songs()) {
+      if (song.id) map.set(song.id, song);
+    }
+    return map;
+  });
+
   readonly albumsForYou = computed<HomeAlbumCard[]>(() => {
+    const artistsById = this.artistsById();
     return this.libraryState
       .albums()
       .map((album: AlbumResponse) => {
-      const artist = this.libraryState.artists().find((a: ArtistResponse) => a.id === album.artist?.id);
+      const artist = artistsById.get(album.artist?.id ?? '');
       return {
         id: album.id ?? '',
         title: album.title ?? '',
@@ -112,14 +145,15 @@ export class HomeComponent {
   });
 
   readonly listenNowSongs = computed<HomeSongRow[]>(() => {
+    const songsById = this.songsById();
+    const artistsById = this.artistsById();
+    const albumsById = this.albumsById();
     return this.randomListenSongIds()
-      .map(songId => this.libraryState.songs().find((s: SongResponse) => s.id === songId))
+      .map(songId => songsById.get(songId))
       .filter((song): song is SongResponse => !!song)
       .map(song => {
-      const artist = this.libraryState.artists().find((a: ArtistResponse) => a.id === song.artist?.id);
-      const album = song.album?.id
-        ? this.libraryState.albums().find((a: AlbumResponse) => a.id === song.album?.id)
-        : null;
+      const artist = artistsById.get(song.artist?.id ?? '');
+      const album = song.album?.id ? albumsById.get(song.album.id) : null;
 
       return {
         id: `home-song-${song.id ?? ''}`,
@@ -131,27 +165,26 @@ export class HomeComponent {
           albumTitle: album?.title ?? 'Sencillo',
           coverUrl: song.coverUrl || this.defaultAlbumCover,
           isLiked: this.interactionState.isSongLiked(song.id ?? ''),
+          playCountLabel: this.formatPlayCount(song.playCount ?? 0),
+          durationLabel: this.formatDuration(song.duration ?? 0),
         };
       });
   });
 
   readonly recommendedArtists = computed<HomeRecommendedArtistCard[]>(() => {
-    // Reactive safety net: even if the initial seed ran before follows
-    // finished loading (F5 race — loadArtists resolves faster than
-    // loadLibraryArtists+loadFollowedArtists), filter them out at render
-    // time so the UI never shows artists the user already follows. If the
-    // user follows someone from this list, it disappears on the next render
-    // for the same reason — no manual refresh needed.
-    const followed = new Set(this.interactionState.allFollowedArtistIds());
+    // Show ALL artists from the catalog in random order — followers count
+    // and follow state do not influence membership or order. The card itself
+    // exposes a "Seguir/Siguiendo" button so users can follow inline without
+    // the carousel reshuffling under them.
+    const artistsById = this.artistsById();
     return this.randomRecommendedArtistIds()
-      .map(artistId => this.libraryState.artists().find((a: ArtistResponse) => a.id === artistId))
-      .filter((artist): artist is ArtistResponse => !!artist && !followed.has(artist.id ?? ''))
+      .map(artistId => artistsById.get(artistId))
+      .filter((artist): artist is ArtistResponse => !!artist)
       .map(artist => ({
         id: artist.id ?? '',
         name: artist.name ?? '',
         photoUrl: artist.photoUrl || this.defaultAvatar,
-      }))
-      .slice(0, 10);
+      }));
   });
 
   readonly visibleRecommendedArtists = computed<HomeRecommendedArtistCard[]>(() => {
@@ -177,19 +210,13 @@ export class HomeComponent {
 
     effect(() => {
       const artists = this.libraryState.artists();
-      const followsReady = this.interactionState.followsLoaded();
-      // Seed only when BOTH the catalog and the follows list are loaded.
-      // Otherwise the filter inside refreshRecommendedArtists runs against
-      // an empty follows set and lets followed artists into the seed (F5
-      // race). The `randomRecommendedArtistIds().length === 0` guard keeps
-      // the seed sticky across re-renders — follow/unfollow changes don't
-      // re-seed but the recommendedArtists computed still filters them out
-      // reactively.
-      if (
-        artists.length > 0
-        && followsReady
-        && this.randomRecommendedArtistIds().length === 0
-      ) {
+      // Seed once the catalog is available. Membership no longer depends on
+      // follow state, so we don't gate on followsLoaded anymore. The seed is
+      // re-run if the catalog grows past the seeded set so artists added
+      // later still surface in the carousel.
+      if (artists.length === 0) return;
+      const seeded = this.randomRecommendedArtistIds().length;
+      if (seeded === 0 || seeded < artists.length) {
         this.refreshRecommendedArtists();
       }
     });
@@ -201,13 +228,13 @@ export class HomeComponent {
   /* INIT */
   /* ===================== */
   private bootstrapHome(): void {
-    this.libraryState.loadRecentSongs();
-    this.libraryState.loadArtists();
-    this.libraryState.loadNewReleases();
-    this.interactionState.loadLikedSongs();
-    this.interactionState.loadLibraryAlbums();
-    this.interactionState.loadLibraryArtists();
-    this.playlistState.loadPlaylists();
+    // UserLayout already preloads catalog + interaction data for all /user/**
+    // routes. Avoid duplicated startup requests here to prevent UI stalls.
+
+    const user = this.currentUser();
+    if (user?.id && this.playlistState.getPlaylistsByUser(user.id).length === 0) {
+      this.playlistState.loadPlaylists();
+    }
   }
 
   /* ===================== */
@@ -269,11 +296,14 @@ export class HomeComponent {
   }
 
   refreshRecommendedArtists(): void {
-    const followedIds = new Set(this.interactionState.allFollowedArtistIds());
-    const available = this.libraryState.artists().filter(a => !followedIds.has(a.id ?? ''));
-    const shuffled = this.shuffleArray(available)
-      .slice(0, 12)
-      .map(a => a.id ?? '');
+    // Show every artist available in the catalog, shuffled. Followers count
+    // and follow state are intentionally ignored — the user wants the
+    // carousel to surface the entire roster regardless of who is popular or
+    // who they already follow.
+    const shuffled = this.shuffleArray(this.libraryState.artists())
+      .map(a => a.id ?? '')
+      .filter(Boolean);
+    if (shuffled.length === 0 && this.randomRecommendedArtistIds().length === 0) return;
     this.randomRecommendedArtistIds.set(shuffled);
     this.artistsCarouselIndex.set(0);
   }
@@ -510,14 +540,15 @@ export class HomeComponent {
   }
 
   followArtistFromRecommended(artistId: string): void {
-    if (!artistId || this.interactionState.isArtistInLibrary(artistId)) return;
-    this.interactionState.addArtistToLibrary(artistId);
-
-    setTimeout(() => {
-      this.randomRecommendedArtistIds.set(
-        this.randomRecommendedArtistIds().filter(id => id !== artistId)
-      );
-    }, 1000);
+    if (!artistId) return;
+    // The card stays in the carousel and just toggles its label between
+    // "Seguir" / "Siguiendo" so the row layout never reflows under the
+    // user's cursor — a follow/unfollow is a one-click action either way.
+    if (this.interactionState.isArtistInLibrary(artistId)) {
+      this.interactionState.removeArtistFromLibrary(artistId);
+    } else {
+      this.interactionState.addArtistToLibrary(artistId);
+    }
   }
 
   /* ===================== */
@@ -579,6 +610,19 @@ export class HomeComponent {
       likesCount: song.likesCount ?? 0,
       createdAt: '',
     };
+  }
+
+  /** Spotify-style: dots as thousands separators (es-ES locale). */
+  private formatPlayCount(value: number): string {
+    const safe = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+    return new Intl.NumberFormat('es-ES').format(safe);
+  }
+
+  private formatDuration(totalSeconds: number): string {
+    const safe = Number.isFinite(totalSeconds) ? Math.max(0, Math.floor(totalSeconds)) : 0;
+    const minutes = Math.floor(safe / 60);
+    const seconds = safe % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
   private shuffleArray<T>(items: T[]): T[] {

@@ -1,75 +1,29 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { LibraryState } from '../../state/library.state';
+import { PlaylistResponse } from 'lib-ruby-sdks/playlist-service';
+import { MusicFeedState } from '../../state/music-feed.state';
+import { SavedPlaylistsState } from '../../state/saved-playlists.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 type HomeTab = 'TODAS' | 'MUSICA' | 'ESTACION';
-
-interface RankedAlbumCard {
-  id: string;
-  rank: number;
-  title: string;
-  artistName: string;
-  coverUrl: string;
-  totalMinutesLabel: string;
-}
 
 @Component({
   selector: 'app-music',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
+  providers: [MusicFeedState],
   templateUrl: './music.component.html',
   styleUrls: ['./music.component.scss'],
 })
 export class MusicComponent {
   private readonly router = inject(Router);
-  private readonly libraryState = inject(LibraryState);
+  protected readonly feed = inject(MusicFeedState);
+  protected readonly savedPlaylistsState = inject(SavedPlaylistsState);
 
-  private readonly defaultAlbumCover = '/assets/icons/playlist-cover-placeholder.png';
-
-  readonly loading = this.libraryState.loading;
-
-  readonly topAlbumsByMinutes = computed<RankedAlbumCard[]>(() => {
-    const albums = this.libraryState.albums();
-    const songs = this.libraryState.songs();
-    const artists = this.libraryState.artists();
-
-    return albums
-      .map(album => {
-        const artist = artists.find(a => a.id === album.artist?.id);
-
-        const totalSeconds = songs
-          .filter(s => s.album?.id === album.id)
-          .reduce((total, s) => total + (s.duration ?? 0), 0);
-
-        return {
-          id: album.id ?? '',
-          title: album.title ?? '',
-          artistName: artist?.name ?? 'Artista desconocido',
-          coverUrl: album.coverUrl || this.defaultAlbumCover,
-          totalSeconds,
-        };
-      })
-      .sort((a, b) => b.totalSeconds - a.totalSeconds)
-      .slice(0, 3)
-      .map((album, index) => ({
-        id: album.id,
-        rank: index + 1,
-        title: album.title,
-        artistName: album.artistName,
-        coverUrl: album.coverUrl,
-        totalMinutesLabel: this.formatMinutesLabel(album.totalSeconds),
-      }));
-  });
-
-  constructor() {
-    this.libraryState.loadNewReleases();
-    // loadRecentSongs populates the global `songs` signal that
-    // topAlbumsByMinutes aggregates for the "Tus álbumes más largos" ranking
-    // — the name is historic; it's the general catalog loader here.
-    this.libraryState.loadRecentSongs();
-    this.libraryState.loadArtists();
-  }
+  readonly defaultAlbumCover = '/assets/icons/playlist-cover-placeholder.png';
+  readonly defaultArtistPhoto = '/assets/icons/avatar-placeholder.png';
+  readonly defaultPlaylistCover = '/assets/icons/playlist-cover-placeholder.png';
 
   setActiveTab(tab: HomeTab): void {
     if (tab === 'TODAS') {
@@ -97,13 +51,42 @@ export class MusicComponent {
     return false;
   }
 
-  goToAlbum(albumId: string): void {
+  goToAlbum(albumId: string | undefined): void {
     if (!albumId) return;
     this.router.navigate(['/user/album', albumId]);
   }
 
-  private formatMinutesLabel(totalSeconds: number): string {
-    const totalMinutes = Math.max(1, Math.floor(totalSeconds / 60));
-    return `${totalMinutes} minutos`;
+  goToArtist(artistId: string | undefined): void {
+    if (!artistId) return;
+    this.router.navigate(['/user/artist', artistId]);
+  }
+
+  goToPlaylist(playlistId: string | undefined): void {
+    if (!playlistId) return;
+    this.router.navigate(['/user/playlist', playlistId]);
+  }
+
+  /**
+   * Toggle del estado "guardada en biblioteca" para una playlist pública ajena.
+   * stopPropagation evita que el click navegue a la playlist (la card sigue
+   * siendo clickeable para abrir, pero el botón de save se aísla).
+   *
+   * IMPORTANTE — la card NO desaparece de /user/music al guardarla. Solo cambia
+   * el estado visual del botón. Es page-scoped, sigue mostrando lo que el feed
+   * recomienda al usuario actual.
+   */
+  togglePlaylistSave(event: MouseEvent, playlist: PlaylistResponse): void {
+    event.stopPropagation();
+    const id = playlist.id;
+    if (!id) return;
+    if (this.savedPlaylistsState.isPlaylistSaved(id)) {
+      this.savedPlaylistsState.unsavePlaylist(id);
+    } else {
+      this.savedPlaylistsState.savePlaylist(playlist);
+    }
+  }
+
+  isPlaylistSaved(playlistId: string | undefined): boolean {
+    return this.savedPlaylistsState.isPlaylistSaved(playlistId);
   }
 }

@@ -1,9 +1,11 @@
-<div class="footer-player" [class.footer-player--empty]="!hasSong()">
+<div
+  class="footer-player"
+  [class.footer-player--empty]="!hasSong()"
+  [class.footer-player--hidden]="isStationRoute()"
+>
   <audio
     #audioRef
-    (timeupdate)="onTimeUpdate()"
-    (loadedmetadata)="onLoadedMetadata()"
-    (ended)="onEnded()"
+    preload="metadata"
   ></audio>
 
   <div class="footer-player__left">
@@ -11,6 +13,7 @@
       <img
         class="footer-player__cover"
         [src]="displayCoverUrl()"
+        [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
         [alt]="displayTitle()"
       />
     </div>

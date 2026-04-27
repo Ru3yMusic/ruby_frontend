@@ -9,18 +9,21 @@ export interface CurrentUser {
   status: 'ACTIVE' | 'BLOCKED' | 'INACTIVE';
   avatarUrl: string | null;
   onboardingCompleted: boolean;
-  selectedStationIds: string[];
+  selectedArtistIds: string[];
+  selectedStationIds?: string[];
 }
 
 interface OnboardingRecord {
   completed: boolean;
-  stationIds: string[];
+  artistIds: string[];
+  stationIds?: string[];
 }
 
 @Injectable({ providedIn: 'root' })
 export class AuthState {
   // ── Storage keys ────────────────────────────────────────────────────────────
-  private readonly SELECTED_STATIONS_KEY = 'ruby_selected_stations';
+  private readonly SELECTED_ARTISTS_KEY = 'ruby_selected_artists';
+  private readonly LEGACY_SELECTED_STATIONS_KEY = 'ruby_selected_stations';
   private readonly CURRENT_USER_KEY = 'ruby_current_user';
   private readonly ONBOARDING_MAP_KEY = 'ruby_onboarding_map';
 
@@ -38,20 +41,32 @@ export class AuthState {
   private readonly _pendingEmail = signal<string>('');
   readonly pendingEmail = this._pendingEmail.asReadonly();
 
-  // ── Onboarding stations ─────────────────────────────────────────────────────
-  private readonly _selectedStations = signal<string[]>(this.loadSelectedStations());
-  readonly selectedStations = this._selectedStations.asReadonly();
+  // ── Onboarding artist preferences ───────────────────────────────────────────
+  private readonly _selectedArtists = signal<string[]>(this.loadSelectedArtists());
+  readonly selectedArtists = this._selectedArtists.asReadonly();
+
+  // Legacy aliases (backward compatibility with existing call sites)
+  readonly selectedStations = this.selectedArtists;
 
   // ── Methods ─────────────────────────────────────────────────────────────────
 
+  setArtists(artistIds: string[]): void {
+    this._selectedArtists.set(artistIds);
+    localStorage.setItem(this.SELECTED_ARTISTS_KEY, JSON.stringify(artistIds));
+  }
+
   setStations(stationIds: string[]): void {
-    this._selectedStations.set(stationIds);
-    localStorage.setItem(this.SELECTED_STATIONS_KEY, JSON.stringify(stationIds));
+    this.setArtists(stationIds);
+  }
+
+  clearArtists(): void {
+    this._selectedArtists.set([]);
+    localStorage.removeItem(this.SELECTED_ARTISTS_KEY);
+    localStorage.removeItem(this.LEGACY_SELECTED_STATIONS_KEY);
   }
 
   clearStations(): void {
-    this._selectedStations.set([]);
-    localStorage.removeItem(this.SELECTED_STATIONS_KEY);
+    this.clearArtists();
   }
 
   setCurrentUser(user: CurrentUser): void {
@@ -82,17 +97,17 @@ export class AuthState {
 
   clearSession(): void {
     this.clearCurrentUser();
-    this.clearStations();
+    this.clearArtists();
     this.clearPendingEmail();
     this.resetDraft();
   }
 
   // ── Onboarding persistence per userId (survives logout) ─────────────────────
 
-  markOnboardingCompleted(userId: string, stationIds: string[]): void {
+  markOnboardingCompleted(userId: string, artistIds: string[]): void {
     if (!userId) return;
     const map = this.loadOnboardingMap();
-    map[userId] = { completed: true, stationIds: [...stationIds] };
+    map[userId] = { completed: true, artistIds: [...artistIds] };
     localStorage.setItem(this.ONBOARDING_MAP_KEY, JSON.stringify(map));
   }
 
@@ -101,9 +116,15 @@ export class AuthState {
     return this.loadOnboardingMap()[userId]?.completed === true;
   }
 
-  getOnboardingStationIds(userId: string): string[] {
+  getOnboardingArtistIds(userId: string): string[] {
     if (!userId) return [];
-    return this.loadOnboardingMap()[userId]?.stationIds ?? [];
+    const record = this.loadOnboardingMap()[userId];
+    if (!record) return [];
+    return record.artistIds ?? record.stationIds ?? [];
+  }
+
+  getOnboardingStationIds(userId: string): string[] {
+    return this.getOnboardingArtistIds(userId);
   }
 
   private loadOnboardingMap(): Record<string, OnboardingRecord> {
@@ -147,7 +168,7 @@ export class AuthState {
         status: (decoded.status as 'ACTIVE' | 'BLOCKED' | 'INACTIVE') ?? 'ACTIVE',
         avatarUrl: resolvedAvatar,
         onboardingCompleted: completed,
-        selectedStationIds: this.getOnboardingStationIds(userId),
+        selectedArtistIds: this.getOnboardingArtistIds(userId),
       };
     } catch {
       return null;
@@ -156,9 +177,10 @@ export class AuthState {
 
   // ── Loaders ─────────────────────────────────────────────────────────────────
 
-  private loadSelectedStations(): string[] {
+  private loadSelectedArtists(): string[] {
     try {
-      const raw = localStorage.getItem(this.SELECTED_STATIONS_KEY);
+      const raw = localStorage.getItem(this.SELECTED_ARTISTS_KEY)
+        ?? localStorage.getItem(this.LEGACY_SELECTED_STATIONS_KEY);
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
@@ -168,7 +190,19 @@ export class AuthState {
   private loadCurrentUser(): CurrentUser | null {
     try {
       const raw = localStorage.getItem(this.CURRENT_USER_KEY);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<CurrentUser> & { selectedStationIds?: string[] };
+      return {
+        id: parsed.id ?? '',
+        email: parsed.email ?? '',
+        name: parsed.name ?? '',
+        role: parsed.role ?? 'USER',
+        status: parsed.status ?? 'ACTIVE',
+        avatarUrl: parsed.avatarUrl ?? null,
+        onboardingCompleted: parsed.onboardingCompleted ?? false,
+        selectedArtistIds: parsed.selectedArtistIds ?? parsed.selectedStationIds ?? [],
+        selectedStationIds: parsed.selectedStationIds,
+      };
     } catch {
       return null;
     }

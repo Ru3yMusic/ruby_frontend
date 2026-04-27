@@ -28,41 +28,115 @@
     </button>
   </div>
 
-  <section class="music-section">
-    <div class="music-section__header">
-      <h1 class="music-section__title">Tus álbumes más largos</h1>
-      <p class="music-section__subtitle">
-        Los álbumes con más minutos para sumergirte por completo.
+  <!-- ─── Sección 1: Recent Releases ──────────────────────────────────── -->
+  <section class="feed-section">
+    <header class="feed-section__header">
+      <h2 class="feed-section__title">Lanzamientos recientes</h2>
+      <p class="feed-section__subtitle">
+        Los álbumes más nuevos, en tiempo real.
       </p>
-    </div>
+    </header>
 
-    <div class="music-ranking">
-      @for (album of topAlbumsByMinutes(); track album.id) {
-        <article
-          class="music-card"
-          (click)="goToAlbum(album.id)"
-        >
-          <div class="music-card__rank">
-            {{ album.rank }}
-          </div>
-
-          <div class="music-card__image-wrapper">
-            <img
-              class="music-card__image"
-              [src]="album.coverUrl"
-              [alt]="album.title"
-            />
-
-            <div class="music-card__image-fade"></div>
-
-            <div class="music-card__overlay-info">
-              <h3 class="music-card__title">{{ album.title }}</h3>
-              <p class="music-card__artist">{{ album.artistName }}</p>
-              <p class="music-card__minutes">{{ album.totalMinutesLabel }}</p>
+    @if (feed.recentReleases().length > 0) {
+      <div class="feed-rail">
+        @for (album of feed.recentReleases(); track album.id) {
+          <article class="feed-card feed-card--album" (click)="goToAlbum(album.id)">
+            <div class="feed-card__cover">
+              <img
+                class="feed-card__cover-img"
+                [src]="album.coverUrl || defaultAlbumCover"
+                [imgFallback]="defaultAlbumCover"
+                [alt]="album.title || 'Álbum'"
+              />
             </div>
-          </div>
-        </article>
-      }
-    </div>
+            <div class="feed-card__meta">
+              <h3 class="feed-card__title">{{ album.title }}</h3>
+              <p class="feed-card__subtitle">{{ album.artist?.name ?? '' }}</p>
+            </div>
+          </article>
+        }
+      </div>
+    } @else {
+      <p class="feed-empty">Aún no hay lanzamientos recientes.</p>
+    }
+  </section>
+
+  <!-- ─── Sección 2: Top Artists ──────────────────────────────────────── -->
+  <section class="feed-section">
+    <header class="feed-section__header">
+      <h2 class="feed-section__title">Top artistas</h2>
+      <p class="feed-section__subtitle">
+        Quiénes están sonando ahora.
+      </p>
+    </header>
+
+    @if (feed.topArtists().length > 0) {
+      <div class="feed-rail">
+        @for (artist of feed.topArtists(); track artist.id) {
+          <article class="feed-card feed-card--artist" (click)="goToArtist(artist.id)">
+            <div class="feed-card__cover feed-card__cover--circle">
+              <img
+                class="feed-card__cover-img"
+                [src]="artist.photoUrl || defaultArtistPhoto"
+                [imgFallback]="defaultArtistPhoto"
+                [alt]="artist.name || 'Artista'"
+              />
+            </div>
+            <div class="feed-card__meta feed-card__meta--center">
+              <h3 class="feed-card__title">{{ artist.name }}</h3>
+              <p class="feed-card__subtitle">Top</p>
+            </div>
+          </article>
+        }
+      </div>
+    } @else {
+      <p class="feed-empty">Aún no hay artistas top.</p>
+    }
+  </section>
+
+  <!-- ─── Sección 3: Playlists Recomendadas ───────────────────────────── -->
+  <section class="feed-section">
+    <header class="feed-section__header">
+      <h2 class="feed-section__title">Playlists recomendadas</h2>
+      <p class="feed-section__subtitle">
+        Lo nuevo que la comunidad está armando.
+      </p>
+    </header>
+
+    @if (feed.recommendedPlaylists().length > 0) {
+      <div class="feed-rail">
+        @for (playlist of feed.recommendedPlaylists(); track playlist.id) {
+          <article class="feed-card feed-card--playlist" (click)="goToPlaylist(playlist.id)">
+            <div class="feed-card__cover">
+              <img
+                class="feed-card__cover-img"
+                [src]="playlist.coverUrl || defaultPlaylistCover"
+                [imgFallback]="defaultPlaylistCover"
+                [alt]="playlist.name || 'Playlist'"
+              />
+
+              <button
+                type="button"
+                class="feed-card__save-btn"
+                [class.feed-card__save-btn--saved]="isPlaylistSaved(playlist.id)"
+                [attr.aria-label]="isPlaylistSaved(playlist.id) ? 'Quitar de mi biblioteca' : 'Agregar a mi biblioteca'"
+                [title]="isPlaylistSaved(playlist.id) ? 'En tu biblioteca' : 'Guardar en biblioteca'"
+                (click)="togglePlaylistSave($event, playlist)"
+              >
+                {{ isPlaylistSaved(playlist.id) ? '✓' : '+' }}
+              </button>
+            </div>
+            <div class="feed-card__meta">
+              <h3 class="feed-card__title">{{ playlist.name }}</h3>
+              <p class="feed-card__subtitle">
+                {{ playlist.songCount ?? 0 }} canciones
+              </p>
+            </div>
+          </article>
+        }
+      </div>
+    } @else {
+      <p class="feed-empty">Aún no hay playlists públicas.</p>
+    }
   </section>
 </div>

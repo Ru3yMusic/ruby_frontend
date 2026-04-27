@@ -64,7 +64,7 @@ export class VerifyEmailPage {
         }
         this.authState.resetDraft();
         this.loading.set(false);
-        this.router.navigateByUrl('/onboarding/stations');
+        this.router.navigateByUrl('/onboarding/artists');
       },
       error: () => {
         // Email verificado pero login falló — enviar a login manual.

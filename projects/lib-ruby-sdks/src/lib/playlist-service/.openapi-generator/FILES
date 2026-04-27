@@ -17,6 +17,7 @@ model/add-song-request.ts
 model/create-playlist-request.ts
 model/error-response.ts
 model/models.ts
+model/playlist-page.ts
 model/playlist-response.ts
 model/playlist-song-response.ts
 model/reorder-songs-request.ts

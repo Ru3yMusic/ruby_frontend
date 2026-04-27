@@ -1,6 +1,7 @@
 export * from './add-song-request';
 export * from './create-playlist-request';
 export * from './error-response';
+export * from './playlist-page';
 export * from './playlist-response';
 export * from './playlist-song-response';
 export * from './reorder-songs-request';

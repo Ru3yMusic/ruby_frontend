@@ -27,7 +27,6 @@ tags:
     description: Service-to-service endpoints (require SERVICE-role JWT)
 
 paths:
-
   # ── Preferences ──────────────────────────────────────────────────────────────
 
   /api/v1/interactions/preferences/genres:
@@ -300,6 +299,34 @@ paths:
         '204':
           description: Play recorded
 
+  /api/v1/interactions/play-history/checkpoint:
+    get:
+      tags: [Play History]
+      operationId: getPlaybackCheckpoint
+      summary: Get last playback checkpoint for authenticated user
+      responses:
+        '200':
+          description: Last saved playback checkpoint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackCheckpointResponse'
+        '204':
+          description: No checkpoint saved yet
+    put:
+      tags: [Play History]
+      operationId: upsertPlaybackCheckpoint
+      summary: Save or update playback checkpoint for authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybackCheckpointRequest'
+      responses:
+        '204':
+          description: Checkpoint saved
+
   # ── Internal (service-to-service) ────────────────────────────────────────────
 
   /api/internal/v1/users/{userId}/likes:
@@ -371,7 +398,6 @@ components:
         default: 20
 
   schemas:
-
     UuidListRequest:
       type: object
       required: [ids]
@@ -461,6 +487,30 @@ components:
           type: integer
         size:
           type: integer
+
+    PlaybackCheckpointRequest:
+      type: object
+      required: [songId, currentTimeSeconds]
+      properties:
+        songId:
+          type: string
+          format: uuid
+        currentTimeSeconds:
+          type: integer
+          minimum: 0
+
+    PlaybackCheckpointResponse:
+      type: object
+      properties:
+        songId:
+          type: string
+          format: uuid
+        currentTimeSeconds:
+          type: integer
+          minimum: 0
+        updatedAt:
+          type: string
+          format: date-time
 
     UserLikesInternalResponse:
       type: object

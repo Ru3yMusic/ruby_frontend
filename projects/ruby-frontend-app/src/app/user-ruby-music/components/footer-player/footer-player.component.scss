@@ -18,6 +18,16 @@
   &--empty {
     opacity: 0.8;
   }
+
+  /*
+   * Hidden while the user is inside a live station (`/user/station/:id`).
+   * The component stays in the DOM (no *ngIf) so the underlying <audio>
+   * element keeps its src + currentTime — when the user leaves the station,
+   * the existing effects automatically resume playback right where it was.
+   */
+  &--hidden {
+    display: none;
+  }
 }
 
 /* ================= LEFT ================= */

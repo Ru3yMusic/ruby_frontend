@@ -20,6 +20,7 @@
           <img
             class="profile-avatar-image"
             [src]="displayAvatarUrl()"
+            [imgFallback]="defaultAvatar"
             alt="Foto de perfil"
           />
 
@@ -73,6 +74,7 @@
               <img
                 class="playlist-card-cover"
                 [src]="playlist.coverUrl || '/assets/icons/playlist-cover-placeholder.png'"
+                [imgFallback]="'/assets/icons/playlist-cover-placeholder.png'"
                 [alt]="playlist.title"
               />
             </div>
@@ -106,6 +108,7 @@
               <img
                 class="following-card-image"
                 [src]="artist.photoUrl"
+                [imgFallback]="defaultAvatar"
                 [alt]="artist.name"
               />
             </div>
@@ -151,6 +154,7 @@
             <img
               class="profile-modal-avatar-image"
               [src]="displayAvatarUrl()"
+              [imgFallback]="defaultAvatar"
               alt="Vista previa de la foto"
             />
           </div>

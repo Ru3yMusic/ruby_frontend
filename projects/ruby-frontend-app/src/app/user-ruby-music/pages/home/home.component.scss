@@ -443,7 +443,8 @@
 
 .listen-now-row {
   display: grid;
-  grid-template-columns: 40px 54px minmax(0, 1fr) 26px 30px;
+  /* play | cover | title+artist (heart inline) | plays | duration | menu */
+  grid-template-columns: 40px 54px minmax(0, 1fr) 130px 56px 30px;
   align-items: center;
   gap: 14px;
   min-height: 58px;
@@ -508,6 +509,19 @@
   gap: 3px;
 }
 
+/*
+ * Heart sits inline next to the title (artist-detail pattern). Keeping the
+ * title and the heart in the same flex row prevents the surrounding grid
+ * from gaining/losing a column when isLiked toggles, which is what was
+ * desyncing the plays/duration columns between liked and unliked rows.
+ */
+.listen-now-row__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .listen-now-row__title,
 .listen-now-row__artist {
   border: none;
@@ -546,29 +560,41 @@
   text-decoration: underline;
 }
 
-.listen-now-row__liked-button {
-  width: 24px;
-  height: 24px;
+.listen-now-row__liked-inline {
+  width: 22px;
+  height: 22px;
   border: none;
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
   cursor: pointer;
-  opacity: 0;
-  transform: translateY(6px) scale(0.92);
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  flex-shrink: 0;
 }
 
-.listen-now-row:hover .listen-now-row__liked-button {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.listen-now-row__liked-icon {
-  width: 16px;
-  height: 16px;
+.listen-now-row__liked-inline-icon {
+  width: 14px;
+  height: 14px;
   object-fit: contain;
+}
+
+.listen-now-row__plays {
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.listen-now-row__duration {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.92rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .listen-now-row__menu-wrapper {
@@ -882,7 +908,7 @@
   }
 
   .listen-now-row {
-    grid-template-columns: 36px 48px minmax(0, 1fr) 22px 28px;
+    grid-template-columns: 36px 48px minmax(0, 1fr) 86px 46px 28px;
     gap: 10px;
     padding: 0 4px;
   }
@@ -890,6 +916,14 @@
   .listen-now-row__image-wrapper {
     width: 42px;
     height: 42px;
+  }
+
+  .listen-now-row__plays {
+    font-size: 0.85rem;
+  }
+
+  .listen-now-row__duration {
+    font-size: 0.85rem;
   }
 
   .listen-now-row__menu {

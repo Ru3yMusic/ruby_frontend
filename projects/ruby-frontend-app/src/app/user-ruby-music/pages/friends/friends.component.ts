@@ -8,11 +8,12 @@ import { UsersApi, UserResponse } from 'lib-ruby-sdks/auth-service';
 import { BulkPresenceResult, RealtimePort } from 'lib-ruby-core';
 import { AuthState } from '../../../ruby-auth-ui/auth/state/auth.state';
 import { FriendListItem, FriendsState } from '../../state/friends.state';
+import { ImgFallbackDirective } from '../../directives/img-fallback.directive';
 
 @Component({
   selector: 'app-friends',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ImgFallbackDirective],
   templateUrl: './friends.component.html',
   styleUrls: ['./friends.component.scss'],
 })
